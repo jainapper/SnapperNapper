@@ -20,8 +20,10 @@ matching email signature.
 
 ## Identity
 
-- **Mark** — the "route V": an asymmetric route dropping to a sharp vertex and
-  rising past its origin to an orange terminal node. Route → result.
+- **Mark** — "VC." — the full stop. Space Grotesk letterforms closed by an
+  orange square period: *we identify. we implement. we deliver.* The orange
+  square is the brand's atomic element, reused across the site as heading
+  punctuation, list bullets and separators.
 - **Palette** — black `#0B0B0C` · white `#FFFFFF` · orange `#FF4D00`
   (soft `#FF7A3D`, deep `#D63F00`)
 - **Type** — Space Grotesk (display) · Archivo (body) · IBM Plex Mono (labels)
