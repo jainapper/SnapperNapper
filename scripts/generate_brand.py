@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Generate the VC Limited brand assets (logos, favicons, OG image).
 
-Outputs into assets/brand/ and assets/. Fonts (Archivo, IBM Plex Mono — both
-SIL OFL licensed) are downloaded to a local cache on first run.
+Identity: the "route V" — two supply nodes converging along a route to a
+single sharp vertex. Orange / black / white. Wordmark set in Space Grotesk
+(converted to vector paths, so no font dependency). Fonts are SIL OFL
+licensed and cached locally on first run.
 
 Usage:  python3 scripts/generate_brand.py
 Deps:   pip install fonttools brotli pillow
 """
 
 import math
-import os
-import re
-import struct
 import urllib.request
 from pathlib import Path
 
@@ -27,16 +26,15 @@ ASSETS = ROOT / "assets"
 CACHE = ROOT / ".fontcache"
 
 # ---------------------------------------------------------------- palette ----
-INK = "#0A0E17"        # near-black navy — primary dark
-PAPER = "#F6F4EF"      # warm porcelain — primary light
-GOLD = "#C9A227"       # brass gold — accent
-GOLD_SOFT = "#E8C766"  # lighter gold for dark surfaces
-MUTED_DARK = "#98A2B3" # secondary text on ink
+BLACK = "#0B0B0C"
+WHITE = "#FFFFFF"
+ORANGE = "#FF4D00"
+ORANGE_SOFT = "#FF7A3D"
+GRAY = "#A3A3AA"
 
 FONT_URLS = {
-    "archivo-600.ttf": "https://fonts.gstatic.com/s/archivo/v25/k3k6o8UDI-1M0wlSV9XAw6lQkqWY8Q82sJaRE-NWIDdgffTT6jRp8A.ttf",
-    "archivo-700.ttf": "https://fonts.gstatic.com/s/archivo/v25/k3k6o8UDI-1M0wlSV9XAw6lQkqWY8Q82sJaRE-NWIDdgffTT0zRp8A.ttf",
-    "archivo-500.ttf": "https://fonts.gstatic.com/s/archivo/v25/k3k6o8UDI-1M0wlSV9XAw6lQkqWY8Q82sJaRE-NWIDdgffTTBjNp8A.ttf",
+    "spacegrotesk-700.ttf": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj4PVksj.ttf",
+    "spacegrotesk-500.ttf": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj7aUUsj.ttf",
     "plexmono-500.ttf": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJ8lc.ttf",
 }
 
@@ -50,33 +48,22 @@ def font_path(name: str) -> Path:
 
 
 # --------------------------------------------------------- mark geometry ----
-# The mark lives in a 96x96 box: an open gold arc (the "C", opening east)
-# holding a sharp V — a compass for trade routes.
-CX, CY, R, STROKE = 48.0, 48.0, 33.0, 9.0
-GAP_HALF_DEG = 42.0                      # half-angle of the arc's opening
-V_APEX = (48.0, 63.0)
-V_TOPS = ((33.0, 34.0), (63.0, 34.0))
-V_STROKE = 9.0
+# 96x96 box. An asymmetric route: down to a sharp vertex, then up and past
+# the start to a terminal node — the destination, marked in orange.
+V_TOPS = ((24.0, 32.0), (74.0, 20.0))
+V_APEX = (46.0, 74.0)
+V_STROKE = 11.0
+NODE_R = 8.5
 
 
-def arc_endpoints():
-    a = math.radians(GAP_HALF_DEG)
-    top = (CX + R * math.cos(-a), CY + R * math.sin(-a))
-    bot = (CX + R * math.cos(a), CY + R * math.sin(a))
-    return top, bot
-
-
-def mark_svg_elements(arc_color: str, v_color: str, opacity: float = 1.0) -> str:
-    (tx, ty), (bx, by) = arc_endpoints()
-    o = f' opacity="{opacity}"' if opacity < 1 else ""
+def mark_svg_elements(v_color: str, node_color: str) -> str:
+    (x1, y1), (x2, y2) = V_TOPS
+    ax, ay = V_APEX
     return (
-        f'<g{o}>'
-        f'<path d="M {tx:.3f} {ty:.3f} A {R} {R} 0 1 0 {bx:.3f} {by:.3f}" '
-        f'fill="none" stroke="{arc_color}" stroke-width="{STROKE}" stroke-linecap="round"/>'
-        f'<path d="M {V_TOPS[0][0]} {V_TOPS[0][1]} L {V_APEX[0]} {V_APEX[1]} L {V_TOPS[1][0]} {V_TOPS[1][1]}" '
-        f'fill="none" stroke="{v_color}" stroke-width="{V_STROKE}" '
-        f'stroke-linecap="round" stroke-linejoin="miter"/>'
-        f"</g>"
+        f'<path d="M {x1} {y1} L {ax} {ay} L {x2} {y2}" fill="none" '
+        f'stroke="{v_color}" stroke-width="{V_STROKE}" '
+        f'stroke-linecap="butt" stroke-linejoin="miter"/>'
+        f'<circle cx="{x2}" cy="{y2}" r="{NODE_R}" fill="{node_color}"/>'
     )
 
 
@@ -124,47 +111,46 @@ def write(p: Path, content: str):
 
 
 def gen_marks():
-    for name, arc, v, bg in [
-        ("mark.svg", GOLD, INK, None),           # for light backgrounds
-        ("mark-dark.svg", GOLD, "#FFFFFF", None) # for dark backgrounds
+    for name, v, node in [
+        ("mark.svg", BLACK, ORANGE),        # for light backgrounds
+        ("mark-dark.svg", WHITE, ORANGE),   # for dark backgrounds
     ]:
         svg = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" '
             f'width="96" height="96" role="img" aria-label="VC Limited mark">'
-            f"{mark_svg_elements(arc, v)}</svg>"
+            f"{mark_svg_elements(v, node)}</svg>"
         )
         write(BRAND / name, svg)
 
-    # favicon: mark on an ink rounded square
     fav = (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">'
-        f'<rect width="96" height="96" rx="20" fill="{INK}"/>'
-        '<g transform="translate(48 48) scale(0.82) translate(-48 -48)">'
-        + mark_svg_elements(GOLD, "#FFFFFF")
+        f'<rect width="96" height="96" rx="20" fill="{BLACK}"/>'
+        '<g transform="translate(48 48) scale(0.8) translate(-48 -48)">'
+        + mark_svg_elements(WHITE, ORANGE)
         + "</g></svg>"
     )
     write(BRAND / "favicon.svg", fav)
 
 
 def gen_lockups():
-    archivo = font_path("archivo-600.ttf")
-    caph = cap_height(archivo)          # in em
-    text_cap_px = 30.0                  # cap height of wordmark in the 96 box
+    grotesk = font_path("spacegrotesk-700.ttf")
+    caph = cap_height(grotesk)
+    text_cap_px = 30.0
     size = text_cap_px / caph
     baseline = 48 + text_cap_px / 2
-    gap = 21.0
-    d, end_x = text_path(archivo, "VC LIMITED", size, 96 + gap, baseline,
-                         tracking_em=-0.012)
+    gap = 20.0
+    d, end_x = text_path(grotesk, "VC LIMITED", size, 96 + gap, baseline,
+                         tracking_em=-0.008)
     width = end_x + 4
-    for name, text_color, v_color in [
-        ("logo-light.svg", INK, INK),        # on light backgrounds
-        ("logo-dark.svg", "#FFFFFF", "#FFFFFF"),  # on dark backgrounds
+    for name, color in [
+        ("logo-light.svg", BLACK),   # on light backgrounds
+        ("logo-dark.svg", WHITE),    # on dark backgrounds
     ]:
         svg = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(width)} 96" '
             f'width="{fmt(width)}" height="96" role="img" aria-label="VC Limited">'
-            + mark_svg_elements(GOLD, v_color)
-            + f'<path d="{d}" fill="{text_color}"/>'
+            + mark_svg_elements(color, ORANGE)
+            + f'<path d="{d}" fill="{color}"/>'
             + "</svg>"
         )
         write(BRAND / name, svg)
@@ -177,28 +163,14 @@ def hex_rgb(h: str, a: int = 255):
 
 
 def draw_mark(draw: ImageDraw.ImageDraw, cx: float, cy: float, scale: float,
-              arc_rgba, v_rgba):
-    """Draw the mark scaled so that `scale` = pixels per unit of the 96 box."""
-    def pt(x, y):
-        return (cx + (x - 48) * scale, cy + (y - 48) * scale)
+              v_rgba, node_rgba):
+    """Draw the mark; `scale` = pixels per unit of the 96 box."""
+    def pt(p):
+        return (cx + (p[0] - 48) * scale, cy + (p[1] - 48) * scale)
 
-    w = STROKE * scale
-    # PIL thickens arcs inward from the bbox edge, so push the bbox out by
-    # half a stroke to keep the stroke centerline on radius R.
-    r = (R + STROKE / 2) * scale
-    bbox = [cx - r, cy - r, cx + r, cy + r]
-    draw.arc(bbox, start=GAP_HALF_DEG, end=360 - GAP_HALF_DEG, fill=arc_rgba,
-             width=max(1, round(w)))
-    # round caps on the arc ends
-    for p in arc_endpoints():
-        x, y = pt(*p)
-        hw = w / 2
-        draw.ellipse([x - hw, y - hw, x + hw, y + hw], fill=arc_rgba)
-
-    # V as a mitred polygon with round top caps
-    a = pt(*V_APEX)
-    t1 = pt(*V_TOPS[0])
-    t2 = pt(*V_TOPS[1])
+    a = pt(V_APEX)
+    t1 = pt(V_TOPS[0])
+    t2 = pt(V_TOPS[1])
     hw = V_STROKE * scale / 2
 
     def unit(p, q):
@@ -206,13 +178,13 @@ def draw_mark(draw: ImageDraw.ImageDraw, cx: float, cy: float, scale: float,
         n = math.hypot(dx, dy)
         return dx / n, dy / n
 
-    u1 = unit(a, t1)               # apex -> left top
-    u2 = unit(a, t2)               # apex -> right top
-    n1 = (u1[1], -u1[0])           # outward normal of left arm (points left)
-    n2 = (-u2[1], u2[0])           # outward normal of right arm (points right)
+    u1 = unit(a, t1)
+    u2 = unit(a, t2)
+    n1 = (u1[1], -u1[0])
+    n2 = (-u2[1], u2[0])
     bis = (-(u1[0] + u2[0]), -(u1[1] + u2[1]))
     bn = math.hypot(*bis)
-    bis = (bis[0] / bn, bis[1] / bn)         # downward bisector
+    bis = (bis[0] / bn, bis[1] / bn)
     half_angle = math.acos(max(-1, min(1, u1[0] * u2[0] + u1[1] * u2[1]))) / 2
     miter = hw / math.sin(half_angle)
     tip = (a[0] + bis[0] * miter, a[1] + bis[1] * miter)
@@ -224,26 +196,24 @@ def draw_mark(draw: ImageDraw.ImageDraw, cx: float, cy: float, scale: float,
         (t1[0] - n1[0] * hw, t1[1] - n1[1] * hw),
     ]
     draw.polygon(poly, fill=v_rgba)
-    for t in (t1, t2):
-        draw.ellipse([t[0] - hw, t[1] - hw, t[0] + hw, t[1] + hw], fill=v_rgba)
+    r = NODE_R * scale
+    draw.ellipse([t2[0] - r, t2[1] - r, t2[0] + r, t2[1] + r], fill=node_rgba)
 
 
 def gen_icons():
-    ss = 4  # supersample
-    # apple touch icon 180x180
+    ss = 4
     size = 180 * ss
-    img = Image.new("RGBA", (size, size), hex_rgb(INK))
+    img = Image.new("RGBA", (size, size), hex_rgb(BLACK))
     d = ImageDraw.Draw(img)
-    draw_mark(d, size / 2, size / 2, (size * 0.66) / 96, hex_rgb(GOLD), hex_rgb("#FFFFFF"))
+    draw_mark(d, size / 2, size / 2, (size * 0.62) / 96, hex_rgb(WHITE), hex_rgb(ORANGE))
     img.resize((180, 180), Image.LANCZOS).convert("RGB").save(BRAND / "apple-touch-icon.png")
     print("  wrote assets/brand/apple-touch-icon.png")
 
-    # favicon.ico 48/32/16 with rounded-square ink tile
     base = 48 * ss
     img = Image.new("RGBA", (base, base), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([0, 0, base - 1, base - 1], radius=base * 0.21, fill=hex_rgb(INK))
-    draw_mark(d, base / 2, base / 2, (base * 0.80) / 96, hex_rgb(GOLD), hex_rgb("#FFFFFF"))
+    d.rounded_rectangle([0, 0, base - 1, base - 1], radius=base * 0.21, fill=hex_rgb(BLACK))
+    draw_mark(d, base / 2, base / 2, (base * 0.78) / 96, hex_rgb(WHITE), hex_rgb(ORANGE))
     img48 = img.resize((48, 48), Image.LANCZOS)
     img48.save(BRAND / "favicon.ico", sizes=[(48, 48), (32, 32), (16, 16)])
     print("  wrote assets/brand/favicon.ico")
@@ -252,31 +222,29 @@ def gen_icons():
 def gen_og():
     W, H, ss = 1200, 630, 2
     w, h = W * ss, H * ss
-    img = Image.new("RGBA", (w, h), hex_rgb(INK))
+    img = Image.new("RGBA", (w, h), hex_rgb(BLACK))
 
-    # ghost mark, oversized off the right edge, on its own layer so the low
-    # alpha actually composites instead of replacing pixels
     ghost = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw_mark(ImageDraw.Draw(ghost), w * 0.88, h * 0.54, (h * 1.35) / 96,
-              hex_rgb(GOLD, 30), hex_rgb("#FFFFFF", 14))
+    draw_mark(ImageDraw.Draw(ghost), w * 0.87, h * 0.55, (h * 1.3) / 96,
+              hex_rgb(WHITE, 14), hex_rgb(ORANGE, 60))
     img = Image.alpha_composite(img, ghost)
     d = ImageDraw.Draw(img)
 
     margin = 96 * ss
-    archivo_b = ImageFont.truetype(str(font_path("archivo-700.ttf")), 104 * ss)
-    archivo_m = ImageFont.truetype(str(font_path("archivo-500.ttf")), 40 * ss)
+    sg_b = ImageFont.truetype(str(font_path("spacegrotesk-700.ttf")), 108 * ss)
+    sg_m = ImageFont.truetype(str(font_path("spacegrotesk-500.ttf")), 40 * ss)
     mono = ImageFont.truetype(str(font_path("plexmono-500.ttf")), 26 * ss)
 
-    draw_mark(d, margin + 44 * ss, 150 * ss, (88 * ss) / 96,
-              hex_rgb(GOLD), hex_rgb("#FFFFFF"))
+    draw_mark(d, margin + 40 * ss, 148 * ss, (84 * ss) / 96,
+              hex_rgb(WHITE), hex_rgb(ORANGE))
 
-    d.text((margin, 262 * ss), "VC LIMITED", font=archivo_b, fill=hex_rgb("#FFFFFF"))
-    d.text((margin, 398 * ss), "Global trade. Executed with precision.",
-           font=archivo_m, fill=hex_rgb(MUTED_DARK))
-    d.line([margin, 494 * ss, margin + 56 * ss, 494 * ss],
-           fill=hex_rgb(GOLD), width=3 * ss)
-    d.text((margin, 512 * ss), "VCLTD.CO  —  DUBAI, UNITED ARAB EMIRATES",
-           font=mono, fill=hex_rgb(GOLD_SOFT))
+    d.text((margin, 258 * ss), "VC LIMITED", font=sg_b, fill=hex_rgb(WHITE))
+    d.text((margin, 400 * ss), "Logistics × manufacturing, engineered for results.",
+           font=sg_m, fill=hex_rgb(GRAY))
+    d.line([margin, 496 * ss, margin + 56 * ss, 496 * ss],
+           fill=hex_rgb(ORANGE), width=3 * ss)
+    d.text((margin, 514 * ss), "VCLTD.CO — BUSINESS BAY, DUBAI",
+           font=mono, fill=hex_rgb(ORANGE_SOFT))
 
     img.resize((W, H), Image.LANCZOS).convert("RGB").save(ASSETS / "og-image.png", quality=92)
     print("  wrote assets/og-image.png")

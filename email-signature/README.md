@@ -9,15 +9,15 @@ remote images.
 
 Open `signature.html` in a text editor and replace:
 
-| Placeholder | Example |
+| Placeholder | Notes |
 |---|---|
-| `{{FULL NAME}}` | Jai Napper |
-| `{{JOB TITLE}}` | Managing Director |
-| `{{+971 50 000 0000}}` | your mobile number (also update the `tel:` link) |
-| `{{name}}@vcltd.co` | your email address (both display text and `mailto:` link) |
+| `{{FULL NAME}}` | your name |
+| `{{JOB TITLE}}` | your role |
+| `{{+971 50 000 0000}}` | your mobile (also update the `tel:` link beside it) |
 
-The office line `+971 4 000 0000` and the confidentiality note are
-placeholders too — edit or delete as needed.
+The email is set to `info@vcltd.co` — swap in a personal address if you use
+one. The confidentiality note at the bottom is optional; delete that table
+row if you don't want it.
 
 ## Install
 

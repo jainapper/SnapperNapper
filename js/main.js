@@ -39,39 +39,9 @@
           }
         }
       },
-      { threshold: 0.15, rootMargin: "0px 0px -5% 0px" }
+      { threshold: 0.12, rootMargin: "0px 0px -5% 0px" }
     );
     revealed.forEach((el) => io.observe(el));
-  }
-
-  /* stat counters */
-  const counters = document.querySelectorAll(".stat-num[data-count]");
-  const runCounter = (el) => {
-    const target = parseInt(el.dataset.count, 10);
-    const suffix = el.dataset.suffix || "";
-    const dur = 1100;
-    const t0 = performance.now();
-    const tick = (t) => {
-      const p = Math.min((t - t0) / dur, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = Math.round(target * eased) + suffix;
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  };
-  if (!reduceMotion && "IntersectionObserver" in window && counters.length) {
-    const cio = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            runCounter(entry.target);
-            cio.unobserve(entry.target);
-          }
-        }
-      },
-      { threshold: 0.6 }
-    );
-    counters.forEach((el) => cio.observe(el));
   }
 
   /* contact form -> prefilled email (no backend required) */
@@ -81,13 +51,14 @@
       e.preventDefault();
       if (!form.reportValidity()) return;
       const v = (id) => document.getElementById(id).value.trim();
-      const subject = `Trade enquiry — ${v("cf-name")}${v("cf-company") ? ", " + v("cf-company") : ""}`;
+      const name = `${v("cf-fname")} ${v("cf-lname")}`.trim();
+      const subject = `Website enquiry — ${name}`;
       const body = [
-        `Name: ${v("cf-name")}`,
-        `Company: ${v("cf-company") || "—"}`,
+        `Name: ${name}`,
         `Email: ${v("cf-email")}`,
+        `Phone: ${v("cf-phone") || "—"}`,
         "",
-        v("cf-message"),
+        v("cf-comment"),
       ].join("\n");
       window.location.href =
         `mailto:info@vcltd.co?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
