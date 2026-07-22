@@ -51,6 +51,10 @@ def font_path(name: str) -> Path:
 # The period square is sized relative to cap height, sitting on the baseline.
 SQUARE_RATIO = 0.24   # square side / cap height
 SQUARE_GAP = 0.10     # gap between letters and square / cap height
+MARK_TRACK = -0.045   # tracking for the tight "VC." one-liner
+BLOCK_TRACK_TOP = -0.03    # "VC" line of the stacked block
+BLOCK_TRACK_BOT = -0.015   # "LTD" line of the stacked block
+BLOCK_GAP = 0.16      # vertical gap between block lines / top cap height
 
 
 # ------------------------------------------------------------ text paths ----
@@ -114,24 +118,70 @@ def vc_dot_svg(text: str, cap_px: float, color: str, pad: float = 4.0,
     return inner, sx + sq + pad, height
 
 
+def block_svg(color: str, cap1: float = 42.0, pad: float = 4.0) -> tuple[str, float, float]:
+    """Stacked 'VC / LTD.' block, both lines justified to equal width.
+
+    Returns (inner svg, width, height)."""
+    grotesk = font_path("spacegrotesk-700.ttf")
+    caph = cap_height(grotesk)
+
+    def line_width(text, cap, tracking):
+        _, end = text_path(grotesk, text, cap / caph, 0, 0, tracking_em=tracking)
+        return end
+
+    w_vc = line_width("VC", cap1, BLOCK_TRACK_TOP)
+    # find cap2 so LTD + gap + square fills the same width
+    lo, hi = cap1 * 0.2, cap1
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        w = line_width("LTD", mid, BLOCK_TRACK_BOT) + (SQUARE_GAP + SQUARE_RATIO) * mid
+        if w > w_vc:
+            hi = mid
+        else:
+            lo = mid
+    cap2 = (lo + hi) / 2
+
+    base1 = pad + cap1
+    base2 = base1 + BLOCK_GAP * cap1 + cap2
+    d1, _ = text_path(grotesk, "VC", cap1 / caph, pad, base1, tracking_em=BLOCK_TRACK_TOP)
+    d2, e2 = text_path(grotesk, "LTD", cap2 / caph, pad, base2, tracking_em=BLOCK_TRACK_BOT)
+    sq = SQUARE_RATIO * cap2
+    sqx = e2 + SQUARE_GAP * cap2
+    inner = (
+        f'<path d="{d1}" fill="{color}"/><path d="{d2}" fill="{color}"/>'
+        f'<rect x="{fmt(sqx)}" y="{fmt(base2 - sq)}" width="{fmt(sq)}" height="{fmt(sq)}" fill="{ORANGE}"/>'
+    )
+    return inner, pad + w_vc + pad, base2 + pad
+
+
 def gen_marks():
-    # standalone "VC." marks, transparent background
+    # tight "VC." one-liner, transparent background
     for name, color in [("mark.svg", BLACK), ("mark-dark.svg", WHITE)]:
-        inner, w, h = vc_dot_svg("VC", 44, color)
+        inner, w, h = vc_dot_svg("VC", 44, color, tracking=MARK_TRACK)
         svg = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" '
             f'width="{fmt(w)}" height="{fmt(h)}" role="img" aria-label="VC Limited">{inner}</svg>'
         )
         write(BRAND / name, svg)
 
-    # tile: black rounded square, "VC." centred
-    inner, w, h = vc_dot_svg("VC", 34, WHITE, pad=0)
-    ox = (96 - (w)) / 2
-    oy = (96 - 34) / 2
+    # stacked block mark, transparent background
+    for name, color in [("block.svg", BLACK), ("block-dark.svg", WHITE)]:
+        inner, w, h = block_svg(color)
+        svg = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" '
+            f'width="{fmt(w)}" height="{fmt(h)}" role="img" aria-label="VC Limited">{inner}</svg>'
+        )
+        write(BRAND / name, svg)
+
+    # tile: black rounded square, stacked block centred
+    inner, w, h = block_svg(WHITE)
+    scale = 58.0 / h
+    ox = (96 - w * scale) / 2
+    oy = (96 - 58.0) / 2
     fav = (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">'
         f'<rect width="96" height="96" rx="20" fill="{BLACK}"/>'
-        f'<g transform="translate({fmt(ox)} {fmt(oy)})">{inner}</g></svg>'
+        f'<g transform="translate({fmt(ox)} {fmt(oy)}) scale({fmt(scale)})">{inner}</g></svg>'
     )
     write(BRAND / "favicon.svg", fav)
 
@@ -168,6 +218,7 @@ def draw_vc_dot(d: ImageDraw.ImageDraw, x: float, baseline: float, cap_px: float
 
 
 def tile(size: int, rounded: bool) -> Image.Image:
+    """Black tile with the stacked 'VC / LTD.' block centred."""
     ss = 4
     n = size * ss
     img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
@@ -176,12 +227,37 @@ def tile(size: int, rounded: bool) -> Image.Image:
         d.rounded_rectangle([0, 0, n - 1, n - 1], radius=n * 0.21, fill=hex_rgb(BLACK))
     else:
         d.rectangle([0, 0, n, n], fill=hex_rgb(BLACK))
-    cap = n * 34 / 96
+
     grotesk = font_path("spacegrotesk-700.ttf")
-    font = ImageFont.truetype(str(grotesk), round(cap / cap_height(grotesk)))
-    total = d.textlength("VC", font=font) + (SQUARE_GAP + SQUARE_RATIO) * cap
-    baseline = (n + cap) / 2
-    draw_vc_dot(d, (n - total) / 2, baseline, cap, hex_rgb(WHITE), hex_rgb(ORANGE))
+    ratio = cap_height(grotesk)
+
+    def width_at(text, cap):
+        font = ImageFont.truetype(str(grotesk), round(cap / ratio))
+        return d.textlength(text, font=font)
+
+    # block height 58/96 of the tile, same proportions as block_svg
+    cap1 = n * 58 / 96 / (1 + BLOCK_GAP + 0.615)   # 0.615 ~ cap2/cap1 from the svg solve
+    w_vc = width_at("VC", cap1)
+    lo, hi = cap1 * 0.2, cap1
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        if width_at("LTD", mid) + (SQUARE_GAP + SQUARE_RATIO) * mid > w_vc:
+            hi = mid
+        else:
+            lo = mid
+    cap2 = (lo + hi) / 2
+    block_h = cap1 + BLOCK_GAP * cap1 + cap2
+    x0 = (n - w_vc) / 2
+    base1 = (n - block_h) / 2 + cap1
+    base2 = base1 + BLOCK_GAP * cap1 + cap2
+
+    f1 = ImageFont.truetype(str(grotesk), round(cap1 / ratio))
+    f2 = ImageFont.truetype(str(grotesk), round(cap2 / ratio))
+    d.text((x0, base1), "VC", font=f1, fill=hex_rgb(WHITE), anchor="ls")
+    d.text((x0, base2), "LTD", font=f2, fill=hex_rgb(WHITE), anchor="ls")
+    sq = SQUARE_RATIO * cap2
+    sx = x0 + d.textlength("LTD", font=f2) + SQUARE_GAP * cap2
+    d.rectangle([sx, base2 - sq, sx + sq, base2], fill=hex_rgb(ORANGE))
     return img.resize((size, size), Image.LANCZOS)
 
 
