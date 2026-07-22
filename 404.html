@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found — VC Limited</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .nf {
+      min-height: 100svh;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      text-align: center;
+      gap: 1.1rem;
+      background: var(--black);
+      color: var(--text-inv);
+      padding: 2rem;
+    }
+    .nf-mark {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 4rem;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+    .nf-mark span {
+      display: inline-block;
+      width: 0.16em; height: 0.16em;
+      background: var(--orange);
+      margin-left: 0.08em;
+    }
+    .nf-code {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.16em;
+      color: var(--orange-soft);
+    }
+    .nf p { color: var(--muted-inv); max-width: 26em; }
+  </style>
+</head>
+<body>
+  <main class="nf">
+    <div class="nf-mark" aria-hidden="true">VC<span></span></div>
+    <p class="nf-code">404 — NOT FOUND</p>
+    <h1>This route doesn't exist.</h1>
+    <p>The page you're looking for has moved or never shipped. Let's reroute you.</p>
+    <a class="btn btn-orange" href="/">Back to vcltd.co</a>
+  </main>
+</body>
+</html>
