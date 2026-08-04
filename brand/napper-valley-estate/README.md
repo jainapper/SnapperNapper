@@ -1,16 +1,16 @@
 # Napper Valley Estate — NVE monogram system
 
-Ten variations on the NVE monogram for an estate in the Mount Tamborine
-hinterland. One family of letterforms, one burgundy world, ten ways to wear it —
+Eleven variations on the NVE monogram for an estate in the Mount Tamborine
+hinterland. One family of letterforms, one burgundy world, eleven ways to wear it —
 each simple enough to survive an umbrella panel, an embroidery needle or a
 20 mm pin.
 
-Open [`index.html`](index.html) for the full board — palette, all ten marks, the
+Open [`index.html`](index.html) for the full board — palette, every mark, the
 one-colour cuts, mockups and the usage rules — or send
 [`napper-valley-estate-monograms.pdf`](napper-valley-estate-monograms.pdf), the
-same system as a 15-page A4 landscape deck.
+same system as a 16-page A4 landscape deck.
 
-## The ten
+## The set
 
 | # | Variation | The idea | Made for |
 |---|---|---|---|
@@ -24,6 +24,7 @@ same system as a 15-page A4 landscape deck.
 | 08 | Band | Letters ruled top and bottom, diamond points between | Umbrella sleeves, webbing, box edges, robe cuffs, ribbon |
 | 09 | Sprig | Old-style letterforms under a single leaf | Spa and garden collateral, candles, preserves, cards |
 | 10 | Patch | The mark as an object, reversed in a rounded field | Woven patches, caps, luggage tags, enamel pins, app icon |
+| 11 | Joined | One ligature in capitals — a small N and E hung off a dominant V, each crossing the next | The signature where one shape carries everything: embroidery, foil, hardware |
 
 ## Palette
 

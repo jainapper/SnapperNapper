@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the Napper Valley Estate monogram system.
 
-Ten NVE monogram variations built for an estate in the Mount Tamborine
+Eleven NVE monogram variations built for an estate in the Mount Tamborine
 hinterland: burgundy and rich tones, quiet luxury, no Roman/inscriptional
 cues. Every mark is drawn as outlines (letterforms converted to vector
 paths) so the artwork carries no font dependency and can be handed to an
@@ -459,6 +459,40 @@ def v10_patch_cut(ink: str, accent: str) -> str:
     return v10_patch(ink, accent, field=False)
 
 
+def v11_joined(ink: str, accent: str) -> str:
+    """Joined — one ligature in capitals: a small N and E hung off the arms of a
+    dominant V, each letter crossing the next so the three read as a single mark."""
+    f = F["display"]
+    cap_v = 226.0
+    cap_s = 118.0
+    base = 362.0            # the V's apex
+    lift = 80.0             # the small caps hang this far above the apex
+    overlap = 9.0           # how far each small letter bites into the arm
+    size_v = f.size_for_cap(cap_v)
+    size_s = f.size_for_cap(cap_s)
+    vx0, _, vx1, _ = f.ink("V", size_v)
+    vw = vx1 - vx0
+    nx0, _, nx1, _ = f.ink("N", size_s)
+    ex0, _, ex1, _ = f.ink("E", size_s)
+    nw, ew = nx1 - nx0, ex1 - ex0
+
+    # The V's arms splay as they rise, so a small cap hung near the top of the
+    # arm meets it, and the arm falls clear of the letter below the join.
+    join_h = lift + cap_s * 0.84
+    spread = (vw / 2) * (join_h / cap_v)
+    n_right = -spread + overlap          # relative to the V's centre
+    e_left = spread - overlap
+    v_cx = CX - ((n_right - nw) + (e_left + ew)) / 2
+    small_base = base - lift
+
+    return "".join([
+        f'<path d="{f.glyph("N", size_s, v_cx + n_right - nw - nx0, small_base)}"'
+        f' fill="{ink}"/>',
+        f'<path d="{f.glyph("V", size_v, v_cx - vw / 2 - vx0, base)}" fill="{ink}"/>',
+        f'<path d="{f.glyph("E", size_s, v_cx + e_left - ex0, small_base)}" fill="{ink}"/>',
+    ])
+
+
 VARIATIONS = [
     dict(num="01", slug="heirloom", name="Heirloom Ligature", fn=v01_heirloom, scale=0.78,
          note="The original, tightened — N, V and E overlapped beneath one hairline swash.",
@@ -490,6 +524,11 @@ VARIATIONS = [
     dict(num="10", slug="patch", name="Patch", fn=v10_patch, one_fn=v10_patch_cut, scale=0.96,
          note="Reversed rounded field — the mark as an object.",
          use="Woven patches, caps, luggage tags, enamel pins, app icon."),
+    dict(num="11", slug="joined", name="Joined", fn=v11_joined, scale=0.80,
+         note="One ligature in capitals — a small N and E hung off a dominant V, "
+              "each letter crossing the next.",
+         use="The signature mark where one shape has to carry everything: embroidery, "
+             "foil, hardware, tank ends."),
 ]
 
 
@@ -649,9 +688,9 @@ def preview_body(built: list[dict]) -> str:
   <header class="masthead">
     {lock}
     <div class="intro">
-      <p class="eyebrow">Monogram system · ten variations</p>
+      <p class="eyebrow">Monogram system · eleven variations</p>
       <p class="lede">The NVE monogram rebuilt as a family: one set of letterforms,
-      one burgundy world, ten ways to wear it. Every mark is outlined vector art with
+      one burgundy world, eleven ways to wear it. Every mark is outlined vector art with
       no live type, so it can go straight to an umbrella maker, an embroiderer or a
       foil block without a font licence in sight.</p>
     </div>
@@ -664,7 +703,7 @@ def preview_body(built: list[dict]) -> str:
   </section>
 
   <section>
-    <div class="head"><p class="eyebrow">The ten</p><h2>Variations</h2>
+    <div class="head"><p class="eyebrow">The set</p><h2>Variations</h2>
       <div class="rule"></div></div>
     <div class="grid">{cards}</div>
   </section>
@@ -709,7 +748,7 @@ def preview_body(built: list[dict]) -> str:
     </table></div>
   </section>
 
-  <footer>Napper Valley Estate · Mount Tamborine hinterland · monogram system, ten variations</footer>
+  <footer>Napper Valley Estate · Mount Tamborine hinterland · monogram system, eleven variations</footer>
 </div>
 """
 
@@ -762,7 +801,7 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 8pt; letter-spaci
   border-top: .3mm solid var(--line); padding-top: 4mm; }
 
 /* overview */
-.contact { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6mm; }
+.contact { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5mm; }
 .contact figure { margin: 0; display: grid; gap: 2mm; }
 .contact svg { width: 100%; height: auto; display: block; border: .25mm solid var(--line); }
 .contact figcaption { font-size: 8pt; letter-spacing: .04em; }
@@ -831,7 +870,7 @@ def deck(built: list[dict]) -> str:
             f' scale({fmt(primary["scale"])})">{primary["tile"]}</g>'
             f'{wordmark(LOCK_W / 2, 600, CREAM, ROSE)}</svg>')
     cover = (f'<section class="page cover">{lock}<div class="caption">'
-             f'<p class="eyebrow">Monogram system · ten variations</p>'
+             f'<p class="eyebrow">Monogram system · eleven variations</p>'
              f'<p class="eyebrow">Mount Tamborine hinterland</p></div></section>')
 
     contact = "".join(
@@ -840,10 +879,10 @@ def deck(built: list[dict]) -> str:
         for b in built)
     overview = page(
         f'<div class="contact">{contact}</div>'
-        f'<p class="muted" style="margin-top:9mm;max-width:170mm">One family of letterforms in '
-        f'burgundy, brass and cream. Marks 01–05 carry the estate at full size; 06–10 are the '
-        f'small-scale and merch cuts, drawn to hold together at a stitch or a stamp.</p>',
-        "Contents", "The ten at a glance", 2)
+        f'<p class="muted" style="margin-top:7mm;max-width:170mm">One family of letterforms in '
+        f'burgundy, brass and cream. Marks 01–05 and 11 carry the estate at full size; 06–10 are '
+        f'the small-scale and merch cuts, drawn to hold together at a stitch or a stamp.</p>',
+        "Contents", "The set at a glance", 2)
 
     chips = "".join(
         f'<div class="row"><div class="sw" style="background:{hex_}"></div>'
