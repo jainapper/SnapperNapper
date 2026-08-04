@@ -8,7 +8,9 @@ needle or a 20 mm pin, the wordmarks built to sit in a measure.
 Open [`index.html`](index.html) for the full board — palette, every mark, the
 one-colour cuts, mockups and the usage rules — or send
 [`napper-valley-estate-monograms.pdf`](napper-valley-estate-monograms.pdf), the
-same system as an 18-page A4 landscape deck.
+same system as an 18-page A4 landscape deck. The name has its own deck too —
+[`napper-valley-estate-wordmarks.pdf`](napper-valley-estate-wordmarks.pdf), 14
+pages on the ten settings alone.
 
 ## The set
 
@@ -68,8 +70,10 @@ lockups/nve-NN-name-lockup.svg mark + NAPPER VALLEY ESTATE wordmark
 wordmarks/nve-word-NN-name.svg      wordmark setting on a burgundy tile (+ -1c.svg)
 png/*.png                      1024 px (marks) / 1600 px (wordmarks) rasters
 index.html                     the brand board (self-contained, fonts embedded)
-print.html                     the same system paged A4 landscape, for printing
-napper-valley-estate-monograms.pdf   18-page deck — the shareable version
+print.html                     the monogram system paged A4 landscape
+print-wordmarks.html           the wordmark settings paged A4 landscape
+napper-valley-estate-monograms.pdf   18-page deck — the whole system
+napper-valley-estate-wordmarks.pdf   14-page deck — the name on its own
 ```
 
 ## Using them
@@ -89,7 +93,7 @@ napper-valley-estate-monograms.pdf   18-page deck — the shareable version
 pip install fonttools brotli
 python3 scripts/generate_nve_brand.py     # SVGs + index.html
 node scripts/export_nve_pngs.mjs          # PNGs (needs playwright-core)
-node scripts/export_nve_pdf.mjs           # the shareable PDF deck
+node scripts/export_nve_pdf.mjs           # both shareable PDF decks
 ```
 
 Fonts are downloaded to `.fontcache/` on first run and are not committed.

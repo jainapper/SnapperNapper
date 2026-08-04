@@ -1154,6 +1154,166 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 8pt; letter-spaci
 """
 
 
+def deck_page(inner: str, eyebrow: str, title: str, folio: int, total: int,
+              cls: str = "") -> str:
+    return (f'<section class="page {cls}"><div class="top"><div>'
+            f'<p class="eyebrow">{eyebrow}</p><h2>{title}</h2></div>'
+            f'<div class="folio">{folio:02d} / {total:02d}</div></div>'
+            f'<div class="body">{inner}</div></section>')
+
+
+def word_tile(body: str, ground: str | None = BURGUNDY, label: str = "") -> str:
+    rect = (f'<rect width="{fmt(WM_W)}" height="{fmt(WM_H)}" fill="{ground}"/>'
+            if ground else "")
+    return (f'<svg viewBox="0 0 {fmt(WM_W)} {fmt(WM_H)}" xmlns="http://www.w3.org/2000/svg"'
+            f' role="img" aria-label="{label}">{rect}{body}</svg>')
+
+
+def app_sign(body: str) -> str:
+    """Entrance sign — the wordmark on a brass-edged plate."""
+    return ('<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" class="app-art"'
+            ' aria-hidden="true">'
+            f'<rect x="26" y="52" width="348" height="156" fill="{BURGUNDY}"/>'
+            f'<rect x="34" y="60" width="332" height="140" fill="none" stroke="{GOLD}"'
+            ' stroke-width="1.2"/>'
+            f'<g transform="translate(200 130) scale(0.30) translate(-500 -260)">{body}</g>'
+            '</svg>')
+
+
+def app_label(body: str) -> str:
+    """Bottle label — burgundy on cream stock."""
+    return ('<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" class="app-art"'
+            ' aria-hidden="true">'
+            f'<rect x="70" y="26" width="260" height="208" rx="4" fill="{CREAM}"/>'
+            f'<g transform="translate(200 130) scale(0.24) translate(-500 -260)">{body}</g>'
+            '</svg>')
+
+
+def app_letterhead(body: str) -> str:
+    """Letterhead — the flush-left setting at the head of a cream sheet."""
+    lines = "".join(
+        f'<rect x="150" y="{fmt(120 + i * 13)}" width="{fmt(100 if i % 3 else 76)}"'
+        f' height="3" fill="{BURGUNDY}" opacity="0.16"/>' for i in range(7))
+    return ('<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" class="app-art"'
+            ' aria-hidden="true">'
+            f'<rect x="136" y="14" width="128" height="232" fill="{CREAM}"/>'
+            f'<g transform="translate(200 62) scale(0.16) translate(-500 -260)">{body}</g>'
+            f'{lines}</svg>')
+
+
+def app_sleeve(body: str) -> str:
+    """Umbrella sleeve — a long claret strip carrying the band setting."""
+    return ('<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" class="app-art"'
+            ' aria-hidden="true">'
+            f'<rect x="20" y="104" width="360" height="52" rx="26" fill="{CLARET}"/>'
+            f'<g transform="translate(200 130) scale(0.30) translate(-500 -260)">{body}</g>'
+            '</svg>')
+
+
+def word_deck(words: list[dict]) -> str:
+    """The wordmark deck — every setting of NAPPER VALLEY ESTATE, A4 landscape."""
+    total = len(words) + 4
+    primary = next(w for w in words if w["slug"] == "stack")
+
+    cover = (f'<section class="page cover word-cover">{word_tile(primary["tile"], None)}'
+             f'<div class="caption"><p class="eyebrow">The name · ten settings</p>'
+             f'<p class="eyebrow">Mount Tamborine hinterland</p></div></section>')
+
+    contact = "".join(
+        f'<figure>{word_tile(w["tile"], label=w["name"])}'
+        f'<figcaption><div class="n">{w["num"]}</div>{w["name"]}</figcaption></figure>'
+        for w in words)
+    overview = deck_page(
+        f'<div class="wcontact">{contact}</div>', "Contents",
+        "Ten settings at a glance", 2, total)
+
+    spec = deck_page(
+        f'<div class="cols2"><div class="spec">'
+        f'<div class="item"><p class="eyebrow">Display</p>'
+        f'<div class="big">NAPPER VALLEY ESTATE</div>'
+        f'<p class="muted">Bodoni Moda, capitals only. High contrast and no inscriptional '
+        f'serifs — the luxury reads as spacing, not as carving.</p></div>'
+        f'<div class="item"><p class="eyebrow">Old style</p>'
+        f'<div class="big" style="font-style:italic">Napper Valley</div>'
+        f'<p class="muted">Cormorant Garamond Italic, the one setting that breaks capitals '
+        f'— reserved for the softer register.</p></div>'
+        f'<div class="item"><p class="eyebrow">Locality</p>'
+        f'<div class="big sans">MOUNT TAMBORINE HINTERLAND</div>'
+        f'<p class="muted">Jost Light, spaced wide, always subordinate to the name.</p></div>'
+        f'</div><div class="spec">'
+        f'<div class="item"><p class="eyebrow">Measure</p><p class="muted">Every setting is '
+        f'justified: the tracking is solved so a line lands on an exact measure, which is why '
+        f'NAPPER, VALLEY and ESTATE stack to identical widths. Never re-track by eye — reset '
+        f'the measure instead.</p></div>'
+        f'<div class="item"><p class="eyebrow">Word space</p><p class="muted">The space between '
+        f'words is held open independently of the tracking. Tighten the tracking and the words '
+        f'still read as two.</p></div>'
+        f'<div class="item"><p class="eyebrow">Artwork</p><p class="muted">Outlined vector, no '
+        f'live type. Nothing to substitute, nothing to license, nothing to reflow.</p></div>'
+        f"</div></div>",
+        "Foundations", "How the name is set", 3, total)
+
+    pages = []
+    for i, w in enumerate(words):
+        pages.append(deck_page(
+            f'<div class="wspread">'
+            f'<div class="hero">{word_tile(w["tile"], label=w["name"])}</div>'
+            f'<div class="foot">'
+            f'<div><p class="lede">{w["note"]}</p><p class="rose">{w["use"]}</p></div>'
+            f'<div><p class="muted"><code>{w["stem"]}.svg</code><br>'
+            f'<code>{w["stem"]}-1c.svg</code><br><code>{w["stem"]}.png</code></p></div>'
+            f'<div class="cut">{word_tile(w["one"], None, w["name"] + " one colour")}</div>'
+            f"</div></div>",
+            f"Setting {w['num']}", w["name"], 4 + i, total))
+
+    by = {w["slug"]: w["tile"] for w in words}
+    apps = [
+        (app_sign(by["line"]), "Entrance sign", "Single Rule on a brass-edged plate."),
+        (app_label(w10_label(BURGUNDY, CLARET)), "Bottle label", "Label, burgundy on cream stock."),
+        (app_letterhead(by["flush"]), "Letterhead", "Flush Left at the head of the sheet."),
+        (app_sleeve(by["band"]), "Umbrella sleeve", "Band along a claret strip."),
+    ]
+    apps_page = deck_page(
+        '<div class="four">' + "".join(
+            f'<figure>{art}<figcaption><h3>{title}</h3>'
+            f'<p class="muted" style="font-size:9pt">{note}</p></figcaption></figure>'
+            for art, title, note in apps) +
+        '</div><div class="rulegrid" style="margin-top:9mm">'
+        f'<div><h3>Clear space</h3><p class="muted">The cap height of the N above and below, '
+        f'twice that at the sides. The rules and bars are part of the mark — never crop '
+        f'them.</p></div>'
+        f'<div><h3>Minimum size</h3><p class="muted">Stack, Original, Old Style and Label hold '
+        f'to 60&nbsp;mm wide; Single Rule and Band need 90&nbsp;mm, being one long line. Below '
+        f'that, set the name in two lines rather than shrinking further.</p></div>'
+        "</div>",
+        "In use", "The name on the estate", total, total)
+
+    return ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
+            '<title>Napper Valley Estate — the name</title>'
+            f"<style>{font_face_css()}{DECK_CSS}{WORD_DECK_CSS}</style></head><body>"
+            + "".join([cover, overview, spec, *pages, apps_page]) + "</body></html>")
+
+
+WORD_DECK_CSS = """
+.word-cover { background: var(--burgundy); }
+.word-cover svg { width: 210mm; height: auto; display: block; }
+.wcontact { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm 6mm; }
+.wcontact figure { margin: 0; display: grid; gap: 2mm; }
+.wcontact svg { width: 100%; height: auto; display: block; border: .25mm solid var(--line); }
+.wcontact figcaption { font-size: 8.5pt; }
+.wcontact .n { color: var(--gold); font-size: 7pt; letter-spacing: .28em; }
+.wspread { display: flex; flex-direction: column; gap: 8mm; height: 100%; }
+.wspread .hero { display: flex; justify-content: center; }
+.wspread .hero svg { width: 172mm; height: auto; display: block;
+  border: .25mm solid var(--line); }
+.wspread .foot { display: grid; grid-template-columns: 1fr 52mm 56mm; gap: 8mm;
+  align-items: start; }
+.wspread .foot .lede { font-size: 11pt; line-height: 1.6; margin-bottom: 3mm; }
+.wspread .cut { background: var(--cream); border: .25mm solid var(--line); padding: 3mm; }
+.wspread .cut svg { width: 100%; height: auto; display: block; }
+"""
+
+
 def deck(built: list[dict], words: list[dict]) -> str:
     """The presentation deck — A4 landscape, printed to PDF."""
     primary = next(b for b in built if b["slug"] == "heirloom")
@@ -1470,6 +1630,7 @@ def main() -> None:
     words = build_wordmarks()
     write(OUT / "index.html", preview(built, words))
     write(OUT / "print.html", deck(built, words))
+    write(OUT / "print-wordmarks.html", word_deck(words))
     print(f"done — {len(built)} monograms, {len(words)} wordmarks")
 
 
