@@ -5,8 +5,10 @@ hinterland. One family of letterforms, one burgundy world, ten ways to wear it �
 each simple enough to survive an umbrella panel, an embroidery needle or a
 20 mm pin.
 
-Open [`index.html`](index.html) for the full board: palette, all ten marks, the
-one-colour cuts, mockups and the usage rules.
+Open [`index.html`](index.html) for the full board — palette, all ten marks, the
+one-colour cuts, mockups and the usage rules — or send
+[`napper-valley-estate-monograms.pdf`](napper-valley-estate-monograms.pdf), the
+same system as a 15-page A4 landscape deck.
 
 ## The ten
 
@@ -46,6 +48,8 @@ monograms/nve-NN-name-1c.svg   one colour on transparent — embroidery, deboss,
 lockups/nve-NN-name-lockup.svg mark + NAPPER VALLEY ESTATE wordmark
 png/nve-NN-name.png            1024 px raster of the tile, for suppliers who need it
 index.html                     the brand board (self-contained, fonts embedded)
+print.html                     the same system paged A4 landscape, for printing
+napper-valley-estate-monograms.pdf   15-page deck — the shareable version
 ```
 
 ## Using them
@@ -65,6 +69,7 @@ index.html                     the brand board (self-contained, fonts embedded)
 pip install fonttools brotli
 python3 scripts/generate_nve_brand.py     # SVGs + index.html
 node scripts/export_nve_pngs.mjs          # PNGs (needs playwright-core)
+node scripts/export_nve_pdf.mjs           # the shareable PDF deck
 ```
 
 Fonts are downloaded to `.fontcache/` on first run and are not committed.

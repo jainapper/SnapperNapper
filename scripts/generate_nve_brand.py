@@ -714,6 +714,227 @@ def preview_body(built: list[dict]) -> str:
 """
 
 
+# ------------------------------------------------------------------- deck ----
+# A4 landscape, one idea per page, printed straight to PDF by
+# scripts/export_nve_pdf.mjs. Same tokens as the board — this is the version
+# that gets emailed to a supplier or handed across a table.
+DECK_CSS = """
+@page { size: 297mm 210mm; margin: 0; }
+:root {
+  --oxblood: #2E0B13; --burgundy: #4E1220; --claret: #66172A;
+  --cream: #F4EDE1; --gold: #C2A15B; --rose: #C79AA2; --panel: #3A0E18;
+  --muted: #C3A7AC; --line: rgba(194,161,91,.34);
+  --display: "NVE Display", Georgia, serif;
+  --text: "NVE Sans", Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #1a060c; }
+body { font-family: var(--text); font-weight: 300; color: var(--cream);
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page {
+  position: relative; width: 297mm; height: 210mm; overflow: hidden;
+  background: var(--oxblood); padding: 16mm 18mm 14mm;
+  display: flex; flex-direction: column; page-break-after: always; break-after: page;
+}
+.page:last-child { page-break-after: auto; break-after: auto; }
+@media screen { .page { margin: 0 auto 8mm; box-shadow: 0 2mm 12mm rgba(0,0,0,.5); } }
+.eyebrow { font-size: 7.5pt; letter-spacing: .40em; text-transform: uppercase;
+  color: var(--gold); margin: 0; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; margin: 0; }
+h1 { font-size: 30pt; letter-spacing: .02em; }
+h2 { font-size: 21pt; letter-spacing: .02em; }
+h3 { font-size: 13pt; letter-spacing: .05em; }
+p { margin: 0; }
+.page > .top { display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: .3mm solid var(--line); padding-bottom: 3mm; margin-bottom: 8mm; }
+.page > .top .folio { font-size: 7.5pt; letter-spacing: .3em; color: var(--rose); }
+.body { flex: 1; min-height: 0; }
+.muted { color: var(--muted); font-size: 10pt; line-height: 1.6; }
+.rose { color: var(--rose); font-size: 9.5pt; line-height: 1.6; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: 8pt; letter-spacing: .05em;
+  color: var(--gold); }
+
+/* cover */
+.cover { padding: 0; background: var(--burgundy); align-items: center; justify-content: center; }
+.cover svg { width: 150mm; height: auto; display: block; }
+.cover .caption { position: absolute; left: 18mm; right: 18mm; bottom: 14mm;
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-top: .3mm solid var(--line); padding-top: 4mm; }
+
+/* overview */
+.contact { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6mm; }
+.contact figure { margin: 0; display: grid; gap: 2mm; }
+.contact svg { width: 100%; height: auto; display: block; border: .25mm solid var(--line); }
+.contact figcaption { font-size: 8pt; letter-spacing: .04em; }
+.contact .n { color: var(--gold); font-size: 7pt; letter-spacing: .28em; }
+
+/* variation page */
+.spread { display: grid; grid-template-columns: 118mm 1fr; gap: 12mm; height: 100%; }
+.spread .hero svg { width: 118mm; height: auto; display: block; border: .25mm solid var(--line); }
+.spread .side { display: flex; flex-direction: column; gap: 6mm; }
+.spread .side .lede { font-size: 11pt; line-height: 1.65; color: var(--cream); max-width: 92mm; }
+.alt { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: auto; }
+.alt .chip { display: grid; gap: 2mm; }
+.alt .chip .frame { border: .25mm solid var(--line); background: var(--cream); padding: 3mm; }
+.alt .chip .frame.dark { background: var(--burgundy); padding: 0; }
+.alt .chip svg { width: 100%; height: auto; display: block; }
+.alt .chip span { font-size: 7.5pt; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--gold); }
+
+/* palette + type */
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14mm; height: 100%; }
+.chips { display: grid; gap: 4mm; }
+.chips .row { display: grid; grid-template-columns: 26mm 1fr; gap: 5mm; align-items: center; }
+.chips .sw { height: 16mm; border: .25mm solid var(--line); }
+.chips b { font-family: var(--display); font-weight: 400; font-size: 12pt; }
+.spec { display: grid; gap: 5mm; align-content: start; }
+.spec .item { border-top: .3mm solid var(--line); padding-top: 3mm; }
+.spec .big { font-family: var(--display); font-size: 22pt; letter-spacing: .12em; }
+.spec .big.sans { font-family: var(--text); font-size: 15pt; letter-spacing: .32em; }
+
+/* applications + rules */
+.four { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8mm; }
+.four figure { margin: 0; display: grid; gap: 3mm; }
+.four svg { width: 100%; height: auto; display: block; background: var(--panel);
+  border: .25mm solid var(--line); }
+.rulegrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm 12mm;
+  align-content: start; }
+.rulegrid div { border-top: .3mm solid var(--line); padding-top: 3mm; }
+.filetable { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+.filetable th, .filetable td { text-align: left; padding: 2mm 3mm;
+  border-bottom: .25mm solid var(--line); }
+.filetable th { font-size: 7pt; letter-spacing: .24em; text-transform: uppercase;
+  color: var(--gold); font-weight: 400; }
+"""
+
+
+def deck(built: list[dict]) -> str:
+    """The presentation deck — A4 landscape, printed to PDF."""
+    primary = next(b for b in built if b["slug"] == "heirloom")
+    total = len(built) + 5
+
+    def page(inner: str, eyebrow: str, title: str, folio: int, cls: str = "") -> str:
+        return (f'<section class="page {cls}"><div class="top"><div>'
+                f'<p class="eyebrow">{eyebrow}</p><h2>{title}</h2></div>'
+                f'<div class="folio">{folio:02d} / {total:02d}</div></div>'
+                f'<div class="body">{inner}</div></section>')
+
+    def mark_svg(body: str, ground: str | None = BURGUNDY, w: float = CANVAS,
+                 h: float = CANVAS, label: str = "") -> str:
+        rect = f'<rect width="{fmt(w)}" height="{fmt(h)}" fill="{ground}"/>' if ground else ""
+        return (f'<svg viewBox="0 0 {fmt(w)} {fmt(h)}" xmlns="http://www.w3.org/2000/svg"'
+                f' role="img" aria-label="{label}">{rect}{body}</svg>')
+
+    lock = (f'<svg viewBox="0 0 {fmt(LOCK_W)} {fmt(LOCK_H)}" xmlns="http://www.w3.org/2000/svg"'
+            f' role="img" aria-label="Napper Valley Estate">'
+            f'<g transform="translate({fmt((LOCK_W - CANVAS * primary["scale"]) / 2)} 40)'
+            f' scale({fmt(primary["scale"])})">{primary["tile"]}</g>'
+            f'{wordmark(LOCK_W / 2, 600, CREAM, ROSE)}</svg>')
+    cover = (f'<section class="page cover">{lock}<div class="caption">'
+             f'<p class="eyebrow">Monogram system · ten variations</p>'
+             f'<p class="eyebrow">Mount Tamborine hinterland</p></div></section>')
+
+    contact = "".join(
+        f'<figure>{mark_svg(b["tile"], label=b["name"])}'
+        f'<figcaption><div class="n">{b["num"]}</div>{b["name"]}</figcaption></figure>'
+        for b in built)
+    overview = page(
+        f'<div class="contact">{contact}</div>'
+        f'<p class="muted" style="margin-top:9mm;max-width:170mm">One family of letterforms in '
+        f'burgundy, brass and cream. Marks 01–05 carry the estate at full size; 06–10 are the '
+        f'small-scale and merch cuts, drawn to hold together at a stitch or a stamp.</p>',
+        "Contents", "The ten at a glance", 2)
+
+    chips = "".join(
+        f'<div class="row"><div class="sw" style="background:{hex_}"></div>'
+        f'<div><b>{name}</b> <code>{hex_}</code><br>'
+        f'<span class="muted" style="font-size:9pt">{role}</span></div></div>'
+        for name, hex_, role in PALETTE)
+    palette_page = page(
+        f'<div class="cols2"><div class="chips">{chips}</div>'
+        f'<div class="spec">'
+        f'<div class="item"><p class="eyebrow">Display</p>'
+        f'<div class="big">NAPPER VALLEY</div>'
+        f'<p class="muted">Bodoni Moda — high contrast, no inscriptional serifs. '
+        f'Set in capitals, tracked wide, never below 12&nbsp;pt.</p></div>'
+        f'<div class="item"><p class="eyebrow">Supporting</p>'
+        f'<div class="big sans">MOUNT TAMBORINE</div>'
+        f'<p class="muted">Jost Light in spaced capitals for locality lines, labels and '
+        f'small print.</p></div>'
+        f'<div class="item"><p class="eyebrow">Artwork</p>'
+        f'<p class="muted">Every mark is outlined vector — no live type, no font licence '
+        f'travelling with the files, nothing for a supplier to substitute.</p></div>'
+        f"</div></div>",
+        "Foundations", "Palette and type", 3)
+
+    variation_pages = []
+    for i, b in enumerate(built):
+        lockup = (f'<svg viewBox="0 0 {fmt(LOCK_W)} {fmt(LOCK_H)}"'
+                  f' xmlns="http://www.w3.org/2000/svg" role="img" aria-label="lockup">'
+                  f'<rect width="{fmt(LOCK_W)}" height="{fmt(LOCK_H)}" fill="{BURGUNDY}"/>'
+                  f'<g transform="translate({fmt((LOCK_W - CANVAS * b["scale"]) / 2)} 40)'
+                  f' scale({fmt(b["scale"])})">{b["tile"]}</g>'
+                  f'{wordmark(LOCK_W / 2, 600, CREAM, ROSE)}</svg>')
+        variation_pages.append(page(
+            f'<div class="spread">'
+            f'<div class="hero">{mark_svg(b["tile"], label=b["name"])}</div>'
+            f'<div class="side">'
+            f'<p class="lede">{b["note"]}</p>'
+            f'<p class="rose">{b["use"]}</p>'
+            f'<p class="muted"><code>{b["stem"]}.svg</code><br>'
+            f'<code>{b["stem"]}-1c.svg</code><br><code>{b["stem"]}-lockup.svg</code></p>'
+            f'<div class="alt">'
+            f'<div class="chip"><span>One colour</span>'
+            f'<div class="frame">{mark_svg(b["one"], ground=None, label="one colour")}</div></div>'
+            f'<div class="chip"><span>Lockup</span>'
+            f'<div class="frame dark">{lockup}</div></div>'
+            f"</div></div></div>",
+            f"Variation {b['num']}", b["name"], 4 + i))
+
+    by = {b["slug"]: b["tile"] for b in built}
+    apps = [
+        (umbrella(by["seal"]), "Garden umbrella", "Estate Seal on alternate panels."),
+        (cap(by["monoline"]), "Cap", "Monoline embroidered on the crown."),
+        (tote(v08_band(BURGUNDY, CLARET)), "Canvas tote", "Band printed burgundy on natural."),
+        (seal_wax(by["patch"]), "Coaster / wax seal", "Patch reversed into claret."),
+    ]
+    apps_page = page(
+        '<div class="four">' + "".join(
+            f'<figure>{art}<figcaption><h3>{title}</h3>'
+            f'<p class="muted" style="font-size:9pt">{note}</p></figcaption></figure>'
+            for art, title, note in apps) + "</div>"
+        f'<p class="muted" style="margin-top:10mm;max-width:190mm">Mockups are indicative — '
+        f'the artwork supplied to each maker is vector, at full scale, in the single colour '
+        f'their process needs.</p>',
+        "In use", "On the estate", total - 1)
+
+    rows = "".join(
+        f'<tr><td><code>{b["stem"]}</code></td><td>{b["name"]}</td><td>{b["use"]}</td></tr>'
+        for b in built)
+    rules_page = page(
+        f'<div class="cols2"><div class="rulegrid">'
+        f'<div><h3>Clear space</h3><p class="muted">The height of the N on every side. '
+        f'On umbrella panels double it — the canopy curves away from the eye.</p></div>'
+        f'<div><h3>Minimum size</h3><p class="muted">Hairline marks (Heirloom, Seal, Lozenge, '
+        f'Arch) hold to 35&nbsp;mm wide. Below that use Monoline, Band or Patch.</p></div>'
+        f'<div><h3>Colour</h3><p class="muted">Cream on burgundy is the default, burgundy on '
+        f'cream the reverse. Brass is a hairline and a foil, never a fill.</p></div>'
+        f'<div><h3>Don\'t</h3><p class="muted">No outlines on the letterforms, no shadows, no '
+        f'stretching, no third colour, no rotating the mark off its baseline.</p></div>'
+        f'</div><div><table class="filetable"><thead><tr><th>File stem</th><th>Variation</th>'
+        f'<th>Made for</th></tr></thead><tbody>{rows}</tbody></table>'
+        f'<p class="muted" style="margin-top:5mm;font-size:8.5pt">Each stem ships '
+        f'<code>.svg</code>, <code>-1c.svg</code>, <code>-lockup.svg</code> and a 1024&nbsp;px '
+        f'PNG.</p></div></div>',
+        "Using them", "Rules of the house", total)
+
+    pages = [cover, overview, palette_page, *variation_pages, apps_page, rules_page]
+    return ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
+            '<title>Napper Valley Estate — monogram system</title>'
+            f"<style>{font_face_css()}{DECK_CSS}</style></head><body>"
+            + "".join(pages) + "</body></html>")
+
+
 def preview(built: list[dict]) -> str:
     body = preview_body(built)
     return (f"<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -722,13 +943,20 @@ def preview(built: list[dict]) -> str:
             f"<style>{font_face_css()}{PAGE_CSS}</style></head><body>{body}</body></html>")
 
 
+_FONT_CSS: str | None = None
+
+
 def font_face_css() -> str:
+    global _FONT_CSS
+    if _FONT_CSS is not None:
+        return _FONT_CSS
     display = web_font("BodoniModa.ttf", wght=400, opsz=48)
     sans = web_font("Jost.ttf", wght=300)
-    return (f"@font-face{{font-family:'NVE Display';font-style:normal;font-weight:400;"
-            f"src:url(data:font/woff2;base64,{display}) format('woff2');font-display:swap;}}"
-            f"@font-face{{font-family:'NVE Sans';font-style:normal;font-weight:300;"
-            f"src:url(data:font/woff2;base64,{sans}) format('woff2');font-display:swap;}}")
+    _FONT_CSS = (f"@font-face{{font-family:'NVE Display';font-style:normal;font-weight:400;"
+                 f"src:url(data:font/woff2;base64,{display}) format('woff2');font-display:swap;}}"
+                 f"@font-face{{font-family:'NVE Sans';font-style:normal;font-weight:300;"
+                 f"src:url(data:font/woff2;base64,{sans}) format('woff2');font-display:swap;}}")
+    return _FONT_CSS
 
 
 # ----------------------------------------------------------------- output ----
@@ -859,6 +1087,7 @@ def main() -> None:
     print("Napper Valley Estate — building monogram system")
     built = build()
     write(OUT / "index.html", preview(built))
+    write(OUT / "print.html", deck(built))
     print(f"done — {len(built)} variations")
 
 
