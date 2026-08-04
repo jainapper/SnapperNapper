@@ -85,6 +85,6 @@ three placeholders, copy, paste into Gmail/Outlook/Apple Mail.
 ## Also in this repo
 
 [`brand/napper-valley-estate/`](brand/napper-valley-estate/) — the NVE monogram
-system for Napper Valley Estate (Mount Tamborine hinterland): eleven variations,
-one-colour cuts, lockups and a brand board. Regenerate with
-`python3 scripts/generate_nve_brand.py`.
+system for Napper Valley Estate (Mount Tamborine hinterland): eleven monogram
+variations, ten wordmark settings, one-colour cuts, lockups and a brand board.
+Regenerate with `python3 scripts/generate_nve_brand.py`.

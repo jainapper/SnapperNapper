@@ -11,22 +11,29 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = resolve(ROOT, 'brand/napper-valley-estate/monograms');
-const OUT = resolve(ROOT, 'brand/napper-valley-estate/png');
-const SIZE = 1024;
+const BRAND = resolve(ROOT, 'brand/napper-valley-estate');
+const OUT = resolve(BRAND, 'png');
+// [source folder, width, height] — monogram tiles are square, wordmarks are 1000x520
+const SETS = [
+  [resolve(BRAND, 'monograms'), 1024, 1024],
+  [resolve(BRAND, 'wordmarks'), 1600, 832],
+];
 
 const executablePath = process.env.CHROMIUM_PATH; // optional, for preinstalled builds
 const browser = await chromium.launch(executablePath ? { executablePath, args: ['--no-sandbox'] }
                                                      : { args: ['--no-sandbox'] });
-const page = await browser.newPage({ viewport: { width: SIZE, height: SIZE } });
+const page = await browser.newPage();
 mkdirSync(OUT, { recursive: true });
 
-for (const file of readdirSync(SRC).filter(f => f.endsWith('.svg') && !f.endsWith('-1c.svg'))) {
-  await page.setContent(
-    `<body style="margin:0"><img src="file://${resolve(SRC, file)}" width="${SIZE}" height="${SIZE}"></body>`);
-  await page.waitForTimeout(120);
-  const out = resolve(OUT, file.replace(/\.svg$/, '.png'));
-  await page.screenshot({ path: out, omitBackground: true });
-  console.log('  wrote', out.slice(ROOT.length + 1));
+for (const [src, w, h] of SETS) {
+  await page.setViewportSize({ width: w, height: h });
+  for (const file of readdirSync(src).filter(f => f.endsWith('.svg') && !f.endsWith('-1c.svg'))) {
+    await page.setContent(
+      `<body style="margin:0"><img src="file://${resolve(src, file)}" width="${w}" height="${h}"></body>`);
+    await page.waitForTimeout(120);
+    const out = resolve(OUT, file.replace(/\.svg$/, '.png'));
+    await page.screenshot({ path: out, omitBackground: true });
+    console.log('  wrote', out.slice(ROOT.length + 1));
+  }
 }
 await browser.close();

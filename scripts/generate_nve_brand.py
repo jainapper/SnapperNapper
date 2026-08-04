@@ -41,6 +41,8 @@ FONT_URLS = {
     "BodoniModa.ttf": f"{GF}/bodonimoda/BodoniModa%5Bopsz%2Cwght%5D.ttf",
     "CormorantGaramond.ttf": f"{GF}/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf",
     "Jost.ttf": f"{GF}/jost/Jost%5Bwght%5D.ttf",
+    "CormorantGaramond-Italic.ttf":
+        f"{GF}/cormorantgaramond/CormorantGaramond-Italic%5Bwght%5D.ttf",
 }
 
 # ---------------------------------------------------------------- palette ----
@@ -190,11 +192,61 @@ def faces() -> dict[str, Face]:
         "display": Face("BodoniModa.ttf", wght=500, opsz=96),
         "display_light": Face("BodoniModa.ttf", wght=400, opsz=96),
         "old": Face("CormorantGaramond.ttf", wght=500),
+        "italic": Face("CormorantGaramond-Italic.ttf", wght=400),
         "sans": Face("Jost.ttf", wght=300),
     }
 
 
 F: dict[str, Face] = {}
+
+
+# --------------------------------------------------------------- wordmark ----
+# The wordmark tiles are wider than the monogram tiles: these are lines of type,
+# and they are judged on how they sit in a measure.
+WM_W, WM_H = 1000.0, 520.0
+WCX = WM_W / 2
+
+
+def run_ink(f: Face, text: str, size: float, cx: float, y: float,
+            tracking: float = 0.0, word_gap: float = 0.0) -> tuple[str, float]:
+    """A line of type centred on its ink rather than its sidebearings. `word_gap`
+    is extra air at the word space, so heavy tracking doesn't swallow it.
+    Returns (path data, ink width)."""
+    steps = [f.advance(c, size) + tracking + (word_gap if c == " " else 0.0)
+             for c in text]
+    first_x0 = f.ink(text[0], size)[0]
+    last_x1 = f.ink(text[-1], size)[2]
+    ink_w = sum(steps[:-1]) + last_x1 - first_x0
+    cursor = cx - ink_w / 2 - first_x0
+    parts = []
+    for ch, step in zip(text, steps):
+        if ch != " ":
+            parts.append(f.glyph(ch, size, cursor, y))
+        cursor += step
+    return " ".join(parts), ink_w
+
+
+def fit_run_left(f: Face, text: str, size: float, x: float, y: float,
+                 width: float) -> str:
+    """Justified to `width`, hung off a left edge."""
+    return fit_run(f, text, size, x + width / 2, y, width)
+
+
+def fit_run(f: Face, text: str, size: float, cx: float, y: float,
+            width: float, word_gap: float | None = None) -> str:
+    """Set a line to an exact ink width by solving for the tracking — the
+    justified setting that estate wordmarks live on."""
+    if word_gap is None:
+        word_gap = size * 0.16
+    advances = [f.advance(c, size) for c in text]
+    first_x0 = f.ink(text[0], size)[0]
+    last_x1 = f.ink(text[-1], size)[2]
+    n = len(text) - 1
+    if not n:
+        return run_ink(f, text, size, cx, y)[0]
+    gaps = word_gap * text[:-1].count(" ")
+    tracking = (width - sum(advances[:-1]) - gaps - last_x1 + first_x0) / n
+    return run_ink(f, text, size, cx, y, tracking, word_gap)[0]
 
 
 # ------------------------------------------------------------- variations ----
@@ -551,6 +603,231 @@ def wordmark(x: float, y: float, ink: str, accent: str) -> str:
     return "".join(parts)
 
 
+# ------------------------------------------------------- wordmark variants ----
+# Ten settings of NAPPER VALLEY ESTATE on the 1000 x 520 tile. Same two-colour
+# signature as the monograms: ink for the words, accent for hairlines.
+
+def w01_stack(ink: str, accent: str) -> str:
+    """Estate Stack — three words justified to one measure, the classic."""
+    f, s = F["display_light"], F["sans"]
+    measure = 560.0
+    size = f.size_for_cap(62.0)
+    parts = [fit_run(f, w, size, WCX, y, measure)
+             for w, y in (("NAPPER", 200.0), ("VALLEY", 288.0), ("ESTATE", 376.0))]
+    body = "".join(f'<path d="{d}" fill="{ink}"/>' for d in parts)
+    body += rule(WCX - measure / 2, 412, WCX + measure / 2, accent, 1.4)
+    body += (f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 22, WCX, 450, 9)[0]}"'
+             f' fill="{accent}"/>')
+    return body
+
+
+def w02_line(ink: str, accent: str) -> str:
+    """Single Rule — one line between two hairlines: the sleeve and header lockup."""
+    f, s = F["display_light"], F["sans"]
+    size = f.size_for_cap(44.0)
+    measure = 800.0
+    d = fit_run(f, "NAPPER VALLEY ESTATE", size, WCX, 288, measure)
+    half = measure / 2 + 34
+    return ("".join([
+        rule(WCX - half, 196, WCX + half, ink, 2),
+        f'<path d="{d}" fill="{ink}"/>',
+        rule(WCX - half, 330, WCX + half, ink, 2),
+        f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 21, WCX, 382, 9)[0]}"'
+        f' fill="{accent}"/>',
+    ]))
+
+
+def w03_original(ink: str, accent: str) -> str:
+    """Refined Original — the lockup from the source logo, redrawn and re-spaced."""
+    f, s = F["display_light"], F["sans"]
+    size = f.size_for_cap(64.0)
+    w = 700.0
+    d = fit_run(f, "NAPPER VALLEY", size, WCX, 246, w)
+    est_w = 260.0
+    est = fit_run(f, "ESTATE", f.size_for_cap(34.0), WCX, 330, est_w)
+    return "".join([
+        f'<path d="{d}" fill="{ink}"/>',
+        f'<path d="{est}" fill="{ink}"/>',
+        rule(WCX - w / 2, 316, WCX - est_w / 2 - 28, accent, 1.4),
+        rule(WCX + est_w / 2 + 28, 316, WCX + w / 2, accent, 1.4),
+        f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 22, WCX, 392, 10)[0]}"'
+        f' fill="{accent}"/>',
+    ])
+
+
+def w04_split(ink: str, accent: str) -> str:
+    """Split — the two names divided by a diamond, ESTATE justified beneath."""
+    f, s = F["display_light"], F["sans"]
+    size = f.size_for_cap(62.0)
+    gap = 54.0
+    nap_w = run_ink(f, "NAPPER", size, 0, 0, 12)[1]
+    val_w = run_ink(f, "VALLEY", size, 0, 0, 12)[1]
+    total = nap_w + gap + val_w
+    left_cx = WCX - total / 2 + nap_w / 2
+    right_cx = WCX + total / 2 - val_w / 2
+    parts = [
+        f'<path d="{run_ink(f, "NAPPER", size, left_cx, 258, 12)[0]}" fill="{ink}"/>',
+        f'<path d="{run_ink(f, "VALLEY", size, right_cx, 258, 12)[0]}" fill="{ink}"/>',
+        diamond(WCX, 234, 7, accent),
+        f'<path d="{fit_run(f, "ESTATE", f.size_for_cap(34.0), WCX, 330, total)}"'
+        f' fill="{ink}"/>',
+        f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 21, WCX, 392, 9)[0]}"'
+        f' fill="{accent}"/>',
+    ]
+    return "".join(parts)
+
+
+def w05_oldstyle(ink: str, accent: str) -> str:
+    """Old Style — Napper Valley in italic upper and lower case, the softest
+    voice in the set: spa, garden, correspondence."""
+    f, s = F["italic"], F["sans"]
+    size = f.size_for_cap(96.0)
+    d, w = run_ink(f, "Napper Valley", size, WCX, 268, 2)
+    return "".join([
+        f'<path d="{d}" fill="{ink}"/>',
+        rule(WCX - w / 2, 300, WCX + w / 2, accent, 1.2),
+        f'<path d="{run_ink(s, "ESTATE", 26, WCX, 344, 14)[0]}" fill="{ink}"/>',
+        f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 20, WCX, 396, 9)[0]}"'
+        f' fill="{accent}"/>',
+    ])
+
+
+def w06_flush(ink: str, accent: str) -> str:
+    """Flush Left — stacked hard against a brass rule: letterheads, web headers,
+    anywhere the wordmark shares a line with something else."""
+    f, s = F["display_light"], F["sans"]
+    x, measure = 288.0, 420.0
+    size = f.size_for_cap(56.0)
+    parts = [f'<path d="{fit_run_left(f, w, size, x, y, measure)}" fill="{ink}"/>'
+             for w, y in (("NAPPER", 196.0), ("VALLEY", 274.0), ("ESTATE", 352.0))]
+    parts.append(f'<path d="M{fmt(x - 34)} 148V378" stroke="{accent}" stroke-width="2"'
+                 ' fill="none"/>')
+    tw = run_ink(s, "MOUNT TAMBORINE HINTERLAND", 20, 0, 0, 9)[1]
+    parts.append(f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 20, x + tw / 2, 414, 9)[0]}"'
+                 f' fill="{accent}"/>')
+    return "".join(parts)
+
+
+def w07_arc(ink: str, accent: str) -> str:
+    """Arc — the name curved over the estate line: coasters, seals, glassware."""
+    f, s = F["display_light"], F["sans"]
+    size = f.size_for_cap(42.0)
+    radius, cy = 700.0, 880.0
+    parts = [f'<path d="{f.arc_run("NAPPER VALLEY", size, WCX, cy, radius, tracking=11)}"'
+             f' fill="{ink}"/>']
+    est_w = 230.0
+    parts.append(f'<path d="{fit_run(f, "ESTATE", f.size_for_cap(30.0), WCX, 330, est_w)}"'
+                 f' fill="{ink}"/>')
+    parts.append(rule(WCX - est_w / 2 - 96, 320, WCX - est_w / 2 - 30, accent, 1.4))
+    parts.append(rule(WCX + est_w / 2 + 30, 320, WCX + est_w / 2 + 96, accent, 1.4))
+    parts.append(f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 20, WCX, 392, 9)[0]}"'
+                 f' fill="{accent}"/>')
+    return "".join(parts)
+
+
+def w08_bar(ink: str, accent: str, ground: str = BURGUNDY, solid: bool = True) -> str:
+    """Bar — the name over a solid claret band carrying the locality: labels,
+    packaging bands, book spines."""
+    f, s = F["display_light"], F["sans"]
+    size = f.size_for_cap(62.0)
+    measure = 700.0
+    d = fit_run(f, "NAPPER VALLEY", size, WCX, 244, measure)
+    bar_w = measure + 24
+    bar = (f'<rect x="{fmt(WCX - bar_w / 2)}" y="278" width="{fmt(bar_w)}" height="62"'
+           f' fill="{ink}"/>' if solid else
+           f'<rect x="{fmt(WCX - bar_w / 2)}" y="278" width="{fmt(bar_w)}" height="62"'
+           f' fill="none" stroke="{ink}" stroke-width="2"/>')
+    return "".join([
+        f'<path d="{d}" fill="{ink}"/>', bar,
+        f'<path d="{run_ink(s, "ESTATE · MOUNT TAMBORINE HINTERLAND", 21, WCX, 318, 8)[0]}"'
+        f' fill="{ground if solid else ink}"/>',
+    ])
+
+
+def w08_bar_cut(ink: str, accent: str) -> str:
+    """One-colour cut of the bar — keyline band, letters set solid."""
+    return w08_bar(ink, accent, solid=False)
+
+
+def w09_band(ink: str, accent: str) -> str:
+    """Band — every word spaced out between diamond points, ruled top and
+    bottom: webbing, ribbon, umbrella sleeves, box edges."""
+    f = F["display_light"]
+    size = f.size_for_cap(38.0)
+    words = ["NAPPER", "VALLEY", "ESTATE"]
+    measure = 210.0
+    widths = [measure] * 3
+    gap = 66.0
+    total = sum(widths) + gap * 2
+    x = WCX - total / 2
+    parts = []
+    for i, (word, w) in enumerate(zip(words, widths)):
+        parts.append(f'<path d="{fit_run(f, word, size, x + w / 2, 278, measure)}" fill="{ink}"/>')
+        if i < 2:
+            parts.append(diamond(x + w + gap / 2, 262, 6, accent))
+        x += w + gap
+    half = total / 2 + 40
+    parts.append(rule(WCX - half, 208, WCX + half, ink, 2))
+    parts.append(rule(WCX - half, 312, WCX + half, ink, 2))
+    return "".join(parts)
+
+
+def w10_label(ink: str, accent: str) -> str:
+    """Label — keylined panel with corner ticks: wine, preserves, candles, any
+    surface where the wordmark has to hold its own frame."""
+    f, s = F["display_light"], F["sans"]
+    x0, y0, x1, y1 = 200.0, 130.0, 800.0, 390.0
+    parts = [f'<rect x="{fmt(x0)}" y="{fmt(y0)}" width="{fmt(x1 - x0)}"'
+             f' height="{fmt(y1 - y0)}" fill="none" stroke="{ink}" stroke-width="2.4"/>']
+    tick = 16.0
+    for cx_, cy_, dx, dy in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+        parts.append(f'<path d="M{fmt(cx_ + dx * 14)} {fmt(cy_ + dy * 14)}'
+                     f'h{fmt(dx * tick)}m{fmt(-dx * tick)} 0v{fmt(dy * tick)}"'
+                     f' stroke="{accent}" stroke-width="1.4" fill="none"/>')
+    size = f.size_for_cap(44.0)
+    parts.append(f'<path d="{fit_run(f, "NAPPER VALLEY", size, WCX, 236, 480)}" fill="{ink}"/>')
+    parts.append(f'<path d="{fit_run(f, "ESTATE", f.size_for_cap(26.0), WCX, 300, 210)}"'
+                 f' fill="{ink}"/>')
+    parts.append(rule(WCX - 120, 326, WCX + 120, accent, 1.2))
+    parts.append(f'<path d="{run_ink(s, "MOUNT TAMBORINE HINTERLAND", 19, WCX, 360, 9)[0]}"'
+                 f' fill="{accent}"/>')
+    return "".join(parts)
+
+
+WORDMARKS = [
+    dict(num="01", slug="stack", name="Estate Stack", fn=w01_stack,
+         note="Three words justified to one measure — the classic estate setting.",
+         use="Signage, stationery, the front of the website."),
+    dict(num="02", slug="line", name="Single Rule", fn=w02_line,
+         note="One line held between two hairlines.",
+         use="Email headers, sleeves, page footers, sign bands."),
+    dict(num="03", slug="original", name="Refined Original", fn=w03_original,
+         note="The lockup from the source logo, redrawn and re-spaced.",
+         use="Everywhere the existing wordmark already lives."),
+    dict(num="04", slug="split", name="Split", fn=w04_split,
+         note="The two names divided by a diamond, ESTATE justified beneath.",
+         use="Wide formats: hoardings, vehicle livery, banner tops."),
+    dict(num="05", slug="oldstyle", name="Old Style", fn=w05_oldstyle,
+         note="Napper Valley in italic upper and lower case — the softest voice.",
+         use="Spa and garden collateral, correspondence, thank-you cards."),
+    dict(num="06", slug="flush", name="Flush Left", fn=w06_flush,
+         note="Stacked hard against a brass rule.",
+         use="Letterheads, web headers, anywhere it shares a line."),
+    dict(num="07", slug="arc", name="Arc", fn=w07_arc,
+         note="The name curved over the estate line.",
+         use="Coasters, seals, glassware, cap crowns."),
+    dict(num="08", slug="bar", name="Bar", fn=w08_bar, one_fn=w08_bar_cut,
+         note="The name over a solid band carrying the locality.",
+         use="Labels, packaging bands, book spines, door plates."),
+    dict(num="09", slug="band", name="Band", fn=w09_band,
+         note="Every word spaced between diamond points, ruled top and bottom.",
+         use="Webbing, ribbon, umbrella sleeves, box edges."),
+    dict(num="10", slug="label", name="Label", fn=w10_label,
+         note="Keylined panel with corner ticks.",
+         use="Wine, preserves, candles — anywhere it holds its own frame."),
+]
+
+
 PALETTE = [
     ("Oxblood", OXBLOOD, "Deepest ground — night signage, foiled boxes"),
     ("Burgundy", BURGUNDY, "The estate colour — primary ground"),
@@ -603,6 +880,7 @@ section { padding-top: 76px; }
 .swatch small { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 26px; }
+.wordgrid { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
 .card { display: grid; gap: 14px; }
 .card .mark { width: 100%; height: auto; display: block; border: 1px solid var(--line); }
 .card .num { font-size: 11px; letter-spacing: .34em; color: var(--gold); }
@@ -639,7 +917,7 @@ footer { margin-top: 84px; border-top: 1px solid var(--line); padding-top: 20px;
 """
 
 
-def preview_body(built: list[dict]) -> str:
+def preview_body(built: list[dict], words: list[dict]) -> str:
     primary = next(b for b in built if b["slug"] == "heirloom")
     lock = (f'<svg viewBox="0 0 {fmt(LOCK_W)} {fmt(LOCK_H)}" xmlns="http://www.w3.org/2000/svg"'
             f' role="img" aria-label="Napper Valley Estate">'
@@ -682,6 +960,19 @@ def preview_body(built: list[dict]) -> str:
     rows = "".join(
         f'<tr><td><code>nve-{b["num"]}-{b["slug"]}</code></td><td>{b["name"]}</td>'
         f'<td>{b["use"]}</td></tr>' for b in built)
+    rows += "".join(
+        f'<tr><td><code>{w["stem"]}</code></td><td>{w["name"]} <em>wordmark</em></td>'
+        f'<td>{w["use"]}</td></tr>' for w in words)
+
+    word_cards = "".join(
+        f'<article class="card wide">'
+        f'<svg viewBox="0 0 {fmt(WM_W)} {fmt(WM_H)}" xmlns="http://www.w3.org/2000/svg"'
+        f' class="mark" role="img" aria-label="{w["name"]} wordmark">'
+        f'<rect width="{fmt(WM_W)}" height="{fmt(WM_H)}" fill="{BURGUNDY}"/>{w["tile"]}</svg>'
+        f'<div class="num">{w["num"]}</div><h3>{w["name"]}</h3>'
+        f'<p class="note">{w["note"]}</p><p class="use">{w["use"]}</p>'
+        f'<div class="files">{w["stem"]}.svg · -1c.svg</div></article>'
+        for w in words)
 
     return f"""
 <div class="wrap">
@@ -706,6 +997,15 @@ def preview_body(built: list[dict]) -> str:
     <div class="head"><p class="eyebrow">The set</p><h2>Variations</h2>
       <div class="rule"></div></div>
     <div class="grid">{cards}</div>
+  </section>
+
+  <section>
+    <div class="head"><p class="eyebrow">The name</p><h2>Wordmark settings</h2>
+      <div class="rule"></div>
+      <p class="lede">Ten settings of NAPPER VALLEY ESTATE. Same letterforms as the
+      monograms, so any mark above pairs with any setting below — pick one for the
+      estate and let the rest serve the places it can't go.</p></div>
+    <div class="grid wordgrid">{word_cards}</div>
   </section>
 
   <section>
@@ -831,6 +1131,13 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 8pt; letter-spaci
 .spec .big { font-family: var(--display); font-size: 22pt; letter-spacing: .12em; }
 .spec .big.sans { font-family: var(--text); font-size: 15pt; letter-spacing: .32em; }
 
+.words { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6mm 10mm; }
+.words figure { margin: 0; display: grid; grid-template-columns: 96mm 1fr; gap: 5mm;
+  align-items: center; }
+.words svg { width: 96mm; height: auto; display: block; border: .25mm solid var(--line); }
+.words figcaption { font-size: 9pt; }
+.words .n { color: var(--gold); font-size: 7pt; letter-spacing: .28em; }
+
 /* applications + rules */
 .four { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8mm; }
 .four figure { margin: 0; display: grid; gap: 3mm; }
@@ -847,10 +1154,10 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 8pt; letter-spaci
 """
 
 
-def deck(built: list[dict]) -> str:
+def deck(built: list[dict], words: list[dict]) -> str:
     """The presentation deck — A4 landscape, printed to PDF."""
     primary = next(b for b in built if b["slug"] == "heirloom")
-    total = len(built) + 5
+    total = len(built) + 5 + 2
 
     def page(inner: str, eyebrow: str, title: str, folio: int, cls: str = "") -> str:
         return (f'<section class="page {cls}"><div class="top"><div>'
@@ -967,15 +1274,33 @@ def deck(built: list[dict]) -> str:
         f'PNG.</p></div></div>',
         "Using them", "Rules of the house", total)
 
-    pages = [cover, overview, palette_page, *variation_pages, apps_page, rules_page]
+    word_pages = []
+    per = 6
+    chunks = [words[i:i + per] for i in range(0, len(words), per)]
+    for j, chunk in enumerate(chunks):
+        cells = "".join(
+            f'<figure><svg viewBox="0 0 {fmt(WM_W)} {fmt(WM_H)}"'
+            f' xmlns="http://www.w3.org/2000/svg" role="img" aria-label="{w["name"]}">'
+            f'<rect width="{fmt(WM_W)}" height="{fmt(WM_H)}" fill="{BURGUNDY}"/>{w["tile"]}'
+            f'</svg><figcaption><div class="n">{w["num"]}</div>{w["name"]}'
+            f'<p class="muted" style="font-size:8pt">{w["use"]}</p></figcaption></figure>'
+            for w in chunk)
+        word_pages.append(page(
+            f'<div class="words">{cells}</div>',
+            "The name" if j == 0 else "The name, continued",
+            "Wordmark settings" if j == 0 else "Wordmark settings",
+            len(built) + 4 + j))
+
+    pages = [cover, overview, palette_page, *variation_pages, *word_pages,
+             apps_page, rules_page]
     return ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
             '<title>Napper Valley Estate — monogram system</title>'
             f"<style>{font_face_css()}{DECK_CSS}</style></head><body>"
             + "".join(pages) + "</body></html>")
 
 
-def preview(built: list[dict]) -> str:
-    body = preview_body(built)
+def preview(built: list[dict], words: list[dict]) -> str:
+    body = preview_body(built, words)
     return (f"<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
             f'<meta name="viewport" content="width=device-width, initial-scale=1">'
             f"<title>Napper Valley Estate — monogram system</title>"
@@ -1120,14 +1445,32 @@ def build() -> list[dict]:
     return built
 
 
+def build_wordmarks() -> list[dict]:
+    built = []
+    for v in WORDMARKS:
+        fn, name = v["fn"], v["name"]
+        stem = f"nve-word-{v['num']}-{v['slug']}"
+        tile = fn(CREAM, GOLD)
+        one = v.get("one_fn", fn)(BURGUNDY, BURGUNDY)
+        write(OUT / "wordmarks" / f"{stem}.svg",
+              svg(tile, w=WM_W, h=WM_H, bg=BURGUNDY,
+                  title=f"Napper Valley Estate — {name} wordmark"))
+        write(OUT / "wordmarks" / f"{stem}-1c.svg",
+              svg(one, w=WM_W, h=WM_H,
+                  title=f"Napper Valley Estate — {name} wordmark, one colour"))
+        built.append({**v, "stem": stem, "tile": tile, "one": one})
+    return built
+
+
 def main() -> None:
     global F
     F = faces()
     print("Napper Valley Estate — building monogram system")
     built = build()
-    write(OUT / "index.html", preview(built))
-    write(OUT / "print.html", deck(built))
-    print(f"done — {len(built)} variations")
+    words = build_wordmarks()
+    write(OUT / "index.html", preview(built, words))
+    write(OUT / "print.html", deck(built, words))
+    print(f"done — {len(built)} monograms, {len(words)} wordmarks")
 
 
 if __name__ == "__main__":
