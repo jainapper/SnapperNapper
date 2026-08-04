@@ -81,3 +81,10 @@ Netlify/Vercel/Cloudflare Pages: point them at the repo root, no build command.
 
 See [`email-signature/README.md`](email-signature/README.md) — personalise
 three placeholders, copy, paste into Gmail/Outlook/Apple Mail.
+
+## Also in this repo
+
+[`brand/napper-valley-estate/`](brand/napper-valley-estate/) — the NVE monogram
+system for Napper Valley Estate (Mount Tamborine hinterland): eleven monogram
+variations, ten wordmark settings, one-colour cuts, lockups and a brand board.
+Regenerate with `python3 scripts/generate_nve_brand.py`.
