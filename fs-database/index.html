@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>FS Database — Fullstack Fulfillment</title>
+<meta name="description" content="Fullstack Fulfillment internal ops database — dashboard, leads, onboarding, documents and carriers.">
+<link rel="icon" href="assets/roo-blue.png" type="image/png">
+<style>
+/* ————— FS DATABASE · NIGHT FREIGHT ————— same brand system as fullstackfs.com.au */
+:root{
+  --ground:#0d0c0a;
+  --raise:#151310;
+  --raise2:#1c1915;
+  --stroke:rgba(255,255,255,.07);
+  --stroke-hi:rgba(245,93,47,.28);
+  --text:#f4f2ee;
+  --dim:#a8a49b;
+  --faint:#6a6a64;
+  --accent:#f55d2f;
+  --accent-dim:#c44825;
+  --cool:#c5d3e2;
+  --ok:#7ee2a8;
+  --warn:#f2c14e;
+  --bad:#ff8a70;
+  /* chart palette — validated (CVD + contrast) against the --raise surface; fixed slot order, never cycled */
+  --chart-1:#f0561f;
+  --chart-2:#3987e5;
+  --chart-3:#199e70;
+  --chart-4:#c98500;
+  --chart-5:#d55181;
+  --grid:rgba(255,255,255,.06);
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--ground);color:var(--text);font-family:var(--sans);font-size:14.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit}
+button{font-family:var(--sans)}
+::selection{background:rgba(245,93,47,.35)}
+
+/* ————— app shell ————— */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:var(--raise);border-right:1px solid var(--stroke);padding:22px 16px 16px;z-index:60}
+.side-logo{display:flex;flex-direction:column;gap:10px;padding:0 6px 18px;border-bottom:1px solid var(--stroke)}
+.side-logo img{height:30px;width:auto;align-self:flex-start}
+.side-tag{display:inline-flex;align-self:flex-start;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);background:rgba(245,93,47,.09);border:1px solid rgba(245,93,47,.25);padding:4px 10px;border-radius:100px}
+.side-nav{display:flex;flex-direction:column;gap:2px;padding:16px 0;flex:1}
+.side-nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:11px;color:var(--dim);font-size:13.5px;font-weight:600;text-decoration:none;border:1px solid transparent;transition:all .15s}
+.side-nav a svg{width:17px;height:17px;flex:none;opacity:.75}
+.side-nav a:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.side-nav a.on{color:var(--text);background:rgba(245,93,47,.1);border-color:rgba(245,93,47,.25)}
+.side-nav a.on svg{color:var(--accent);opacity:1}
+.side-nav .n-count{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--faint);background:rgba(255,255,255,.05);border:1px solid var(--stroke);padding:2px 8px;border-radius:100px}
+.side-nav a.on .n-count{color:var(--accent);background:rgba(245,93,47,.12);border-color:rgba(245,93,47,.3)}
+.side-foot{border-top:1px solid var(--stroke);padding-top:14px;display:flex;flex-direction:column;gap:10px}
+.ss-status{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid var(--stroke);border-radius:11px;background:rgba(255,255,255,.02);cursor:pointer;transition:border-color .15s}
+.ss-status:hover{border-color:var(--stroke-hi)}
+.ss-status img{height:14px;width:auto}
+.ss-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;box-shadow:0 0 8px rgba(242,193,78,.5)}
+.ss-dot.live{background:var(--ok);box-shadow:0 0 8px rgba(126,226,168,.55)}
+.ss-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.side-btns{display:flex;gap:8px}
+.side-btns button{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--stroke);border-radius:10px;color:var(--dim);font-size:12px;font-weight:600;padding:8px 6px;cursor:pointer;transition:all .15s}
+.side-btns button:hover{color:var(--text);border-color:var(--stroke-hi)}
+.side-ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--faint);text-align:center}
+
+.main{min-width:0;padding:28px 34px 60px;position:relative}
+.mobile-top{display:none}
+
+/* ————— view head ————— */
+.view{display:none}
+.view.on{display:block;animation:vin .25s ease}
+@keyframes vin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+.vh-title h1{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.vh-title h1 em{font-style:normal;color:var(--accent)}
+.vh-sub{color:var(--dim);font-size:13.5px;margin-top:5px;max-width:620px}
+.vh-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* ————— shared bits ————— */
+.eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#0d0c0a;font-size:13.5px;font-weight:800;padding:11px 20px;border-radius:100px;border:0;cursor:pointer;text-decoration:none;transition:background .2s,transform .15s,box-shadow .2s;white-space:nowrap}
+.btn:hover{background:#ff6f43;transform:translateY(-1px);box-shadow:0 8px 24px rgba(245,93,47,.25)}
+.btn.ghost{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--stroke);font-weight:700}
+.btn.ghost:hover{border-color:var(--stroke-hi);box-shadow:none;background:rgba(255,255,255,.08)}
+.btn.small{padding:8px 14px;font-size:12.5px}
+.btn.danger{background:rgba(255,138,112,.12);color:var(--bad);border:1px solid rgba(255,138,112,.3);font-weight:700}
+.btn.danger:hover{background:rgba(255,138,112,.2);box-shadow:none}
+.search{position:relative}
+.search input{background:rgba(255,255,255,.04);border:1px solid var(--stroke);border-radius:100px;color:var(--text);font-size:13px;font-family:var(--sans);padding:10px 16px 10px 36px;width:230px;outline:none;transition:border-color .2s}
+.search input:focus{border-color:var(--stroke-hi)}
+.search input::placeholder{color:var(--faint)}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--faint);pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);background:rgba(255,255,255,.05);border:1px solid var(--stroke);padding:5px 12px;border-radius:100px;white-space:nowrap}
+.chip.acc{color:var(--accent);background:rgba(245,93,47,.1);border-color:rgba(245,93,47,.3)}
+.chip.demo{color:var(--warn);background:rgba(242,193,78,.08);border-color:rgba(242,193,78,.3)}
+.chip.live{color:var(--ok);background:rgba(126,226,168,.08);border-color:rgba(126,226,168,.3)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;white-space:nowrap}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--ok);background:rgba(126,226,168,.08);border:1px solid rgba(126,226,168,.25)}
+.pill.info{color:var(--cool);background:rgba(197,211,226,.07);border:1px solid rgba(197,211,226,.22)}
+.pill.warn{color:var(--warn);background:rgba(242,193,78,.08);border:1px solid rgba(242,193,78,.28)}
+.pill.bad{color:var(--bad);background:rgba(255,138,112,.08);border:1px solid rgba(255,138,112,.28)}
+.pill.dim{color:var(--faint);background:rgba(255,255,255,.04);border:1px solid var(--stroke)}
+.pill.acc{color:var(--accent);background:rgba(245,93,47,.09);border:1px solid rgba(245,93,47,.28)}
+
+/* ————— panels / cards ————— */
+.panel{background:var(--raise);border:1px solid var(--stroke);border-radius:18px;padding:20px 22px;position:relative}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.panel-title{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.panel-meta{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.p-tools{display:flex;align-items:center;gap:8px}
+.tbtn{background:rgba(255,255,255,.04);border:1px solid var(--stroke);border-radius:8px;color:var(--faint);font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;cursor:pointer;transition:all .15s}
+.tbtn:hover{color:var(--text);border-color:var(--stroke-hi)}
+.tbtn[aria-pressed="true"]{color:var(--accent);border-color:rgba(245,93,47,.35);background:rgba(245,93,47,.08)}
+
+/* ————— dashboard ————— */
+.conn-strip{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.conn-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.range-row{display:flex;align-items:center;gap:6px;background:var(--raise);border:1px solid var(--stroke);border-radius:100px;padding:4px}
+.range-row button{background:none;border:0;border-radius:100px;color:var(--faint);font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:7px 14px;cursor:pointer;transition:all .15s}
+.range-row button:hover{color:var(--text)}
+.range-row button.on{background:rgba(245,93,47,.14);color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
+.kpi{background:var(--raise);border:1px solid var(--stroke);border-radius:16px;padding:16px 18px 14px;position:relative;overflow:hidden}
+.kpi-k{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.kpi-v{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin-top:7px}
+.kpi-d{display:flex;align-items:center;gap:6px;margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.kpi-d b{font-weight:700}
+.kpi-d .up{color:var(--ok)}.kpi-d .down{color:var(--bad)}
+.kpi-spark{margin-top:10px;height:26px}
+.dash-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px}
+.dash-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.chart-box{position:relative;min-height:120px}
+.chart-box svg{display:block;width:100%}
+.legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--dim)}
+.legend i{width:10px;height:10px;border-radius:3px;flex:none}
+.viz-tip{position:fixed;z-index:300;background:var(--raise2);border:1px solid var(--stroke-hi);border-radius:10px;padding:8px 12px;pointer-events:none;display:none;box-shadow:0 12px 32px rgba(0,0,0,.5);max-width:260px}
+.viz-tip .tt-t{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+.viz-tip .tt-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);padding:1px 0}
+.viz-tip .tt-row i{width:10px;height:3px;border-radius:2px;flex:none}
+.viz-tip .tt-row b{color:var(--text);font-weight:700;margin-left:auto;padding-left:12px}
+.viz-table{width:100%;border-collapse:collapse}
+.viz-table th{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);text-align:left;padding:0 8px 8px 0;border-bottom:1px solid var(--stroke)}
+.viz-table td{font-size:12.5px;color:var(--dim);padding:7px 8px 7px 0;border-bottom:1px solid var(--stroke)}
+.viz-table td.num,.viz-table th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--text)}
+.viz-table tr:last-child td{border-bottom:0}
+table.rows{width:100%;border-collapse:collapse}
+table.rows th{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);text-align:left;padding:0 10px 9px 0;border-bottom:1px solid var(--stroke);white-space:nowrap}
+table.rows td{font-size:13px;padding:10px 10px 10px 0;border-bottom:1px solid var(--stroke);vertical-align:middle}
+table.rows tr:last-child td{border-bottom:0}
+table.rows td.num,table.rows th.num{text-align:right;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+table.rows .cell-main{font-weight:700;color:var(--text)}
+table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px}
+.ship-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--stroke)}
+.ship-item:last-child{border-bottom:0}
+.ship-plate{width:44px;height:30px;flex:none;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:4px}
+.ship-plate img{max-height:100%;max-width:100%;object-fit:contain}
+.ship-info{min-width:0;flex:1}
+.ship-id{display:block;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text)}
+.ship-dest{display:block;font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ship-dest a{color:var(--cool);text-decoration:none;border-bottom:1px dotted rgba(197,211,226,.4)}
+.ship-dest a:hover{color:var(--text);border-bottom-color:var(--text)}
+.ship-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.ship-when{font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+
+/* ————— leads ————— */
+.pipe-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.pipe-chip{display:inline-flex;align-items:center;gap:8px;background:var(--raise);border:1px solid var(--stroke);border-radius:100px;padding:8px 16px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--dim);transition:all .15s}
+.pipe-chip b{font-family:var(--mono);font-size:12px;color:var(--text)}
+.pipe-chip:hover{border-color:var(--stroke-hi)}
+.pipe-chip.on{border-color:rgba(245,93,47,.4);background:rgba(245,93,47,.08);color:var(--text)}
+.lead-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.lead-card{background:var(--raise);border:1px solid var(--stroke);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:13px;transition:border-color .15s}
+.lead-card:hover{border-color:rgba(245,93,47,.2)}
+.lead-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.lead-who h3{font-size:16.5px;font-weight:800;letter-spacing:-.01em}
+.lead-who .co{color:var(--accent);font-weight:700;font-size:13px;margin-top:1px}
+.lead-when{font-family:var(--mono);font-size:10px;color:var(--faint);white-space:nowrap}
+.lead-contact{display:flex;flex-wrap:wrap;gap:7px 16px;font-size:12.5px;color:var(--dim)}
+.lead-contact a{color:var(--cool);text-decoration:none}
+.lead-contact a:hover{color:var(--text)}
+.lead-facts{display:grid;grid-template-columns:repeat(3,auto);gap:8px 20px;justify-content:start;background:rgba(255,255,255,.025);border:1px solid var(--stroke);border-radius:12px;padding:11px 14px}
+.lf{min-width:0}
+.lf-k{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.lf-v{font-size:12.5px;font-weight:600;color:var(--text);margin-top:2px}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.04em;color:var(--dim);background:rgba(255,255,255,.05);border:1px solid var(--stroke);padding:3px 9px;border-radius:100px}
+.lead-notes textarea{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:10px;color:var(--dim);font-family:var(--sans);font-size:12.5px;padding:9px 11px;resize:vertical;min-height:38px;outline:none}
+.lead-notes textarea:focus{border-color:var(--stroke-hi);color:var(--text)}
+.lead-foot{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.sel{background:rgba(255,255,255,.04);border:1px solid var(--stroke);border-radius:10px;color:var(--text);font-family:var(--sans);font-size:12.5px;font-weight:600;padding:8px 30px 8px 12px;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M1 1l3.5 3.5L8 1' stroke='%23a8a49b' fill='none' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.sel:focus{border-color:var(--stroke-hi)}
+.sel option{background:var(--raise2);color:var(--text)}
+.lead-foot .spacer{flex:1}
+.iconbtn{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;font-family:var(--mono);padding:6px;transition:color .15s}
+.iconbtn:hover{color:var(--bad)}
+
+/* ————— onboarding ————— */
+.ob-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.ob-card{background:var(--raise);border:1px solid var(--stroke);border-radius:18px;padding:20px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:12px}
+.ob-card:hover{border-color:rgba(245,93,47,.35);transform:translateY(-2px)}
+.ob-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.ob-card h3{font-size:16.5px;font-weight:800}
+.ob-acct{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
+.prog{height:7px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));border-radius:100px;transition:width .4s ease}
+.prog-lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--faint)}
+.ob-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ob-open{font-size:12.5px;font-weight:700;color:var(--accent)}
+.ob-back{display:inline-flex;align-items:center;gap:8px;color:var(--dim);font-size:13px;font-weight:600;text-decoration:none;margin-bottom:14px;background:none;border:0;cursor:pointer}
+.ob-back:hover{color:var(--text)}
+.ob-det-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.ob-sections{display:flex;flex-direction:column;gap:14px}
+.ob-sec-panel .sec-cap{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:20px 0 10px;display:flex;align-items:center;gap:9px}
+.ob-sec-panel .sec-cap::after{content:"";flex:1;height:1px;background:var(--stroke)}
+.ob-sec-panel .sec-cap:first-child{margin-top:0}
+.qa{display:grid;grid-template-columns:minmax(200px,300px) 1fr;gap:6px 22px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.qa:last-child{border-bottom:0}
+.qa-q{font-size:12.5px;color:var(--dim)}
+.qa-q .req{color:var(--accent)}
+.qa-a input[type=text],.qa-a input[type=email],.qa-a input[type=tel],.qa-a input[type=number],.qa-a input[type=date],.qa-a textarea{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:9px;color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 11px;outline:none;transition:border-color .15s}
+.qa-a input:focus,.qa-a textarea:focus{border-color:var(--stroke-hi)}
+.qa-a textarea{resize:vertical;min-height:36px}
+.yn{display:flex;gap:8px}
+.yn button{background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:9px;color:var(--dim);font-size:12.5px;font-weight:700;padding:7px 18px;cursor:pointer;transition:all .15s}
+.yn button:hover{color:var(--text)}
+.yn button.sel{background:rgba(245,93,47,.1);border-color:rgba(245,93,47,.4);color:var(--accent)}
+.fileslot{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fbtn{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.18);border-radius:9px;color:var(--dim);font-size:12px;font-weight:600;padding:7px 14px;cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.fbtn:hover{border-color:var(--accent);color:var(--text)}
+.fchip{display:inline-flex;align-items:center;gap:8px;background:rgba(126,226,168,.06);border:1px solid rgba(126,226,168,.25);border-radius:9px;padding:6px 11px;font-family:var(--mono);font-size:11px;color:var(--ok);max-width:100%}
+.fchip button{background:none;border:0;color:var(--faint);cursor:pointer;font-size:13px;line-height:1;padding:0 0 0 2px}
+.fchip button:hover{color:var(--bad)}
+.fchip a{color:inherit;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;cursor:pointer}
+.fchip a:hover{text-decoration:underline}
+.kyc-row{display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);flex-wrap:wrap}
+.kyc-row:last-child{border-bottom:0}
+.kbox{width:20px;height:20px;flex:none;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.03);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;color:transparent}
+.kbox.done{background:var(--accent);border-color:var(--accent);color:#0d0c0a}
+.kyc-name{flex:1;min-width:180px;font-size:13px;font-weight:600}
+.kyc-name small{display:block;font-weight:400;font-size:11px;color:var(--faint)}
+.kyc-row.done .kyc-name{color:var(--dim);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.25)}
+.agr-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.agr-row:last-child{border-bottom:0}
+.agr-name{font-size:13px;font-weight:700}
+.agr-name small{display:block;font-weight:400;font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
+
+/* ————— documents ————— */
+.doc-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.doc-table-wrap{overflow-x:auto}
+.doc-icon{width:36px;height:36px;flex:none;border-radius:10px;background:rgba(245,93,47,.09);border:1px solid rgba(245,93,47,.2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.04em;color:var(--accent);text-transform:uppercase}
+.doc-cell{display:flex;align-items:center;gap:12px;min-width:220px}
+.rowbtns{display:flex;gap:6px;justify-content:flex-end}
+.rowbtns .tbtn{white-space:nowrap}
+
+/* ————— carriers ————— */
+.car-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.car-card{background:var(--raise);border:1px solid var(--stroke);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.car-top{display:flex;align-items:center;gap:14px}
+.car-plate{width:64px;height:42px;flex:none;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:6px}
+.car-plate img{max-height:100%;max-width:100%;object-fit:contain}
+.car-top h3{font-size:16.5px;font-weight:800}
+.car-sub{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-top:2px}
+.car-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px}
+.cf{min-width:0}
+.cf-k{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+.cf input{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:8px;color:var(--text);font-size:12.5px;font-family:var(--sans);padding:7px 10px;outline:none;transition:border-color .15s}
+.cf input:focus{border-color:var(--stroke-hi)}
+.car-links{display:flex;gap:8px;flex-wrap:wrap}
+.car-attach{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--stroke);padding-top:13px}
+.car-attach-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.car-attach-row .lab{font-size:12px;color:var(--dim);min-width:150px;font-weight:600}
+.car-notes textarea{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:10px;color:var(--dim);font-family:var(--sans);font-size:12.5px;padding:9px 11px;resize:vertical;min-height:40px;outline:none}
+.car-notes textarea:focus{border-color:var(--stroke-hi);color:var(--text)}
+
+/* ————— drawer & modal ————— */
+.scrim{position:fixed;inset:0;background:rgba(5,4,3,.65);backdrop-filter:blur(3px);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100vw);background:var(--raise);border-left:1px solid var(--stroke);z-index:210;transform:translateX(102%);transition:transform .28s cubic-bezier(.2,.8,.24,1);display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--stroke)}
+.drawer-head h2{font-size:17px;font-weight:800}
+.x{background:none;border:0;color:var(--faint);font-size:20px;cursor:pointer;line-height:1;padding:4px}
+.x:hover{color:var(--text)}
+.drawer-body{padding:20px 24px 30px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px}
+.f-lab{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;display:block}
+.f-lab span{color:var(--accent)}
+.f-in{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--stroke);border-radius:11px;color:var(--text);font-size:13.5px;font-family:var(--sans);padding:11px 14px;outline:none;transition:border-color .2s}
+.f-in:focus{border-color:var(--stroke-hi)}
+.f-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chkgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.chk{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:10px;padding:8px 11px;cursor:pointer;font-size:12.5px;color:var(--dim);transition:all .15s}
+.chk:hover{border-color:var(--stroke-hi)}
+.chk input{accent-color:var(--accent);width:14px;height:14px}
+.chk:has(input:checked){border-color:rgba(245,93,47,.4);color:var(--text);background:rgba(245,93,47,.06)}
+.drawer-foot{padding:16px 24px;border-top:1px solid var(--stroke);display:flex;gap:10px}
+.modal{position:fixed;inset:0;z-index:220;display:none;align-items:center;justify-content:center;padding:20px}
+.modal.on{display:flex}
+.modal-card{background:var(--raise);border:1px solid var(--stroke);border-radius:20px;width:min(520px,100%);max-height:90vh;overflow-y:auto;padding:26px 28px;position:relative;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.modal-card h2{font-size:19px;font-weight:800;margin-bottom:4px}
+.modal-card .msub{color:var(--dim);font-size:13px;margin-bottom:18px}
+.modal-card .x{position:absolute;top:18px;right:18px}
+.set-sec{border-top:1px solid var(--stroke);padding-top:16px;margin-top:16px}
+.set-sec:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.set-cap{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+.conn-msg{font-size:12px;border-radius:10px;padding:10px 13px;margin-top:10px;line-height:1.5;display:none}
+.conn-msg.err{display:block;background:rgba(255,138,112,.07);border:1px solid rgba(255,138,112,.25);color:var(--bad)}
+.conn-msg.ok{display:block;background:rgba(126,226,168,.07);border:1px solid rgba(126,226,168,.25);color:var(--ok)}
+.storage-bar{height:6px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden;margin-top:8px}
+.storage-bar i{display:block;height:100%;background:var(--cool);border-radius:100px}
+.set-note{font-size:11.5px;color:var(--faint);line-height:1.5;margin-top:8px}
+.set-note a{color:var(--cool)}
+.toast{position:fixed;bottom:26px;left:50%;transform:translate(-50%,20px);background:var(--raise2);border:1px solid var(--stroke-hi);color:var(--text);font-size:13px;font-weight:600;padding:12px 22px;border-radius:100px;z-index:400;opacity:0;pointer-events:none;transition:all .25s;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ————— empty state ————— */
+.empty{display:flex;flex-direction:column;align-items:center;gap:14px;padding:60px 20px;text-align:center;border:1px dashed rgba(255,255,255,.12);border-radius:18px}
+.empty img{height:74px;opacity:.5}
+.empty p{color:var(--faint);font-size:13px;max-width:340px}
+
+/* ————— responsive ————— */
+@media(max-width:1180px){
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .dash-grid{grid-template-columns:1fr}
+  .lead-grid,.ob-grid,.car-grid{grid-template-columns:1fr}
+}
+@media(max-width:840px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;left:0;width:min(280px,84vw);transform:translateX(-103%);transition:transform .25s ease;box-shadow:30px 0 80px rgba(0,0,0,.5)}
+  .side.open{transform:none}
+  .main{padding:18px 16px 60px}
+  .mobile-top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .burger{background:var(--raise);border:1px solid var(--stroke);border-radius:10px;color:var(--text);width:40px;height:40px;font-size:16px;cursor:pointer}
+  .mobile-top img{height:24px}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .qa{grid-template-columns:1fr}
+  .agr-row{grid-template-columns:1fr;gap:8px}
+  .search input{width:150px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======================================================= sidebar -->
+  <aside class="side" id="side">
+    <div class="side-logo">
+      <img src="assets/logo-white.png" alt="Fullstack Fulfillment">
+      <span class="side-tag">HQ · Database</span>
+    </div>
+    <nav class="side-nav" id="sideNav" aria-label="Sections">
+      <a href="#/dashboard" data-route="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="#/leads" data-route="leads">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3.5 20c.6-3.6 2.8-5.5 5.5-5.5s4.9 1.9 5.5 5.5"/><path d="M18 8v6M15 11h6"/></svg>
+        New Client Leads
+        <span class="n-count" id="countLeads"></span>
+      </a>
+      <a href="#/onboarding" data-route="onboarding">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5"/><path d="M9 12l2 2 4-4"/></svg>
+        New Client Onboarding
+        <span class="n-count" id="countOb"></span>
+      </a>
+      <a href="#/documents" data-route="documents">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8L19 7.5v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2z"/><path d="M13.5 2.5v5h5"/><path d="M8 13h8M8 17h5"/></svg>
+        Client Documents
+        <span class="n-count" id="countDocs"></span>
+      </a>
+      <a href="#/carriers" data-route="carriers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v10h-11z"/><path d="M13.5 10h4l3 3v3.5h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>
+        Carriers
+      </a>
+    </nav>
+    <div class="side-foot">
+      <div class="ss-status" id="ssStatus" role="button" tabindex="0" title="Starshipit connection — open settings">
+        <span class="ss-dot" id="ssDot"></span>
+        <img src="assets/starshipit.svg" alt="Starshipit">
+        <span class="ss-lab" id="ssLab">Demo data</span>
+      </div>
+      <div class="side-btns">
+        <button id="btnSettings">Settings</button>
+        <button id="btnExport">Export</button>
+      </div>
+      <div class="side-ver">FS Database · v1</div>
+    </div>
+  </aside>
+
+  <!-- ========================================================= main -->
+  <main class="main">
+    <div class="mobile-top">
+      <button class="burger" id="burger" aria-label="Open menu">☰</button>
+      <img src="assets/logo-white.png" alt="Fullstack Fulfillment">
+    </div>
+
+    <section class="view" id="view-dashboard" data-view="dashboard"></section>
+    <section class="view" id="view-leads" data-view="leads"></section>
+    <section class="view" id="view-onboarding" data-view="onboarding"></section>
+    <section class="view" id="view-documents" data-view="documents"></section>
+    <section class="view" id="view-carriers" data-view="carriers"></section>
+  </main>
+</div>
+
+<!-- ======================================================= overlays -->
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer" id="leadDrawer" aria-label="Add lead">
+  <div class="drawer-head"><h2 id="leadDrawerTitle">Add a lead</h2><button class="x" data-close>✕</button></div>
+  <div class="drawer-body" id="leadDrawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn" id="leadSave">Save lead</button>
+    <button class="btn ghost" data-close>Cancel</button>
+  </div>
+</aside>
+
+<aside class="drawer" id="docDrawer" aria-label="Add document">
+  <div class="drawer-head"><h2>Add a document</h2><button class="x" data-close>✕</button></div>
+  <div class="drawer-body" id="docDrawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn" id="docSave">Save document</button>
+    <button class="btn ghost" data-close>Cancel</button>
+  </div>
+</aside>
+
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="modal-card">
+    <button class="x" data-close>✕</button>
+    <h2>Settings</h2>
+    <p class="msub">Starshipit connection and local data.</p>
+
+    <div class="set-sec">
+      <div class="set-cap">Starshipit API</div>
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <div><label class="f-lab" for="ssApiKey">API key</label><input class="f-in" id="ssApiKey" type="password" autocomplete="off" placeholder="Starshipit → Settings → API"></div>
+        <div><label class="f-lab" for="ssSubKey">Subscription key</label><input class="f-in" id="ssSubKey" type="password" autocomplete="off" placeholder="Ocp-Apim-Subscription-Key"></div>
+        <div><label class="f-lab" for="ssProxy">Proxy base URL — optional</label><input class="f-in" id="ssProxy" type="text" autocomplete="off" placeholder="https://your-worker.example.workers.dev"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn small" id="ssConnect">Connect &amp; sync</button>
+        <button class="btn ghost small" id="ssDisconnect">Use demo data</button>
+      </div>
+      <div class="conn-msg" id="ssMsg"></div>
+      <p class="set-note">Keys are stored only in this browser. Direct calls to the Starshipit API are usually blocked by browsers (CORS) — the README ships a 20-line Cloudflare Worker proxy that makes the live connection work. Until then the dashboard runs on demo data.</p>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-cap">Local data</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost small" id="btnExport2">Export backup</button>
+        <button class="btn ghost small" id="btnImport">Import backup</button>
+        <button class="btn ghost small" id="btnReseed">Reset demo data</button>
+        <button class="btn danger small" id="btnWipe">Erase everything</button>
+      </div>
+      <div class="storage-bar"><i id="storageBar" style="width:2%"></i></div>
+      <p class="set-note" id="storageNote">—</p>
+      <p class="set-note">Everything lives in this browser (localStorage + IndexedDB) — nothing is sent to a server. Use <b>Export backup</b> to move or share the database; it downloads a single JSON file including uploaded documents.</p>
+    </div>
+  </div>
+</div>
+
+<div class="viz-tip" id="vizTip" aria-hidden="true"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" style="display:none">
+<input type="file" id="importIn" accept="application/json" style="display:none">
+<script>
+/* ================================================================== *
+ *  FS DATABASE — Fullstack Fulfillment internal ops app              *
+ *  Plain HTML/CSS/JS, no dependencies. Data lives in this browser:   *
+ *  structured records in localStorage, uploaded files in IndexedDB.  *
+ * ================================================================== */
+'use strict';
+
+/* ————— tiny helpers ————— */
+const $  = (q, el) => (el || document).querySelector(q);
+const $$ = (q, el) => Array.from((el || document).querySelectorAll(q));
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function nf(n){ return (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('en-AU'); }
+function nfc(n){ if(n == null || isNaN(n)) return '—'; if(Math.abs(n) >= 10000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'k'; return Math.round(n).toLocaleString('en-AU'); }
+function money(n){ return (n == null || isNaN(n)) ? '—' : '$' + Math.round(n).toLocaleString('en-AU'); }
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtD(iso){ const d = new Date(iso); return d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+function fmtDY(iso){ const d = new Date(iso); return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+function timeAgo(iso){
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if(s < 90) return 'just now';
+  if(s < 3600) return Math.round(s/60) + ' min ago';
+  if(s < 86400 * 1.5) return Math.round(s/3600) + ' h ago';
+  if(s < 86400 * 14) return Math.round(s/86400) + ' d ago';
+  return fmtD(iso);
+}
+function dayStart(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function daysBack(n){ const x = dayStart(new Date()); x.setDate(x.getDate() - n); return x; }
+function fmtSize(b){ if(b == null) return ''; if(b < 1024) return b + ' B'; if(b < 1048576) return (b/1024).toFixed(0) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; }
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2600); }
+function debounce(fn, ms){ let t; return function(){ clearTimeout(t); const a = arguments, self = this; t = setTimeout(() => fn.apply(self, a), ms); }; }
+
+/* ————— store (localStorage) ————— */
+const DB = {
+  cache: {},
+  get(key, def){
+    if(key in this.cache) return this.cache[key];
+    try{ const raw = localStorage.getItem('fsdb.' + key); this.cache[key] = raw ? JSON.parse(raw) : def; }
+    catch(e){ this.cache[key] = def; }
+    return this.cache[key];
+  },
+  set(key, val){
+    this.cache[key] = val;
+    try{ localStorage.setItem('fsdb.' + key, JSON.stringify(val)); }
+    catch(e){ toast('Storage full — export a backup, then remove old files'); }
+    return val;
+  }
+};
+const col = {
+  clients:    () => DB.get('clients', []),
+  shipments:  () => DB.get('shipments', []),
+  ssOrders:   () => DB.get('ssOrders', []),
+  leads:      () => DB.get('leads', []),
+  onboarding: () => DB.get('onboarding', []),
+  docs:       () => DB.get('docs', []),
+  carriers:   () => DB.get('carriers', []),
+  settings:   () => DB.get('settings', { range: 30, ss: { apiKey:'', subKey:'', proxy:'', connected:false, lastSync:null } })
+};
+function save(name){ DB.set(name, DB.cache[name] !== undefined ? DB.cache[name] : col[name]()); }
+
+/* ————— files (IndexedDB) ————— */
+function idb(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('fsdb-files', 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore('files', { keyPath: 'id' });
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function idbOp(mode, fn){
+  return idb().then(db => new Promise((res, rej) => {
+    const tx = db.transaction('files', mode);
+    const out = fn(tx.objectStore('files'));
+    tx.oncomplete = () => res(out && out.result);
+    tx.onerror = () => rej(tx.error);
+  }));
+}
+async function fput(file){
+  const id = uid();
+  await idbOp('readwrite', st => st.put({ id, name: file.name, type: file.type, blob: file }));
+  return { fid: id, name: file.name, size: file.size };
+}
+function fget(fid){ return idbOp('readonly', st => st.get(fid)); }
+function fdel(fid){ if(!fid) return Promise.resolve(); return idbOp('readwrite', st => st.delete(fid)).catch(() => {}); }
+function fall(){ return idbOp('readonly', st => st.getAll()); }
+async function downloadRef(ref){
+  if(!ref) return;
+  let blob = null;
+  if(ref.fid){ const rec = await fget(ref.fid).catch(() => null); blob = rec && rec.blob; }
+  else if(ref.body){ blob = new Blob([ref.body], { type: 'text/plain' }); }
+  if(!blob){ toast('File data not found'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ref.name || 'download';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+let pendingUpload = null;
+function askFile(onDone, accept){
+  pendingUpload = onDone;
+  const fi = $('#fileIn');
+  fi.accept = accept || '';
+  fi.value = '';
+  fi.click();
+}
+
+/* ————— constants ————— */
+const CARRIERS = ['auspost','dhl','nzpost','seko','parcelright'];       // fixed order = chart slots 1..5, frozen
+const CARRIER_META = {
+  auspost:     { name: 'Australia Post', logo: 'assets/auspost.svg',     slot: 1 },
+  dhl:         { name: 'DHL Express',    logo: 'assets/dhl.svg',         slot: 2 },
+  nzpost:      { name: 'NZ Post',        logo: 'assets/nzpost.png',      slot: 3 },
+  seko:        { name: 'SEKO Logistics', logo: 'assets/seko.png',        slot: 4 },
+  parcelright: { name: 'Parcel Right',   logo: 'assets/parcelright.svg', slot: 5 }
+};
+const SLOT = { 1:'#f0561f', 2:'#3987e5', 3:'#199e70', 4:'#c98500', 5:'#d55181' }; // validated palette (dark surface)
+function carrierColor(key){ const m = CARRIER_META[key]; return m ? SLOT[m.slot] : '#6a6a64'; }
+function carrierName(key){ const rec = col.carriers().find(c => c.key === key); return (rec && rec.name) || (CARRIER_META[key] && CARRIER_META[key].name) || key || '—'; }
+function trackUrl(key, tracking){
+  if(!tracking) return '';
+  const rec = col.carriers().find(c => c.key === key);
+  const tpl = rec && rec.trackingTpl;
+  if(!tpl) return '';
+  return tpl.indexOf('{t}') >= 0 ? tpl.replace('{t}', encodeURIComponent(tracking)) : tpl;
+}
+
+const LEAD_STATUSES = [['new','New'],['contacted','Contacted'],['quoted','Quoted'],['won','Won'],['lost','Lost']];
+const VOLUMES  = [['under_100','Under 100'],['100_500','100 – 500'],['500_2000','500 – 2,000'],['2000_10000','2,000 – 10,000'],['10000_plus','10,000+']];
+const SKUBANDS = [['under_50','Under 50'],['50_200','50 – 200'],['200_1000','200 – 1,000'],['1000_plus','1,000+']];
+const TIMELINES = [['asap','ASAP'],['1_3_months','1–3 months'],['3_6_months','3–6 months'],['6_plus_months','6+ months'],['exploring','Just exploring']];
+const INTEGRATIONS = ['Shopify','WooCommerce','BigCommerce','Squarespace','Wix','Wix Studio','NetSuite','Cin7','DEAR','Zapier','Starshipit','Australia Post','Other'];
+const NEEDS = ['Satchels','Cartons','Branded Inserts','Gift Boxes','Seasonal/Promo Packs','Returns Processing','Fragile Handling','Kitting/Assembly'];
+function lbl(list, v){ const hit = list.find(x => x[0] === v); return hit ? hit[1] : (v || '—'); }
+
+/* the website onboarding questionnaire — same sections, same questions */
+const QUESTIONNAIRE = [
+  { sec:'Company Information', key:'company_name',    q:'What is your company name?', type:'text', req:1 },
+  { sec:'Company Information', key:'company_address', q:'What is your company address?', type:'long', req:1 },
+  { sec:'Company Information', key:'city_state_post', q:'City, state and postcode', type:'text', req:1 },
+  { sec:'Company Information', key:'company_phone',   q:'Company phone number', type:'tel', req:1 },
+  { sec:'Company Information', key:'company_email',   q:'Company email address', type:'email', req:1 },
+  { sec:'Company Contacts', key:'primary_contact', q:'Name of the primary point of contact', type:'text', req:1 },
+  { sec:'Company Contacts', key:'primary_email',   q:'Primary contact’s email address', type:'email', req:1 },
+  { sec:'Company Contacts', key:'invalid_addr_emails', q:'Email(s) to receive invalid address notifications', type:'long' },
+  { sec:'Company Contacts', key:'stock_report_emails', q:'Email(s) to receive stock report updates', type:'long' },
+  { sec:'Company Contacts', key:'returns_emails',      q:'Email(s) to receive returns spreadsheets', type:'long' },
+  { sec:'Billing', key:'billing_company', q:'Billing company name', type:'text' },
+  { sec:'Billing', key:'billing_address', q:'Billing address', type:'long' },
+  { sec:'Billing', key:'billing_email',   q:'Billing contact email', type:'email' },
+  { sec:'Your Products', key:'products_desc', q:'What products are you shipping?', type:'long', req:1 },
+  { sec:'Your Products', key:'active_skus',   q:'How many active SKUs do you have?', type:'number', req:1 },
+  { sec:'Your Products', key:'dangerous_goods', q:'Do any of your products contain dangerous goods?', type:'yesno', req:1 },
+  { sec:'Your Products', key:'sku_list_ok',   q:'Can you supply a SKU list with descriptions, weights and dimensions?', type:'yesno', req:1 },
+  { sec:'Your Products', key:'sku_list_file', q:'SKU list upload', type:'file' },
+  { sec:'Your Products', key:'weekly_under_500g', q:'Average weekly orders under 500 g', type:'number', req:1 },
+  { sec:'Your Products', key:'weekly_500g_1kg',   q:'Average weekly orders between 500 g and 1 kg', type:'number', req:1 },
+  { sec:'Your Products', key:'weekly_over_1kg',   q:'Average weekly orders over 1 kg', type:'number', req:1 },
+  { sec:'Your Products', key:'golive_date', q:'Expected go-live date', type:'date', req:1 },
+  { sec:'Shipping', key:'packaging_type', q:'What type of product packaging do you use?', type:'text', req:1 },
+  { sec:'Shipping', key:'ships_intl',     q:'Do you ship internationally?', type:'yesno', req:1 },
+  { sec:'Tech Setup', key:'ecom_platform', q:'Which eCommerce platform do you sell on?', type:'text', req:1 },
+  { sec:'Tech Setup', key:'it_contact',    q:'IT contact person’s name', type:'text', req:1 },
+  { sec:'Tech Setup', key:'it_email',      q:'IT contact person’s email address', type:'email', req:1 },
+  { sec:'Tech Setup', key:'wms_erp',       q:'Do you use a WMS or ERP? Which one?', type:'text' }
+];
+const KYC_ITEMS = [
+  { key:'asic',    name:'Company registration — ASIC extract', hint:'Current company extract or certificate of registration' },
+  { key:'id',      name:'Director photo ID', hint:'Passport or driver licence of the signing director' },
+  { key:'abn',     name:'ABN / GST registration verified', hint:'ABN Lookup record matches the company details' },
+  { key:'address', name:'Proof of business address', hint:'Utility bill, lease or bank statement — last 3 months' },
+  { key:'bank',    name:'Bank details & direct debit authority', hint:'Signed DDR form for invoicing' },
+  { key:'insurance', name:'Certificate of currency — insurance', hint:'Public & product liability certificate' },
+  { key:'dg',      name:'Dangerous goods declaration', hint:'Only required when products contain dangerous goods', dgOnly:1 }
+];
+const AGREEMENTS = [
+  { key:'service',   name:'3PL Services Agreement' },
+  { key:'nda',       name:'Mutual NDA' },
+  { key:'guarantee', name:'Performance Guarantee' },
+  { key:'ratecard',  name:'Rate Card' }
+];
+const AGR_STATES = [['not_sent','Not sent'],['sent','Sent'],['signed','Signed']];
+const DOC_CATS = [['nda','NDAs'],['agreement','Agreements'],['guarantee','Guarantees'],['ratecard','Rate cards'],['freight','Freight charges'],['other','Other']];
+function catLabel(c){ const hit = DOC_CATS.find(x => x[0] === c); return hit ? hit[1] : 'Other'; }
+
+/* ================================================================== *
+ *  Demo seed — deterministic PRNG so the dataset is stable           *
+ * ================================================================== */
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function seed(){
+  const R = mulberry32(20260806);
+  const pick = arr => arr[Math.floor(R() * arr.length)];
+  const wpick = pairs => { let r = R() * pairs.reduce((s,p) => s + p[1], 0); for(const p of pairs){ r -= p[1]; if(r <= 0) return p[0]; } return pairs[0][0]; };
+
+  /* clients */
+  const clients = [
+    { id:'apn', name:'Alpine Peak Nutrition', acct:'FS-1042', platform:'Shopify', status:'live',
+      skus:[
+        { sku:'APN-WPI-CHOC-1KG', name:'Whey Protein Isolate — Chocolate 1 kg', price:62 },
+        { sku:'APN-WPI-VAN-1KG',  name:'Whey Protein Isolate — Vanilla 1 kg',  price:62 },
+        { sku:'APN-CRE-MONO-500', name:'Creatine Monohydrate 500 g', price:38 },
+        { sku:'APN-PWO-BERRY-300',name:'Pre-Workout — Wild Berry 300 g', price:49 },
+        { sku:'APN-RTD-CHOC-12PK',name:'RTD Protein Shake — Choc 12-pack', price:54 },
+        { sku:'APN-SHAKER-700',   name:'Shaker 700 ml', price:12 } ] },
+    { id:'ifs', name:'Iron Fuel Supplements', acct:'FS-1044', platform:'WooCommerce', status:'live',
+      skus:[
+        { sku:'IF-PRE-MANGO-400', name:'Pre-Workout — Mango 400 g', price:52 },
+        { sku:'IF-BCAA-COLA-300', name:'BCAA Recovery — Cola 300 g', price:41 },
+        { sku:'IF-CRTN-1KG',      name:'Creatine Monohydrate 1 kg', price:59 },
+        { sku:'IF-SHKR-600',      name:'Iron Fuel Shaker 600 ml', price:11 },
+        { sku:'IF-TEE-BLK-L',     name:'Training Tee — Black L', price:35 } ] },
+    { id:'glw', name:'Glow Wellness Co', acct:'FS-1047', platform:'Shopify', status:'live',
+      skus:[
+        { sku:'GW-COLL-300',   name:'Collagen Peptides 300 g', price:45 },
+        { sku:'GW-GREENS-250', name:'Daily Greens Blend 250 g', price:56 },
+        { sku:'GW-SLEEP-60',   name:'Sleep Gummies 60 ct', price:29 },
+        { sku:'GW-HYDR-20',    name:'Hydration Sticks 20-pack', price:24 },
+        { sku:'GW-BOTTLE-750', name:'Glass Bottle 750 ml', price:19 } ] },
+    { id:'psl', name:'Peak State Labs', acct:'FS-1051', platform:'BigCommerce', status:'live',
+      skus:[
+        { sku:'PSL-NOO-60',      name:'Nootropic Focus Caps 60 ct', price:44 },
+        { sku:'PSL-ELEC-LEM-500',name:'Electrolytes — Lemon 500 g', price:33 },
+        { sku:'PSL-MAG-120',     name:'Magnesium Night Caps 120 ct', price:31 },
+        { sku:'PSL-OMEGA-90',    name:'Omega-3 Softgels 90 ct', price:27 } ] },
+    { id:'kkv', name:'Koala Kids Vitamins', acct:'FS-1053', platform:'Shopify', status:'onboarding',
+      skus:[
+        { sku:'KKV-MULTI-90',  name:'Kids Multi Gummies 90 ct', price:26 },
+        { sku:'KKV-VITC-60',   name:'Vitamin C Chews 60 ct', price:19 },
+        { sku:'KKV-PROBIO-30', name:'Kids Probiotic Sachets 30-pack', price:34 } ] }
+  ];
+  const priceOf = {};
+  clients.forEach(c => c.skus.forEach(s => priceOf[s.sku] = s.price));
+
+  /* shipments — 92 days of history */
+  const AU_DEST = [['Sydney','NSW',26],['Melbourne','VIC',24],['Brisbane','QLD',18],['Perth','WA',9],['Adelaide','SA',7],['Gold Coast','QLD',6],['Canberra','ACT',4],['Newcastle','NSW',3],['Sunshine Coast','QLD',3],['Hobart','TAS',2],['Geelong','VIC',2],['Townsville','QLD',2]];
+  const NZ_DEST = [['Auckland','NZ',5],['Wellington','NZ',3],['Christchurch','NZ',3]];
+  const INTL_DEST = [['Singapore','SG',3],['Los Angeles','US',3],['London','UK',2],['Tokyo','JP',1]];
+  const plans = {
+    apn: { base:18, carriers:[['auspost',50],['parcelright',18],['dhl',12],['nzpost',20]] },
+    ifs: { base:8,  carriers:[['auspost',35],['dhl',28],['seko',15],['parcelright',22]] },
+    glw: { base:10, carriers:[['auspost',60],['parcelright',25],['dhl',5],['nzpost',10]] },
+    psl: { base:4,  carriers:[['auspost',70],['parcelright',30]] },
+    kkv: { base:0,  carriers:[['auspost',100]] }
+  };
+  const trackFor = k =>
+    k === 'auspost' ? 'AP' + String(392100000 + Math.floor(R()*899999)) + 'AU' :
+    k === 'dhl'     ? 'DHL' + String(8800000 + Math.floor(R()*199999)) :
+    k === 'nzpost'  ? 'NZ' + String(10400000 + Math.floor(R()*8999999)) :
+    k === 'seko'    ? 'SK' + String(55200000 + Math.floor(R()*8999999)) :
+                      'PR' + String(1100000 + Math.floor(R()*899999));
+  const shipments = [];
+  let orderNo = 282600;
+  const now = new Date();
+  for(let d = 92; d >= 0; d--){
+    const day = daysBack(d);
+    const dow = day.getDay();
+    const dayFactor = (dow === 0 ? 0.15 : dow === 6 ? 0.35 : 1) * (1 + (92 - d) * 0.0022); // quiet weekends, gentle growth
+    for(const c of clients){
+      const plan = plans[c.id];
+      let n = plan.base;
+      if(c.id === 'kkv') n = d <= 6 ? 3 : 0;               // new client — first week of volume
+      n = Math.round(n * dayFactor * (0.7 + R() * 0.6));
+      for(let i = 0; i < n; i++){
+        const carrier = wpick(plan.carriers);
+        const destPool = carrier === 'nzpost' ? NZ_DEST : carrier === 'seko' ? INTL_DEST : carrier === 'dhl' ? (R() < 0.42 ? INTL_DEST : AU_DEST) : AU_DEST;
+        const dest = wpick(destPool.map(x => [x, x[2]]));
+        const nItems = R() < 0.72 ? 1 : 2;
+        const items = [];
+        for(let j = 0; j < nItems; j++){
+          const s = pick(c.skus);
+          const dup = items.find(it => it.sku === s.sku);
+          const qty = R() < 0.75 ? 1 : 2;
+          if(dup) dup.qty += qty; else items.push({ sku: s.sku, qty });
+        }
+        const value = items.reduce((sum, it) => sum + (priceOf[it.sku] || 30) * it.qty, 0);
+        const ts = new Date(day.getTime() + (8 + Math.floor(R() * 9)) * 3600e3 + Math.floor(R() * 3600e3));
+        const ageDays = (now - ts) / 86400e3;
+        const status = ageDays > 4 ? 'delivered' : ageDays > 0.8 ? 'transit' : 'packed';
+        shipments.push({ id: uid() + orderNo, orderNo: 'FS-' + (orderNo++), clientId: c.id, carrier,
+          dest: dest[0] + ' ' + dest[1], tracking: trackFor(carrier), status, date: ts.toISOString(), items, value });
+      }
+    }
+  }
+  /* a few open (unshipped) orders awaiting pick & pack */
+  for(let i = 0; i < 13; i++){
+    const c = pick(clients.filter(x => x.status === 'live'));
+    const s = pick(c.skus);
+    const ts = new Date(now.getTime() - Math.floor(R() * 20) * 3600e3);
+    shipments.push({ id: uid() + orderNo, orderNo: 'FS-' + (orderNo++), clientId: c.id,
+      carrier: wpick(plans[c.id].carriers), dest: wpick(AU_DEST.map(x => [x, x[2]])).slice(0,2).join(' '),
+      tracking: '', status: 'unshipped', date: ts.toISOString(), items: [{ sku: s.sku, qty: 1 }],
+      value: priceOf[s.sku] || 30 });
+  }
+
+  /* leads — website "Get a Quote" inquiries */
+  const hAgo = h => new Date(Date.now() - h * 3600e3).toISOString();
+  const leads = [
+    { id: uid(), ts: hAgo(2), first:'Jack', last:'Harmon', email:'jack@loopelectrolytes.com.au', phone:'0401 882 143',
+      company:'Loop Electrolytes', abn:'64 118 442 907', website:'https://loopelectrolytes.com.au',
+      integrations:['Shopify','Starshipit'], volume:'500_2000', skus:'under_50', dims:'40 g sachet boxes, 12×9×9 cm, ~450 g',
+      needs:['Satchels','Returns Processing'], timeline:'asap', status:'new',
+      notes:'Came via the website quote form. Wants to move off self-fulfilment before summer peak.' },
+    { id: uid(), ts: hAgo(7), first:'Hannah', last:'Cole', email:'hello@bloommotherbaby.com.au', phone:'0432 210 998',
+      company:'Bloom Mother & Baby', abn:'27 664 019 553', website:'https://bloommotherbaby.com.au',
+      integrations:['Squarespace'], volume:'under_100', skus:'under_50', dims:'Gift boxes 30×22×12 cm, fragile glassware',
+      needs:['Gift Boxes','Fragile Handling'], timeline:'exploring', status:'new',
+      notes:'' },
+    { id: uid(), ts: hAgo(30), first:'Priya', last:'Nair', email:'priya@terrabotanicals.com.au', phone:'0448 020 331',
+      company:'Terra Botanicals', abn:'88 402 552 610', website:'https://terrabotanicals.com.au',
+      integrations:['WooCommerce','Zapier'], volume:'100_500', skus:'50_200', dims:'Amber bottles 100–500 ml, cartons',
+      needs:['Cartons','Branded Inserts'], timeline:'1_3_months', status:'contacted',
+      notes:'Discovery call booked. Interested in the branded unboxing options.' },
+    { id: uid(), ts: hAgo(76), first:'Liam', last:'O’Connell', email:'liam@southpawsupps.com', phone:'0410 663 754',
+      company:'Southpaw Supps', abn:'51 209 884 172', website:'https://southpawsupps.com',
+      integrations:['Shopify','Starshipit'], volume:'2000_10000', skus:'under_50', dims:'1 kg tubs + shakers, ~1.4 kg avg order',
+      needs:['Satchels','Kitting/Assembly'], timeline:'asap', status:'won',
+      notes:'Verbal yes on the quote — onboarding started, agreements out for signature.' },
+    { id: uid(), ts: hAgo(190), first:'Grace', last:'Wu', email:'grace@koalakidsvitamins.com.au', phone:'0403 118 220',
+      company:'Koala Kids Vitamins', abn:'73 550 902 366', website:'https://koalakidsvitamins.com.au',
+      integrations:['Shopify'], volume:'100_500', skus:'under_50', dims:'Gummy jars 90 ct, 11×7×7 cm, 280 g',
+      needs:['Satchels','Seasonal/Promo Packs'], timeline:'1_3_months', status:'won',
+      notes:'Won — now live as FS-1053. First stock received, first orders flowing.' },
+    { id: uid(), ts: hAgo(240), first:'Dylan', last:'Reeves', email:'dylan@apexstrength.co', phone:'0421 559 004',
+      company:'Apex Strength Co', abn:'19 884 630 227', website:'https://apexstrength.co',
+      integrations:['BigCommerce','Cin7'], volume:'500_2000', skus:'50_200', dims:'Mixed — tubs, apparel, gym accessories',
+      needs:['Cartons','Returns Processing'], timeline:'3_6_months', status:'lost',
+      notes:'Went with a Melbourne 3PL closer to their warehouse. Revisit next year.' }
+  ];
+
+  /* onboarding — website questionnaire records */
+  const dAgoISO = d => new Date(Date.now() - d * 86400e3).toISOString();
+  const onboarding = [
+    { id:'ob-kkv', clientName:'Koala Kids Vitamins', acct:'FS-1053', started:dAgoISO(18), status:'in_progress',
+      answers:{
+        company_name:'Koala Kids Vitamins Pty Ltd', company_address:'Unit 4, 18 Harvest Court', city_state_post:'Burleigh Heads QLD 4220',
+        company_phone:'07 5522 8104', company_email:'hello@koalakidsvitamins.com.au',
+        primary_contact:'Grace Wu', primary_email:'grace@koalakidsvitamins.com.au',
+        invalid_addr_emails:'orders@koalakidsvitamins.com.au', stock_report_emails:'grace@koalakidsvitamins.com.au',
+        returns_emails:'orders@koalakidsvitamins.com.au',
+        billing_company:'Koala Kids Vitamins Pty Ltd', billing_address:'Same as company address', billing_email:'accounts@koalakidsvitamins.com.au',
+        products_desc:'Children’s vitamin gummies, chewable vitamin C and probiotic sachets. All shelf-stable, no cold chain.',
+        active_skus:'3', dangerous_goods:'No', sku_list_ok:'Yes',
+        weekly_under_500g:'110', weekly_500g_1kg:'25', weekly_over_1kg:'5',
+        golive_date: new Date(Date.now() + 9 * 86400e3).toISOString().slice(0,10),
+        packaging_type:'Branded satchels; jars ship in padded mailers', ships_intl:'No',
+        ecom_platform:'Shopify', it_contact:'Tom Wu', it_email:'tom@koalakidsvitamins.com.au', wms_erp:'Not applicable'
+      },
+      files:{ sku_list_file:{ name:'KoalaKids-SKU-List.xlsx', size:18244, body:'Demo placeholder — SKU list for Koala Kids Vitamins.\nSKU\tDescription\tWeight\tDims\nKKV-MULTI-90\tKids Multi Gummies 90ct\t280g\t11x7x7cm\nKKV-VITC-60\tVitamin C Chews 60ct\t190g\t10x6x6cm\nKKV-PROBIO-30\tKids Probiotic Sachets 30pk\t240g\t14x9x5cm' } },
+      kyc:{ asic:{ done:1, date:dAgoISO(14) }, id:{ done:1, date:dAgoISO(14) }, abn:{ done:1, date:dAgoISO(13) }, bank:{ done:1, date:dAgoISO(6) } },
+      agreements:{ service:{ status:'signed', date:dAgoISO(7) }, nda:{ status:'signed', date:dAgoISO(15) }, guarantee:{ status:'sent', date:dAgoISO(7) }, ratecard:{ status:'sent', date:dAgoISO(7) } },
+      extras:[], notes:'First PO received into the warehouse. Waiting on insurance certificate + signed guarantee before go-live.' },
+    { id:'ob-southpaw', clientName:'Southpaw Supps', acct:'FS-1055', started:dAgoISO(3), status:'awaiting_client',
+      answers:{
+        company_name:'Southpaw Supps Pty Ltd', primary_contact:'Liam O’Connell', primary_email:'liam@southpawsupps.com',
+        products_desc:'Protein powder 1 kg tubs, pre-workout, shakers. Considering bundle kitting for launch packs.',
+        active_skus:'12', ecom_platform:'Shopify'
+      },
+      files:{},
+      kyc:{},
+      agreements:{ nda:{ status:'sent', date:dAgoISO(2) } },
+      extras:[], notes:'Questionnaire link sent to Liam — chasing remaining sections Thursday.' }
+  ];
+
+  /* client documents library */
+  const docs = [
+    { id: uid(), title:'Mutual NDA — Template', category:'nda', clientId:'', ts:dAgoISO(120), name:'Fullstack-Mutual-NDA-Template.docx', size:24810, demo:1,
+      body:'DEMO PLACEHOLDER — Mutual Non-Disclosure Agreement (template)\n\nParties: Fullstack Fulfillment Pty Ltd and [Client].\nPurpose: evaluation of a 3PL fulfilment engagement.\nConfidential information: pricing, volumes, product data, systems access.\nTerm: 3 years from disclosure. Governing law: Queensland, Australia.\n\nReplace this placeholder with the real executed template.' },
+    { id: uid(), title:'3PL Services Agreement — Master Template', category:'agreement', clientId:'', ts:dAgoISO(120), name:'Fullstack-3PL-Services-Agreement-Template.docx', size:88240, demo:1,
+      body:'DEMO PLACEHOLDER — 3PL Services Agreement (master template)\n\nScope: receiving, storage, pick & pack, dispatch, returns.\nService levels: same-day dispatch before 9am AEST cutoff; 99%+ order accuracy.\nBilling: monthly in arrears, 14-day terms, ex GST.\nSchedules: A — Rate Card. B — Service Levels. C — Insurance.\n\nReplace this placeholder with the real executed template.' },
+    { id: uid(), title:'Alpine Peak Nutrition — Signed Services Agreement', category:'agreement', clientId:'apn', ts:dAgoISO(88), name:'APN-Services-Agreement-Signed.pdf', size:412200, demo:1,
+      body:'DEMO PLACEHOLDER — signed services agreement for Alpine Peak Nutrition (FS-1042).' },
+    { id: uid(), title:'Fulfilment Performance Guarantee', category:'guarantee', clientId:'', ts:dAgoISO(95), name:'Fullstack-Performance-Guarantee.pdf', size:64080, demo:1,
+      body:'DEMO PLACEHOLDER — Fullstack Fulfillment Performance Guarantee\n\n99%+ pick accuracy, measured monthly.\nSame-day dispatch for orders received before 9am AEST.\nCredit schedule applies when service levels are missed in a calendar month.' },
+    { id: uid(), title:'Fullstack Rate Card — FY26 (ex GST)', category:'ratecard', clientId:'', ts:dAgoISO(40), name:'Fullstack-Rate-Card-FY26.pdf', size:52330, demo:1,
+      body:'DEMO PLACEHOLDER — Fullstack Rate Card FY26 (ex GST)\n\nPick & pack: from $4.50 per order (first item), $0.75 per additional item.\nStorage: first 6 pallets free on eligible plans; $9.50 per pallet space per week thereafter.\nReceiving: $35 per pallet; $2.50 per carton.\nReturns processing: $3.80 per order.\nDelivery: carrier rates per attached schedule.' },
+    { id: uid(), title:'Australia Post — Surcharges & Freight Charges Explained', category:'freight', clientId:'', ts:dAgoISO(33), name:'AusPost-Freight-Charges-Explained.pdf', size:71460, demo:1,
+      body:'DEMO PLACEHOLDER — Australia Post freight charges, explained for clients\n\nFuel surcharge: reviewed monthly, applied as a % of the base freight rate.\nOversize: items over 1 m in length or 22 kg attract manual handling fees.\nRemote area: deliveries outside metro zones are charged by zone (see eParcel zone chart).\nReturns: return-to-sender parcels are charged at the outbound rate.' },
+    { id: uid(), title:'DHL Express — Fuel Surcharge & Fees Explained', category:'freight', clientId:'', ts:dAgoISO(33), name:'DHL-Fuel-Surcharge-Explained.pdf', size:66980, demo:1,
+      body:'DEMO PLACEHOLDER — DHL Express surcharges, explained for clients\n\nFuel surcharge: indexed monthly against jet fuel spot price, % of shipment cost.\nRemote area delivery: flat fee per shipment to out-of-area postcodes.\nAddress correction and duties/taxes billed as incurred.' }
+  ];
+
+  /* carriers & platforms */
+  const carriers = [
+    { id: uid(), key:'auspost', name:'Australia Post', sub:'Nationwide coverage you can count on', services:'eParcel · Parcel Post · Express Post · PO Boxes & lockers',
+      acct:'eParcel — add account #', rep:'', phone:'13 11 18', email:'',
+      portal:'https://merchant-portal.auspost.com.au', trackingTpl:'https://auspost.com.au/mypost/track/#/details/{t}',
+      notes:'Fuel surcharge reviewed monthly. Oversize >1 m or >22 kg attracts manual handling. Remote zones charged per eParcel zone chart.' },
+    { id: uid(), key:'dhl', name:'DHL Express', sub:'Global reach. Local speed.', services:'Domestic & international express · time-sensitive & high-value',
+      acct:'Add DHL account #', rep:'', phone:'13 14 06', email:'',
+      portal:'https://mydhl.express.dhl/au/en/home.html', trackingTpl:'https://www.dhl.com/au-en/home/tracking/tracking-express.html?submit=1&tracking-id={t}',
+      notes:'Fuel surcharge indexed monthly. Remote area + address correction fees apply. Duties/taxes billed as incurred on international.' },
+    { id: uid(), key:'nzpost', name:'NZ Post', sub:'Trans-Tasman delivery', services:'NZ domestic & trans-Tasman eCommerce parcels',
+      acct:'Add NZ Post account #', rep:'', phone:'0800 501 501', email:'',
+      portal:'https://www.nzpost.co.nz/business', trackingTpl:'https://www.nzpost.co.nz/tools/tracking/item/{t}',
+      notes:'Trans-Tasman lane for AU brands reaching NZ customers with trusted local delivery.' },
+    { id: uid(), key:'seko', name:'SEKO Logistics', sub:'Global eCommerce logistics', services:'International eCommerce — US / UK / Asia lanes via OmniParcel',
+      acct:'Add SEKO account #', rep:'', phone:'', email:'',
+      portal:'https://my.omniparcel.com', trackingTpl:'https://my.omniparcel.com/tracking?id={t}',
+      notes:'For brands scaling into international markets.' },
+    { id: uid(), key:'parcelright', name:'Parcel Right', sub:'eCommerce-dedicated parcel delivery', services:'AU metro parcel delivery with full tracking',
+      acct:'Add Parcel Right account #', rep:'', phone:'', email:'',
+      portal:'https://parcelright.com.au', trackingTpl:'https://parcelright.com.au',
+      notes:'Set the real tracking URL template here when confirmed — use {t} where the tracking number goes.' },
+    { id: uid(), key:'starshipit', name:'Starshipit', sub:'Shipping & tracking platform', services:'Label generation · carrier allocation · branded tracking',
+      acct:'', rep:'', phone:'', email:'support@starshipit.com',
+      portal:'https://app.starshipit.com', trackingTpl:'', isPlatform:1,
+      notes:'API keys live in Settings → Starshipit API. Orders flow from client stores via Starshipit to the warehouse floor.' },
+    { id: uid(), key:'extensiv', name:'Extensiv', sub:'Warehouse management system', services:'WMS · client portal · stock & billing',
+      acct:'', rep:'', phone:'', email:'',
+      portal:'https://app.extensiv.com', trackingTpl:'', isPlatform:1,
+      notes:'Client accounts are provisioned in Extensiv during onboarding — see the Onboard step of the website.' }
+  ];
+
+  DB.set('clients', clients);
+  DB.set('shipments', shipments);
+  DB.set('leads', leads);
+  DB.set('onboarding', onboarding);
+  DB.set('docs', docs);
+  DB.set('carriers', carriers);
+  DB.set('meta', { seededAt: new Date().toISOString() });
+}
+
+/* ================================================================== *
+ *  Starshipit connector                                              *
+ *  Direct browser calls are normally blocked by CORS — a tiny proxy  *
+ *  (see README) makes the live connection work. Demo data otherwise. *
+ * ================================================================== */
+async function ssFetch(path){
+  const ss = col.settings().ss;
+  const base = (ss.proxy || 'https://api.starshipit.com').replace(/\/$/, '');
+  const res = await fetch(base + path, { headers: {
+    'Content-Type': 'application/json',
+    'StarShipIT-Api-Key': ss.apiKey,
+    'Ocp-Apim-Subscription-Key': ss.subKey
+  }});
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+function mapSsOrder(o, shipped){
+  const items = (o.items || o.order_items || []).map(i => ({ sku: i.sku || '', qty: i.quantity || 1 }));
+  const skuPrefix = items[0] && String(items[0].sku).split('-')[0];
+  const client = col.clients().find(c => c.skus.some(s => s.sku.indexOf(skuPrefix + '-') === 0));
+  const carrierRaw = String(o.carrier_name || o.carrier || o.shipping_method || '').toLowerCase();
+  const carrier = CARRIERS.find(k => carrierRaw.indexOf(k === 'auspost' ? 'aus' : k === 'parcelright' ? 'parcel' : k === 'nzpost' ? 'nz' : k) >= 0) || '';
+  return {
+    id: 'ss-' + (o.order_id || o.order_number || uid()),
+    orderNo: String(o.order_number || o.name || o.order_id || '—'),
+    clientId: client ? client.id : '',
+    clientName: client ? client.name : (o.marketplace || 'Starshipit'),
+    carrier,
+    carrierLabel: o.carrier_name || o.carrier || '',
+    dest: o.destination ? [o.destination.city, o.destination.state].filter(Boolean).join(' ') : '',
+    tracking: o.tracking_number || '',
+    trackingUrl: o.tracking_url || '',
+    status: shipped ? (String(o.status || '').toLowerCase() === 'delivered' ? 'delivered' : 'transit') : 'unshipped',
+    date: o.shipped_date || o.order_date || new Date().toISOString(),
+    items,
+    value: o.declared_value || o.total_price || null
+  };
+}
+async function ssConnect(){
+  const msg = $('#ssMsg');
+  msg.className = 'conn-msg';
+  const s = col.settings();
+  s.ss.apiKey = $('#ssApiKey').value.trim();
+  s.ss.subKey = $('#ssSubKey').value.trim();
+  s.ss.proxy  = $('#ssProxy').value.trim();
+  DB.set('settings', s);
+  if(!s.ss.apiKey){ msg.textContent = 'Enter your Starshipit API key first.'; msg.classList.add('err'); return; }
+  $('#ssConnect').textContent = 'Connecting…';
+  try{
+    const shipped = await ssFetch('/api/orders/shipped?limit=250&page=1');
+    let unshipped = { orders: [] };
+    try{ unshipped = await ssFetch('/api/orders/unshipped?limit=250&page=1'); }catch(e){}
+    const orders = (shipped.orders || []).map(o => mapSsOrder(o, true))
+      .concat((unshipped.orders || []).map(o => mapSsOrder(o, false)));
+    DB.set('ssOrders', orders);
+    s.ss.connected = true;
+    s.ss.lastSync = new Date().toISOString();
+    DB.set('settings', s);
+    msg.textContent = 'Connected — ' + orders.length + ' orders synced from Starshipit.';
+    msg.classList.add('ok');
+    toast('Starshipit connected');
+    renderSsStatus(); route();
+  }catch(err){
+    s.ss.connected = false; DB.set('settings', s);
+    msg.innerHTML = '';
+    const b = document.createElement('b'); b.textContent = 'Could not reach the Starshipit API. ';
+    msg.appendChild(b);
+    msg.appendChild(document.createTextNode(err.message === 'Failed to fetch'
+      ? 'This is almost always the browser blocking the call (CORS) — the Starshipit API is built for server-side use. Deploy the 20-line proxy in the README, paste its URL above, and connect again. Running on demo data meanwhile.'
+      : 'The API answered “' + err.message + '” — check both keys. Running on demo data meanwhile.'));
+    msg.classList.add('err');
+    renderSsStatus();
+  }
+  $('#ssConnect').textContent = 'Connect & sync';
+}
+function renderSsStatus(){
+  const ss = col.settings().ss;
+  $('#ssDot').className = 'ss-dot' + (ss.connected ? ' live' : '');
+  $('#ssLab').textContent = ss.connected ? 'Connected' : 'Demo data';
+}
+
+/* ================================================================== *
+ *  Charts — dark-surface palette validated for CVD + contrast        *
+ *  (see README). Tooltips enhance, tables carry the same data.       *
+ * ================================================================== */
+const tip = {
+  el: null,
+  show(x, y, title, rows){
+    const t = this.el || (this.el = $('#vizTip'));
+    t.innerHTML = '';
+    if(title){ const d = document.createElement('div'); d.className = 'tt-t'; d.textContent = title; t.appendChild(d); }
+    (rows || []).forEach(r => {
+      const d = document.createElement('div'); d.className = 'tt-row';
+      if(r.color){ const i = document.createElement('i'); i.style.background = r.color; d.appendChild(i); }
+      const s = document.createElement('span'); s.textContent = r.label; d.appendChild(s);
+      const b = document.createElement('b'); b.textContent = r.value; d.appendChild(b);
+      t.appendChild(d);
+    });
+    t.style.display = 'block';
+    const r = t.getBoundingClientRect();
+    let left = x + 14, top = y - r.height - 10;
+    if(left + r.width > innerWidth - 8) left = x - r.width - 14;
+    if(top < 8) top = y + 16;
+    t.style.left = Math.max(8, left) + 'px';
+    t.style.top = top + 'px';
+  },
+  hide(){ if(this.el || (this.el = $('#vizTip'))) this.el.style.display = 'none'; }
+};
+function svgEl(tag, attrs, parent){
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(el);
+  return el;
+}
+function niceTicks(max){
+  if(max <= 0) return { max: 4, step: 1 };
+  const raw = max / 3;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+  return { max: Math.ceil(max / step) * step, step };
+}
+function barPath(x, y, w, h, r){
+  r = Math.min(r, w / 2, h);
+  if(h <= 0) return '';
+  return 'M' + x + ',' + (y + h) + ' L' + x + ',' + (y + r) + ' Q' + x + ',' + y + ' ' + (x + r) + ',' + y +
+         ' L' + (x + w - r) + ',' + y + ' Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) +
+         ' L' + (x + w) + ',' + (y + h) + ' Z';
+}
+/* column chart — single series, slot-1 hue; per-band hover tooltip; x labels first/last */
+function colChart(host, data, opts){
+  opts = opts || {};
+  host.innerHTML = '';
+  const W = Math.max(host.clientWidth || 560, 300), H = 196, padT = 10, padB = 24, padL = 40, padR = 6;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': opts.label || 'Column chart' }, host);
+  const maxV = Math.max(1, ...data.map(d => d.value));
+  const t = niceTicks(maxV);
+  for(let v = 0; v <= t.max; v += t.step){
+    const y = padT + plotH - (v / t.max) * plotH;
+    svgEl('line', { x1: padL, x2: W - padR, y1: y, y2: y, stroke: v === 0 ? 'rgba(255,255,255,.14)' : 'var(--grid)', 'stroke-width': 1 }, svg);
+    svgEl('text', { x: padL - 8, y: y + 3.5, 'text-anchor': 'end', fill: '#6a6a64', 'font-size': 10, 'font-family': 'var(--mono)' }, svg).textContent = nfc(v);
+  }
+  const n = data.length, band = plotW / n, barW = Math.min(24, Math.max(3, band * 0.66));
+  data.forEach((d, i) => {
+    const h = (d.value / t.max) * plotH;
+    const x = padL + i * band + (band - barW) / 2, y = padT + plotH - h;
+    if(d.value > 0) svgEl('path', { d: barPath(x, y, barW, h, 4), fill: 'var(--chart-1)', 'data-i': i }, svg);
+  });
+  [0, n - 1].forEach(i => {
+    if(i < 0 || !data[i]) return;
+    svgEl('text', { x: padL + i * band + band / 2, y: H - 7, 'text-anchor': i === 0 ? 'start' : 'end', fill: '#6a6a64', 'font-size': 10, 'font-family': 'var(--mono)' }, svg).textContent = data[i].label;
+  });
+  /* hover bands — the hit target is the whole column slot, not the painted bar */
+  data.forEach((d, i) => {
+    const hit = svgEl('rect', { x: padL + i * band, y: padT, width: band, height: plotH, fill: 'transparent', tabindex: 0 }, svg);
+    const bar = svg.querySelector('path[data-i="' + i + '"]');
+    const show = ev => {
+      if(bar) bar.style.filter = 'brightness(1.22)';
+      const p = ev.touches ? ev.touches[0] : ev;
+      const box = hit.getBoundingClientRect();
+      tip.show(p.clientX != null ? p.clientX : box.left + box.width / 2, p.clientY != null ? p.clientY : box.top,
+        d.title || d.label, [{ color: 'var(--chart-1)', label: opts.series || 'Orders', value: nf(d.value) }].concat(d.extra || []));
+    };
+    const hide = () => { if(bar) bar.style.filter = ''; tip.hide(); };
+    hit.addEventListener('pointermove', show);
+    hit.addEventListener('pointerleave', hide);
+    hit.addEventListener('focus', show);
+    hit.addEventListener('blur', hide);
+  });
+}
+/* sparkline — de-emphasis gray line, accent end-dot with surface ring */
+function sparkline(host, values){
+  host.innerHTML = '';
+  const W = Math.max(host.clientWidth || 160, 80), H = 26, pad = 5;
+  const svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, 'aria-hidden': 'true' }, host);
+  if(!values.length) return;
+  const max = Math.max(1, ...values), min = Math.min(0, ...values);
+  const px = i => pad + i * (W - pad * 2) / Math.max(1, values.length - 1);
+  const py = v => pad + (H - pad * 2) * (1 - (v - min) / (max - min || 1));
+  svgEl('path', { d: values.map((v, i) => (i ? 'L' : 'M') + px(i).toFixed(1) + ',' + py(v).toFixed(1)).join(' '), fill: 'none', stroke: '#6a6a64', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg);
+  const li = values.length - 1;
+  svgEl('circle', { cx: px(li), cy: py(values[li]), r: 4, fill: 'var(--accent)', stroke: 'var(--raise)', 'stroke-width': 2 }, svg);
+}
+/* horizontal bars in HTML — single series slot-1, label left, value at the tip */
+function hbars(host, rows, fmt){
+  fmt = fmt || nf;
+  host.innerHTML = '';
+  const max = Math.max(1, ...rows.map(r => r.value));
+  rows.forEach(r => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:132px 1fr 52px;gap:10px;align-items:center;padding:5px 0';
+    const lab = document.createElement('span');
+    lab.style.cssText = 'font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    lab.textContent = r.label; lab.title = r.label;
+    const track = document.createElement('div');
+    track.style.cssText = 'height:14px;display:flex;align-items:center';
+    const bar = document.createElement('div');
+    bar.style.cssText = 'height:14px;background:var(--chart-1);border-radius:0 4px 4px 0;min-width:2px;transition:filter .15s;width:' + (r.value / max * 100).toFixed(1) + '%';
+    track.appendChild(bar);
+    const val = document.createElement('span');
+    val.style.cssText = 'font-family:var(--mono);font-size:11.5px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right';
+    val.textContent = fmt(r.value);
+    row.appendChild(lab); row.appendChild(track); row.appendChild(val);
+    row.addEventListener('pointermove', ev => { bar.style.filter = 'brightness(1.2)'; tip.show(ev.clientX, ev.clientY, r.label, [{ color: 'var(--chart-1)', label: r.sub || 'Units', value: fmt(r.value) }]); });
+    row.addEventListener('pointerleave', () => { bar.style.filter = ''; tip.hide(); });
+    host.appendChild(row);
+  });
+}
+/* one horizontal stacked bar — part-to-whole; 2px surface gaps; legend below */
+function stackBar(host, segs){
+  host.innerHTML = '';
+  const total = segs.reduce((s, x) => s + x.value, 0);
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:2px;height:22px;border-radius:6px;overflow:hidden';
+  segs.filter(s => s.value > 0).forEach(s => {
+    const seg = document.createElement('div');
+    seg.style.cssText = 'background:' + s.color + ';min-width:3px;transition:filter .15s;flex-basis:0;flex-grow:' + s.value;
+    seg.setAttribute('tabindex', '0');
+    const pc = total ? Math.round(s.value / total * 100) : 0;
+    const show = ev => { seg.style.filter = 'brightness(1.2)'; const p = ev.clientX != null ? ev : { clientX: seg.getBoundingClientRect().left, clientY: seg.getBoundingClientRect().top }; tip.show(p.clientX, p.clientY, s.label, [{ color: s.color, label: 'Orders', value: nf(s.value) + ' · ' + pc + '%' }]); };
+    const hide = () => { seg.style.filter = ''; tip.hide(); };
+    seg.addEventListener('pointermove', show);
+    seg.addEventListener('pointerleave', hide);
+    seg.addEventListener('focus', show);
+    seg.addEventListener('blur', hide);
+    bar.appendChild(seg);
+  });
+  host.appendChild(bar);
+  const leg = document.createElement('div');
+  leg.className = 'legend';
+  segs.forEach(s => {
+    const it = document.createElement('span');
+    const sw = document.createElement('i'); sw.style.background = s.color;
+    it.appendChild(sw);
+    it.appendChild(document.createTextNode(s.label + ' — ' + nf(s.value)));
+    leg.appendChild(it);
+  });
+  host.appendChild(leg);
+}
+/* table twin — same data as a chart, as rows */
+function twinTable(host, cols, rows){
+  host.innerHTML = '';
+  const t = document.createElement('table');
+  t.className = 'viz-table';
+  const tr = document.createElement('tr');
+  cols.forEach((c, i) => { const th = document.createElement('th'); if(i > 0) th.className = 'num'; th.textContent = c; tr.appendChild(th); });
+  t.appendChild(tr);
+  rows.forEach(r => {
+    const trr = document.createElement('tr');
+    r.forEach((v, i) => { const td = document.createElement('td'); if(i > 0) td.className = 'num'; td.textContent = v; trr.appendChild(td); });
+    t.appendChild(trr);
+  });
+  host.appendChild(t);
+}
+</script>
+<script>
+'use strict';
+/* ================================================================== *
+ *  Dashboard                                                         *
+ * ================================================================== */
+function currentOrders(){
+  const s = col.settings();
+  if(s.ss.connected && col.ssOrders().length) return col.ssOrders();
+  return col.shipments();
+}
+function clientOf(o){
+  if(o.clientName) return o.clientName;
+  const c = col.clients().find(c => c.id === o.clientId);
+  return c ? c.name : '—';
+}
+function shippedBetween(fromMs, toMs){
+  return currentOrders().filter(o => o.status !== 'unshipped' && (() => { const t = new Date(o.date).getTime(); return t >= fromMs && t < toMs; })());
+}
+function dashStats(N){
+  const nowMs = Date.now();
+  const curFrom = daysBack(N - 1).getTime();
+  const prevFrom = daysBack(2 * N - 1).getTime();
+  const cur = shippedBetween(curFrom, nowMs + 1);
+  const prev = shippedBetween(prevFrom, curFrom);
+  const units = list => list.reduce((s, o) => s + o.items.reduce((a, i) => a + (i.qty || 1), 0), 0);
+  const perDay = [];
+  for(let i = N - 1; i >= 0; i--){
+    const d0 = daysBack(i).getTime(), d1 = d0 + 86400e3;
+    const dayOrders = cur.filter(o => { const t = new Date(o.date).getTime(); return t >= d0 && t < d1; });
+    perDay.push({ date: daysBack(i), orders: dayOrders.length, units: units(dayOrders),
+      clients: new Set(dayOrders.map(o => o.clientId || o.clientName)).size,
+      skus: new Set(dayOrders.flatMap(o => o.items.map(x => x.sku))).size });
+  }
+  const byCarrier = CARRIERS.map(k => ({ key: k, label: CARRIER_META[k].name, color: carrierColor(k),
+    value: cur.filter(o => o.carrier === k).length }));
+  const other = cur.filter(o => o.carrier && !CARRIER_META[o.carrier]).length + cur.filter(o => !o.carrier).length;
+  if(other) byCarrier.push({ key: 'other', label: 'Other', color: '#6a6a64', value: other });
+  const byClientMap = {};
+  cur.forEach(o => { const k = clientOf(o); byClientMap[k] = (byClientMap[k] || 0) + o.items.reduce((a, i) => a + (i.qty || 1), 0); });
+  const byClient = Object.keys(byClientMap).map(k => ({ label: k, value: byClientMap[k] })).sort((a, b) => b.value - a.value);
+  const skuMap = {};
+  cur.forEach(o => o.items.forEach(i => {
+    if(!skuMap[i.sku]) skuMap[i.sku] = { sku: i.sku, units: 0, orders: 0, client: clientOf(o) };
+    skuMap[i.sku].units += i.qty || 1; skuMap[i.sku].orders++;
+  }));
+  const topSkus = Object.values(skuMap).sort((a, b) => b.units - a.units).slice(0, 7);
+  const open = currentOrders().filter(o => o.status === 'unshipped');
+  const activeSkus = col.clients().reduce((s, c) => s + c.skus.length, 0);
+  return { cur, prev, perDay, byCarrier, byClient, topSkus, open,
+    kpi: {
+      orders: cur.length, ordersPrev: prev.length,
+      units: units(cur), unitsPrev: units(prev),
+      clients: new Set(cur.map(o => o.clientId || o.clientName)).size,
+      activeSkus, open: open.length
+    } };
+}
+function delta(cur, prev, N){
+  if(!prev) return '<span class="kpi-d">— <span style="color:var(--faint)">no prior period</span></span>';
+  const pct = Math.round((cur - prev) / prev * 100);
+  const up = pct >= 0;
+  return '<span class="kpi-d"><b class="' + (up ? 'up' : 'down') + '">' + (up ? '↑' : '↓') + ' ' + Math.abs(pct) + '%</b> vs prev ' + N + 'd</span>';
+}
+const STATUS_PILL = { delivered: ['ok','Delivered'], transit: ['info','In transit'], packed: ['warn','Packed'], unshipped: ['acc','Awaiting pick'] };
+function pillFor(status){ const p = STATUS_PILL[status] || ['dim', status]; return '<span class="pill ' + p[0] + '">' + esc(p[1]) + '</span>'; }
+const dashMode = {};   // chartId -> 'table'
+let dashShipQ = '';
+
+function skuName(sku){
+  for(const c of col.clients()){ const hit = c.skus.find(s => s.sku === sku); if(hit) return hit.name; }
+  return '';
+}
+function shipRow(o){
+  const meta = CARRIER_META[o.carrier];
+  const url = o.trackingUrl || trackUrl(o.carrier, o.tracking);
+  const trackBit = o.tracking
+    ? (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener" title="Open carrier tracking">' + esc(o.tracking) + '</a>' : esc(o.tracking))
+    : '<span style="color:var(--faint)">no label yet</span>';
+  const plate = meta
+    ? '<span class="ship-plate"><img src="' + meta.logo + '" alt="' + esc(meta.name) + '"></span>'
+    : '<span class="ship-plate" style="background:rgba(255,255,255,.08)"><span style="font-family:var(--mono);font-size:8.5px;color:var(--faint)">' + esc((o.carrierLabel || o.carrier || '—').slice(0, 6).toUpperCase()) + '</span></span>';
+  return '<div class="ship-item" data-search="' + esc((o.orderNo + ' ' + clientOf(o) + ' ' + o.dest + ' ' + o.tracking).toLowerCase()) + '">' +
+    plate +
+    '<span class="ship-info"><span class="ship-id">#' + esc(o.orderNo) + ' <span style="color:var(--faint);font-weight:400">· ' + esc(clientOf(o)) + '</span></span>' +
+    '<span class="ship-dest">' + esc(o.dest || '—') + ' · ' + trackBit + '</span></span>' +
+    '<span class="ship-right">' + pillFor(o.status) + '<span class="ship-when">' + esc(timeAgo(o.date)) + '</span></span></div>';
+}
+
+function renderDashboard(){
+  const v = $('#view-dashboard');
+  const s = col.settings();
+  const N = s.range || 30;
+  const st = dashStats(N);
+  const connected = s.ss.connected;
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>Dashboard<em>.</em></h1>' +
+  '<p class="vh-sub">Orders, units and tracking across every client — powered by ' + (connected ? 'your Starshipit account' : 'demo data until Starshipit is connected') + '.</p></div>' +
+  '<div class="vh-actions"><div class="range-row">' +
+    [7, 14, 30, 90].map(n => '<button data-range="' + n + '" class="' + (n === N ? 'on' : '') + '">' + n + 'd</button>').join('') +
+  '</div></div></div>' +
+
+  '<div class="conn-strip"><div class="conn-left">' +
+    (connected
+      ? '<span class="chip live">● Starshipit · live</span><span class="chip">Synced ' + esc(timeAgo(s.ss.lastSync)) + '</span><button class="tbtn" data-act="ss-sync">Sync now</button>'
+      : '<span class="chip demo">◈ Demo data</span><button class="tbtn" data-act="open-settings">Connect Starshipit →</button>') +
+    '</div><span class="panel-meta">Fullstack Fulfillment · fullstackfs.com.au</span></div>' +
+
+  '<div class="kpis">' +
+    '<div class="kpi"><div class="kpi-k">Orders shipped · ' + N + 'd</div><div class="kpi-v">' + nfc(st.kpi.orders) + '</div>' + delta(st.kpi.orders, st.kpi.ordersPrev, N) + '<div class="kpi-spark" id="sp-orders"></div></div>' +
+    '<div class="kpi"><div class="kpi-k">Products sold · ' + N + 'd</div><div class="kpi-v">' + nfc(st.kpi.units) + '</div>' + delta(st.kpi.units, st.kpi.unitsPrev, N) + '<div class="kpi-spark" id="sp-units"></div></div>' +
+    '<div class="kpi"><div class="kpi-k">Active clients</div><div class="kpi-v">' + st.kpi.clients + '</div><span class="kpi-d">shipping in range</span><div class="kpi-spark" id="sp-clients"></div></div>' +
+    '<div class="kpi"><div class="kpi-k">Active SKUs</div><div class="kpi-v">' + st.kpi.activeSkus + '</div><span class="kpi-d">across all clients</span><div class="kpi-spark" id="sp-skus"></div></div>' +
+    '<div class="kpi"><div class="kpi-k">Open orders</div><div class="kpi-v">' + st.kpi.open + '</div><span class="kpi-d">awaiting pick &amp; pack</span><div class="kpi-spark" id="sp-open"></div></div>' +
+  '</div>' +
+
+  '<div class="dash-grid"><div class="dash-col">' +
+    '<div class="panel"><div class="panel-head"><span class="panel-title">Orders shipped per day</span><div class="p-tools"><span class="panel-meta">last ' + N + ' days</span>' +
+      '<button class="tbtn" data-act="twin" data-chart="day" aria-pressed="' + (dashMode.day === 'table') + '">⊞ table</button></div></div>' +
+      '<div class="chart-box" id="ch-day"></div></div>' +
+    '<div class="panel"><div class="panel-head"><span class="panel-title">Clients</span><span class="panel-meta">' + col.clients().length + ' accounts</span></div>' +
+      '<div class="doc-table-wrap"><table class="rows"><tr><th>Client</th><th class="num">Orders</th><th class="num">Units</th><th class="num">SKUs</th><th>Last shipment</th><th>Status</th></tr>' +
+      col.clients().map(c => {
+        const mine = st.cur.filter(o => o.clientId === c.id);
+        const lastAll = currentOrders().filter(o => o.clientId === c.id && o.status !== 'unshipped').sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        const u = mine.reduce((s, o) => s + o.items.reduce((a, i) => a + (i.qty || 1), 0), 0);
+        return '<tr><td><span class="cell-main">' + esc(c.name) + '</span><span class="cell-sub">' + esc(c.acct) + ' · ' + esc(c.platform) + '</span></td>' +
+          '<td class="num">' + nf(mine.length) + '</td><td class="num">' + nf(u) + '</td><td class="num">' + c.skus.length + '</td>' +
+          '<td style="font-family:var(--mono);font-size:11px;color:var(--faint)">' + (lastAll ? esc(timeAgo(lastAll.date)) : '—') + '</td>' +
+          '<td>' + (c.status === 'live' ? '<span class="pill ok">Live</span>' : '<span class="pill warn">Onboarding</span>') + '</td></tr>';
+      }).join('') + '</table></div></div>' +
+    '<div class="panel"><div class="panel-head"><span class="panel-title">Top SKUs</span><span class="panel-meta">by units · last ' + N + 'd</span></div>' +
+      '<div class="doc-table-wrap"><table class="rows"><tr><th>Product</th><th>Client</th><th class="num">Orders</th><th class="num">Units</th></tr>' +
+      st.topSkus.map(r => '<tr><td><span class="cell-main">' + esc(skuName(r.sku) || r.sku) + '</span><span class="cell-sub">' + esc(r.sku) + '</span></td>' +
+        '<td style="color:var(--dim);font-size:12px">' + esc(r.client) + '</td><td class="num">' + nf(r.orders) + '</td><td class="num">' + nf(r.units) + '</td></tr>').join('') +
+      '</table></div></div>' +
+  '</div><div class="dash-col">' +
+    '<div class="panel"><div class="panel-head"><span class="panel-title">Carrier mix</span><div class="p-tools"><span class="panel-meta">orders · last ' + N + 'd</span>' +
+      '<button class="tbtn" data-act="twin" data-chart="carrier" aria-pressed="' + (dashMode.carrier === 'table') + '">⊞ table</button></div></div>' +
+      '<div class="chart-box" id="ch-carrier"></div></div>' +
+    '<div class="panel"><div class="panel-head"><span class="panel-title">Units sold by client</span><div class="p-tools"><span class="panel-meta">last ' + N + 'd</span>' +
+      '<button class="tbtn" data-act="twin" data-chart="client" aria-pressed="' + (dashMode.client === 'table') + '">⊞ table</button></div></div>' +
+      '<div class="chart-box" id="ch-client"></div></div>' +
+    '<div class="panel"><div class="panel-head"><span class="panel-title">Recent shipments</span><span class="panel-meta">live tracking links</span></div>' +
+      '<div class="search" style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
+      '<input id="shipSearch" type="text" placeholder="Order, client, tracking…" value="' + esc(dashShipQ) + '" style="width:100%"></div>' +
+      '<div id="shipFeed"></div></div>' +
+  '</div></div>';
+
+  /* charts (or their table twins) */
+  const dayHost = $('#ch-day');
+  if(dashMode.day === 'table'){
+    twinTable(dayHost, ['Day', 'Orders', 'Units'], st.perDay.map(d => [fmtD(d.date), nf(d.orders), nf(d.units)]).reverse());
+  } else {
+    colChart(dayHost, st.perDay.map(d => ({ label: fmtD(d.date), title: fmtD(d.date), value: d.orders, extra: [{ label: 'Units', value: nf(d.units) }] })), { series: 'Orders', label: 'Orders shipped per day' });
+  }
+  const carHost = $('#ch-carrier');
+  if(dashMode.carrier === 'table'){
+    twinTable(carHost, ['Carrier', 'Orders', 'Share'], st.byCarrier.map(c => [c.label, nf(c.value), (st.kpi.orders ? Math.round(c.value / st.kpi.orders * 100) : 0) + '%']));
+  } else stackBar(carHost, st.byCarrier);
+  const cliHost = $('#ch-client');
+  if(dashMode.client === 'table'){
+    twinTable(cliHost, ['Client', 'Units'], st.byClient.map(c => [c.label, nf(c.value)]));
+  } else hbars(cliHost, st.byClient.slice(0, 6));
+
+  sparkline($('#sp-orders'), st.perDay.map(d => d.orders));
+  sparkline($('#sp-units'), st.perDay.map(d => d.units));
+  sparkline($('#sp-clients'), st.perDay.map(d => d.clients));
+  sparkline($('#sp-skus'), st.perDay.map(d => d.skus));
+
+  /* shipments feed — newest first: open orders pinned, then shipped */
+  const feed = st.open.slice().sort((a, b) => new Date(b.date) - new Date(a.date))
+    .concat(st.cur.slice().sort((a, b) => new Date(b.date) - new Date(a.date)));
+  $('#shipFeed').innerHTML = feed.slice(0, 60).map(shipRow).join('') || '<p style="color:var(--faint);font-size:12.5px;padding:12px 0">No shipments in this range.</p>';
+  filterShipFeed();
+}
+function filterShipFeed(){
+  const q = dashShipQ.trim().toLowerCase();
+  let shown = 0;
+  $$('#shipFeed .ship-item').forEach(el => {
+    const hit = !q || el.dataset.search.indexOf(q) >= 0;
+    el.style.display = (hit && shown < 9) ? '' : 'none';
+    if(hit) shown++;
+  });
+}
+
+/* ================================================================== *
+ *  New Client Leads                                                  *
+ * ================================================================== */
+let leadFilter = 'open', leadQ = '';
+function renderLeads(){
+  const v = $('#view-leads');
+  const leads = col.leads();
+  const counts = { open: leads.filter(l => ['new','contacted','quoted'].indexOf(l.status) >= 0).length };
+  LEAD_STATUSES.forEach(s => counts[s[0]] = leads.filter(l => l.status === s[0]).length);
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>New Client Leads<em>.</em></h1>' +
+  '<p class="vh-sub">Every “Get a Quote” inquiry from fullstackfs.com.au lands here — work them from new to won.</p></div>' +
+  '<div class="vh-actions"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
+  '<input id="leadSearch" type="text" placeholder="Search leads…" value="' + esc(leadQ) + '"></div>' +
+  '<button class="btn" data-act="add-lead">+ Add lead</button></div></div>' +
+  '<div class="pipe-row">' +
+    '<button class="pipe-chip ' + (leadFilter === 'open' ? 'on' : '') + '" data-filter="open">Open <b>' + counts.open + '</b></button>' +
+    LEAD_STATUSES.map(s => '<button class="pipe-chip ' + (leadFilter === s[0] ? 'on' : '') + '" data-filter="' + s[0] + '">' + s[1] + ' <b>' + counts[s[0]] + '</b></button>').join('') +
+    '<button class="pipe-chip ' + (leadFilter === 'all' ? 'on' : '') + '" data-filter="all">All <b>' + leads.length + '</b></button>' +
+  '</div>' +
+  '<div class="lead-grid" id="leadGrid">' + leads.map(leadCard).join('') + '</div>' +
+  (leads.length ? '' : '<div class="empty"><img src="assets/roo-white.png" alt=""><p>No leads yet. New website inquiries will appear here — or add one manually.</p><button class="btn" data-act="add-lead">+ Add lead</button></div>');
+  filterLeads();
+}
+function leadCard(l){
+  const searchable = [l.first, l.last, l.company, l.email, l.phone, l.abn, (l.integrations || []).join(' ')].join(' ').toLowerCase();
+  return '<div class="lead-card" data-id="' + l.id + '" data-status="' + l.status + '" data-search="' + esc(searchable) + '">' +
+  '<div class="lead-top"><div class="lead-who"><h3>' + esc(l.first + ' ' + l.last) + '</h3><div class="co">' + esc(l.company) + '</div></div>' +
+  '<span class="lead-when">' + esc(timeAgo(l.ts)) + '</span></div>' +
+  '<div class="lead-contact">' +
+    '<a href="mailto:' + esc(l.email) + '">' + esc(l.email) + '</a>' +
+    (l.phone ? '<a href="tel:' + esc(l.phone.replace(/\s/g, '')) + '">' + esc(l.phone) + '</a>' : '') +
+    (l.website ? '<a href="' + esc(l.website) + '" target="_blank" rel="noopener">website ↗</a>' : '') +
+    (l.abn ? '<span style="color:var(--faint)">ABN ' + esc(l.abn) + '</span>' : '') +
+  '</div>' +
+  '<div class="lead-facts">' +
+    '<div class="lf"><div class="lf-k">Volume /mo</div><div class="lf-v">' + esc(lbl(VOLUMES, l.volume)) + '</div></div>' +
+    '<div class="lf"><div class="lf-k">Active SKUs</div><div class="lf-v">' + esc(lbl(SKUBANDS, l.skus)) + '</div></div>' +
+    '<div class="lf"><div class="lf-k">Timeline</div><div class="lf-v">' + esc(lbl(TIMELINES, l.timeline)) + '</div></div>' +
+  '</div>' +
+  ((l.integrations || []).length ? '<div class="tagrow">' + l.integrations.map(i => '<span class="tag">' + esc(i) + '</span>').join('') + '</div>' : '') +
+  ((l.needs || []).length ? '<div class="tagrow">' + l.needs.map(i => '<span class="tag" style="border-color:rgba(245,93,47,.25);color:var(--accent)">' + esc(i) + '</span>').join('') + '</div>' : '') +
+  (l.dims ? '<div style="font-size:12px;color:var(--faint)">📦 ' + esc(l.dims) + '</div>' : '') +
+  '<div class="lead-notes"><textarea data-notes="' + l.id + '" placeholder="Notes…" rows="1">' + esc(l.notes || '') + '</textarea></div>' +
+  '<div class="lead-foot">' +
+    '<select class="sel" data-status-for="' + l.id + '">' + LEAD_STATUSES.map(s => '<option value="' + s[0] + '"' + (l.status === s[0] ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select>' +
+    '<button class="btn ghost small" data-convert="' + l.id + '">Convert to onboarding →</button>' +
+    '<span class="spacer"></span>' +
+    '<button class="iconbtn" data-del-lead="' + l.id + '" title="Delete lead">Delete</button>' +
+  '</div></div>';
+}
+function filterLeads(){
+  const q = leadQ.trim().toLowerCase();
+  let any = false;
+  $$('#leadGrid .lead-card').forEach(el => {
+    const okStatus = leadFilter === 'all' ? true
+      : leadFilter === 'open' ? ['new','contacted','quoted'].indexOf(el.dataset.status) >= 0
+      : el.dataset.status === leadFilter;
+    const okQ = !q || el.dataset.search.indexOf(q) >= 0;
+    el.style.display = okStatus && okQ ? '' : 'none';
+    if(okStatus && okQ) any = true;
+  });
+  let none = $('#leadNone');
+  if(!any && $('#leadGrid')){
+    if(!none){ none = document.createElement('p'); none.id = 'leadNone'; none.style.cssText = 'color:var(--faint);font-size:13px;padding:16px 4px'; none.textContent = 'No leads match this view.'; $('#leadGrid').after(none); }
+  } else if(none) none.remove();
+}
+function leadDrawerForm(){
+  $('#leadDrawerBody').innerHTML =
+  '<div class="f-row2"><div><label class="f-lab">First name <span>*</span></label><input class="f-in" id="lf-first"></div>' +
+  '<div><label class="f-lab">Last name <span>*</span></label><input class="f-in" id="lf-last"></div></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Email <span>*</span></label><input class="f-in" id="lf-email" type="email"></div>' +
+  '<div><label class="f-lab">Phone</label><input class="f-in" id="lf-phone" type="tel"></div></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Company <span>*</span></label><input class="f-in" id="lf-company"></div>' +
+  '<div><label class="f-lab">ABN / ACN</label><input class="f-in" id="lf-abn"></div></div>' +
+  '<div><label class="f-lab">Website</label><input class="f-in" id="lf-web" placeholder="https://"></div>' +
+  '<div><label class="f-lab">Integrations</label><div class="chkgrid">' + INTEGRATIONS.map(i => '<label class="chk"><input type="checkbox" name="lf-int" value="' + esc(i) + '"><span>' + esc(i) + '</span></label>').join('') + '</div></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Monthly volume</label><select class="sel f-in" id="lf-vol">' + VOLUMES.map(o => '<option value="' + o[0] + '">' + o[1] + '</option>').join('') + '</select></div>' +
+  '<div><label class="f-lab">Active SKUs</label><select class="sel f-in" id="lf-sku">' + SKUBANDS.map(o => '<option value="' + o[0] + '">' + o[1] + '</option>').join('') + '</select></div></div>' +
+  '<div><label class="f-lab">Item dimensions / weights</label><input class="f-in" id="lf-dims" placeholder="e.g. 500 g tubs, 30×20×15 cm"></div>' +
+  '<div><label class="f-lab">Additional needs</label><div class="chkgrid">' + NEEDS.map(i => '<label class="chk"><input type="checkbox" name="lf-need" value="' + esc(i) + '"><span>' + esc(i) + '</span></label>').join('') + '</div></div>' +
+  '<div><label class="f-lab">Start timeline</label><select class="sel f-in" id="lf-tl">' + TIMELINES.map(o => '<option value="' + o[0] + '">' + o[1] + '</option>').join('') + '</select></div>' +
+  '<div><label class="f-lab">Notes</label><textarea class="f-in" id="lf-notes" rows="2"></textarea></div>';
+}
+function saveLeadFromDrawer(){
+  const first = $('#lf-first').value.trim(), last = $('#lf-last').value.trim(),
+        email = $('#lf-email').value.trim(), company = $('#lf-company').value.trim();
+  if(!first || !email || !company){ toast('First name, email and company are required'); return; }
+  const leads = col.leads();
+  leads.unshift({
+    id: uid(), ts: new Date().toISOString(), first, last, email,
+    phone: $('#lf-phone').value.trim(), company, abn: $('#lf-abn').value.trim(), website: $('#lf-web').value.trim(),
+    integrations: $$('input[name="lf-int"]:checked').map(i => i.value),
+    volume: $('#lf-vol').value, skus: $('#lf-sku').value, dims: $('#lf-dims').value.trim(),
+    needs: $$('input[name="lf-need"]:checked').map(i => i.value),
+    timeline: $('#lf-tl').value, status: 'new', notes: $('#lf-notes').value.trim()
+  });
+  DB.set('leads', leads);
+  closeOverlays(); updateCounts(); renderLeads();
+  toast('Lead added');
+}
+function convertLead(id){
+  const l = col.leads().find(x => x.id === id);
+  if(!l) return;
+  const obs = col.onboarding();
+  const acct = 'FS-' + (1055 + obs.length + Math.floor(Math.random() * 4));
+  const ob = { id: 'ob-' + uid(), clientName: l.company, acct, started: new Date().toISOString(), status: 'in_progress',
+    answers: { company_name: l.company, primary_contact: (l.first + ' ' + l.last).trim(), primary_email: l.email,
+      company_phone: l.phone || '', ecom_platform: (l.integrations || [])[0] || '' },
+    files: {}, kyc: {}, agreements: {}, extras: [], notes: 'Converted from website lead of ' + fmtDY(l.ts) + '.' };
+  obs.unshift(ob);
+  DB.set('onboarding', obs);
+  l.status = 'won';
+  DB.set('leads', col.leads());
+  updateCounts();
+  location.hash = '#/onboarding/' + ob.id;
+  toast('Onboarding started for ' + l.company);
+}
+</script>
+<script>
+'use strict';
+/* ================================================================== *
+ *  New Client Onboarding                                             *
+ * ================================================================== */
+const OB_STATUSES = [['in_progress','In progress'],['awaiting_client','Awaiting client'],['complete','Complete']];
+const OB_SECTIONS = ['Company Information','Company Contacts','Billing','Your Products','Shipping','Tech Setup'];
+function obCounts(ob){
+  const q = QUESTIONNAIRE.reduce((n, item) => n + (item.type === 'file'
+    ? (ob.files && ob.files[item.key] ? 1 : 0)
+    : (ob.answers && String(ob.answers[item.key] || '').trim() ? 1 : 0)), 0);
+  const dgApplies = ob.answers && ob.answers.dangerous_goods === 'Yes';
+  const kycItems = KYC_ITEMS.filter(k => !k.dgOnly || dgApplies);
+  const kyc = kycItems.reduce((n, k) => n + (ob.kyc && ob.kyc[k.key] && ob.kyc[k.key].done ? 1 : 0), 0);
+  const signed = AGREEMENTS.reduce((n, a) => n + (ob.agreements && ob.agreements[a.key] && ob.agreements[a.key].status === 'signed' ? 1 : 0), 0);
+  const pct = Math.round(q / QUESTIONNAIRE.length * 50 + (kycItems.length ? kyc / kycItems.length * 30 : 30) + signed / AGREEMENTS.length * 20);
+  return { q, qTotal: QUESTIONNAIRE.length, kyc, kycTotal: kycItems.length, signed, agrTotal: AGREEMENTS.length, pct: Math.min(100, pct) };
+}
+function obStatusPill(s){
+  return s === 'complete' ? '<span class="pill ok">Complete</span>'
+    : s === 'awaiting_client' ? '<span class="pill warn">Awaiting client</span>'
+    : '<span class="pill info">In progress</span>';
+}
+function renderOnboarding(param){
+  const v = $('#view-onboarding');
+  if(param){ renderObDetail(v, param); return; }
+  const obs = col.onboarding();
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>New Client Onboarding<em>.</em></h1>' +
+  '<p class="vh-sub">The website questionnaire lands here — answers, KYC checks, uploads and agreements for every new client, in one place.</p></div>' +
+  '<div class="vh-actions"><input class="f-in" id="obNewName" placeholder="New client name…" style="width:200px">' +
+  '<button class="btn" data-act="ob-add">+ Start onboarding</button></div></div>' +
+  (obs.length ? '<div class="ob-grid">' + obs.map(ob => {
+    const c = obCounts(ob);
+    return '<div class="ob-card" data-open-ob="' + ob.id + '" role="button" tabindex="0">' +
+    '<div class="ob-card-top"><div><h3>' + esc(ob.clientName) + '</h3><div class="ob-acct">' + esc(ob.acct || '') + ' · started ' + esc(fmtDY(ob.started)) + '</div></div>' + obStatusPill(ob.status) + '</div>' +
+    '<div class="prog"><i style="width:' + c.pct + '%"></i></div>' +
+    '<div class="prog-lab"><span>' + c.pct + '% complete</span><span>' + c.q + '/' + c.qTotal + ' answers</span></div>' +
+    '<div class="ob-chips"><span class="chip">Questionnaire ' + c.q + '/' + c.qTotal + '</span><span class="chip">KYC ' + c.kyc + '/' + c.kycTotal + '</span><span class="chip">Agreements ' + c.signed + '/' + c.agrTotal + ' signed</span></div>' +
+    '<span class="ob-open">Open onboarding →</span></div>';
+  }).join('') + '</div>'
+  : '<div class="empty"><img src="assets/roo-white.png" alt=""><p>No onboarding in progress. Convert a won lead, or start one manually above.</p></div>');
+}
+function fileChip(ref, path){
+  return '<span class="fchip"><a data-dl="' + esc(path) + '" title="Download">' + esc(ref.name) + '</a>' +
+    (ref.size ? '<span style="color:var(--faint)">' + fmtSize(ref.size) + '</span>' : '') +
+    '<button data-rm="' + esc(path) + '" title="Remove">✕</button></span>';
+}
+function uploadBtn(path, label){
+  return '<button class="fbtn" data-up="' + esc(path) + '">⇧ ' + esc(label || 'Upload file') + '</button>';
+}
+function renderObDetail(v, id){
+  const ob = col.onboarding().find(o => o.id === id);
+  if(!ob){ location.hash = '#/onboarding'; return; }
+  const c = obCounts(ob);
+  const dgApplies = ob.answers && ob.answers.dangerous_goods === 'Yes';
+  const docs = col.docs();
+  v.innerHTML =
+  '<button class="ob-back" data-act="ob-back">← All onboarding</button>' +
+  '<div class="ob-det-head"><div><h1 style="font-size:24px;font-weight:800">' + esc(ob.clientName) + '<em style="font-style:normal;color:var(--accent)">.</em></h1>' +
+  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="chip">' + esc(ob.acct || 'no account #') + '</span><span class="chip">Started ' + esc(fmtDY(ob.started)) + '</span>' + obStatusPill(ob.status) + '</div></div>' +
+  '<div style="min-width:220px;flex:0 1 300px"><select class="sel" data-ob-status="' + ob.id + '" style="width:100%;margin-bottom:10px">' +
+    OB_STATUSES.map(s => '<option value="' + s[0] + '"' + (ob.status === s[0] ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select>' +
+  '<div class="prog"><i style="width:' + c.pct + '%"></i></div><div class="prog-lab" style="margin-top:5px"><span>' + c.pct + '% complete</span><span>' + c.q + '/' + c.qTotal + ' · KYC ' + c.kyc + '/' + c.kycTotal + ' · ' + c.signed + '/4 signed</span></div></div></div>' +
+
+  '<div class="ob-sections">' +
+  '<div class="panel ob-sec-panel"><div class="panel-head"><span class="panel-title">Website questionnaire</span><span class="panel-meta">same questions as fullstackfs.com.au/#/onboarding</span></div>' +
+  OB_SECTIONS.map(sec =>
+    '<div class="sec-cap">' + esc(sec) + '</div>' +
+    QUESTIONNAIRE.filter(q => q.sec === sec).map(q => {
+      const val = (ob.answers && ob.answers[q.key]) || '';
+      let control;
+      if(q.type === 'yesno'){
+        control = '<div class="yn">' + ['Yes','No'].map(o => '<button data-yn="' + ob.id + ':' + q.key + ':' + o + '" class="' + (val === o ? 'sel' : '') + '">' + o + '</button>').join('') + '</div>';
+      } else if(q.type === 'file'){
+        const ref = ob.files && ob.files[q.key];
+        control = '<div class="fileslot">' + (ref ? fileChip(ref, 'ob:' + ob.id + ':q:' + q.key) : uploadBtn('ob:' + ob.id + ':q:' + q.key, 'Upload SKU list')) + '</div>';
+      } else if(q.type === 'long'){
+        control = '<textarea rows="1" data-q="' + ob.id + ':' + q.key + '">' + esc(val) + '</textarea>';
+      } else {
+        const t = q.type === 'tel' ? 'tel' : q.type === 'email' ? 'email' : q.type === 'number' ? 'number' : q.type === 'date' ? 'date' : 'text';
+        control = '<input type="' + t + '" value="' + esc(val) + '" data-q="' + ob.id + ':' + q.key + '">';
+      }
+      return '<div class="qa"><div class="qa-q">' + esc(q.q) + (q.req ? ' <span class="req">*</span>' : '') + '</div><div class="qa-a">' + control + '</div></div>';
+    }).join('')
+  ).join('') + '</div>' +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">KYC checklist</span><span class="panel-meta">' + c.kyc + ' of ' + c.kycTotal + ' complete</span></div>' +
+  KYC_ITEMS.map(k => {
+    const st = (ob.kyc && ob.kyc[k.key]) || {};
+    const na = k.dgOnly && !dgApplies;
+    const path = 'ob:' + ob.id + ':kyc:' + k.key;
+    return '<div class="kyc-row' + (st.done ? ' done' : '') + '"' + (na ? ' style="opacity:.45"' : '') + '>' +
+    '<button class="kbox' + (st.done ? ' done' : '') + '" data-kyc="' + ob.id + ':' + k.key + '" aria-label="Toggle ' + esc(k.name) + '">✓</button>' +
+    '<div class="kyc-name">' + esc(k.name) + (na ? ' — not required (no dangerous goods)' : '') + '<small>' + esc(k.hint) + '</small></div>' +
+    '<div class="fileslot">' + (st.file ? fileChip(st.file, path) : (na ? '' : uploadBtn(path, 'Attach'))) + '</div>' +
+    (st.done && st.date ? '<span class="ship-when">done ' + esc(fmtD(st.date)) + '</span>' : '') +
+    '</div>';
+  }).join('') + '</div>' +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Agreements</span><span class="panel-meta">' + c.signed + ' of 4 signed</span></div>' +
+  AGREEMENTS.map(a => {
+    const st = (ob.agreements && ob.agreements[a.key]) || {};
+    const linkedDoc = st.docId ? docs.find(d => d.id === st.docId) : null;
+    const path = 'ob:' + ob.id + ':agr:' + a.key;
+    const attach = st.file ? fileChip(st.file, path)
+      : linkedDoc ? '<span class="fchip"><a data-dl="doc:' + linkedDoc.id + '" title="Download">' + esc(linkedDoc.title) + '</a><button data-agr-unlink="' + ob.id + ':' + a.key + '" title="Unlink">✕</button></span>'
+      : '<select class="sel" data-agr-doc="' + ob.id + ':' + a.key + '" style="max-width:210px"><option value="">Attach from library…</option>' +
+          docs.map(d => '<option value="' + d.id + '">' + esc(d.title) + '</option>').join('') + '</select> ' + uploadBtn(path, 'Upload signed');
+    return '<div class="agr-row"><div class="agr-name">' + esc(a.name) + '<small>' + (st.date ? esc(lbl(AGR_STATES, st.status)) + ' · ' + esc(fmtDY(st.date)) : 'not sent yet') + '</small></div>' +
+    '<select class="sel" data-agr-status="' + ob.id + ':' + a.key + '">' + AGR_STATES.map(s => '<option value="' + s[0] + '"' + ((st.status || 'not_sent') === s[0] ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select>' +
+    '<div class="fileslot">' + attach + '</div></div>';
+  }).join('') + '</div>' +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Other documents</span><span class="panel-meta">product photos, MSDS, import docs…</span></div>' +
+  '<div class="fileslot" style="flex-wrap:wrap">' +
+    (ob.extras || []).map((ref, i) => fileChip(ref, 'ob:' + ob.id + ':extra:' + i)).join('') +
+    uploadBtn('ob:' + ob.id + ':extra:new', 'Add document') + '</div></div>' +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Internal notes</span></div>' +
+  '<div class="lead-notes"><textarea data-ob-notes="' + ob.id + '" rows="2" placeholder="Notes for the team…">' + esc(ob.notes || '') + '</textarea></div></div>' +
+  '</div>';
+}
+function obById(id){ return col.onboarding().find(o => o.id === id); }
+function saveOb(){ DB.set('onboarding', col.onboarding()); }
+
+/* ================================================================== *
+ *  Client Documents                                                  *
+ * ================================================================== */
+let docCat = 'all', docQ = '';
+function extOf(name){ const m = String(name || '').match(/\.([a-z0-9]+)$/i); return m ? m[1].toUpperCase().slice(0, 4) : 'DOC'; }
+function clientName(id){ const c = col.clients().find(x => x.id === id); return c ? c.name : ''; }
+function renderDocs(){
+  const v = $('#view-documents');
+  const docs = col.docs();
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>Client Documents<em>.</em></h1>' +
+  '<p class="vh-sub">NDAs, agreements, guarantees, rate cards and carrier freight-charge explainers — add, download and share when needed.</p></div>' +
+  '<div class="vh-actions"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
+  '<input id="docSearch" type="text" placeholder="Search documents…" value="' + esc(docQ) + '"></div>' +
+  '<button class="btn" data-act="add-doc">+ Add document</button></div></div>' +
+  '<div class="doc-filters">' +
+    '<button class="pipe-chip ' + (docCat === 'all' ? 'on' : '') + '" data-cat="all">All <b>' + docs.length + '</b></button>' +
+    DOC_CATS.map(cat => '<button class="pipe-chip ' + (docCat === cat[0] ? 'on' : '') + '" data-cat="' + cat[0] + '">' + cat[1] + ' <b>' + docs.filter(d => d.category === cat[0]).length + '</b></button>').join('') +
+  '</div>' +
+  '<div class="panel"><div class="doc-table-wrap"><table class="rows" id="docTable">' +
+  '<tr><th>Document</th><th>Category</th><th>Client</th><th class="num">Size</th><th>Updated</th><th></th></tr>' +
+  docs.map(d =>
+    '<tr data-cat="' + esc(d.category) + '" data-search="' + esc((d.title + ' ' + d.name + ' ' + clientName(d.clientId)).toLowerCase()) + '">' +
+    '<td><div class="doc-cell"><span class="doc-icon">' + esc(extOf(d.name)) + '</span><div><span class="cell-main">' + esc(d.title) + (d.demo ? ' <span class="chip demo" style="font-size:8.5px;padding:2px 8px;margin-left:6px">demo</span>' : '') + '</span><span class="cell-sub">' + esc(d.name) + (d.notes ? ' · ' + esc(d.notes) : '') + '</span></div></div></td>' +
+    '<td><span class="chip">' + esc(catLabel(d.category)) + '</span></td>' +
+    '<td style="color:var(--dim);font-size:12.5px">' + (d.clientId ? esc(clientName(d.clientId)) : '<span style="color:var(--faint)">General</span>') + '</td>' +
+    '<td class="num">' + fmtSize(d.size) + '</td>' +
+    '<td style="font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap">' + esc(fmtDY(d.ts)) + '</td>' +
+    '<td><div class="rowbtns"><button class="tbtn" data-dl="doc:' + d.id + '">↓ Download</button><button class="tbtn" data-mail="' + d.id + '">✉ Share</button><button class="tbtn" data-del-doc="' + d.id + '" style="color:var(--bad)">✕</button></div></td></tr>'
+  ).join('') + '</table>' +
+  (docs.length ? '' : '<div class="empty" style="border:0"><img src="assets/roo-white.png" alt=""><p>No documents yet — add your first NDA, agreement or rate card.</p></div>') +
+  '</div></div>';
+  filterDocs();
+}
+function filterDocs(){
+  const q = docQ.trim().toLowerCase();
+  $$('#docTable tr[data-cat]').forEach(tr => {
+    const ok = (docCat === 'all' || tr.dataset.cat === docCat) && (!q || tr.dataset.search.indexOf(q) >= 0);
+    tr.style.display = ok ? '' : 'none';
+  });
+}
+let pendingDocFile = null;
+function docDrawerForm(){
+  pendingDocFile = null;
+  $('#docDrawerBody').innerHTML =
+  '<div><label class="f-lab">Title <span>*</span></label><input class="f-in" id="df-title" placeholder="e.g. Glow Wellness — Signed NDA"></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Category</label><select class="sel f-in" id="df-cat">' + DOC_CATS.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join('') + '</select></div>' +
+  '<div><label class="f-lab">Client</label><select class="sel f-in" id="df-client"><option value="">General / master</option>' + col.clients().map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('') + '</select></div></div>' +
+  '<div><label class="f-lab">Notes</label><input class="f-in" id="df-notes" placeholder="Optional"></div>' +
+  '<div><label class="f-lab">File <span>*</span></label><div class="fileslot"><button class="fbtn" id="df-file">⇧ Choose file…</button><span id="df-filename" style="font-family:var(--mono);font-size:11.5px;color:var(--ok)"></span></div></div>';
+  $('#df-file').addEventListener('click', () => askFile(async file => {
+    pendingDocFile = file;
+    $('#df-filename').textContent = file.name + ' · ' + fmtSize(file.size);
+    if(!$('#df-title').value) $('#df-title').value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+  }, ''));
+}
+async function saveDocFromDrawer(){
+  const title = $('#df-title').value.trim();
+  if(!title){ toast('Give the document a title'); return; }
+  if(!pendingDocFile){ toast('Choose a file first'); return; }
+  if(pendingDocFile.size > 15 * 1048576){ toast('Keep files under 15 MB'); return; }
+  const ref = await fput(pendingDocFile);
+  const docs = col.docs();
+  docs.unshift({ id: uid(), title, category: $('#df-cat').value, clientId: $('#df-client').value,
+    notes: $('#df-notes').value.trim(), ts: new Date().toISOString(), name: ref.name, size: ref.size, fid: ref.fid });
+  DB.set('docs', docs);
+  closeOverlays(); updateCounts(); renderDocs();
+  toast('Document added');
+}
+function mailDoc(id){
+  const d = col.docs().find(x => x.id === id);
+  if(!d) return;
+  const subject = 'Fullstack Fulfillment — ' + d.title;
+  const body = 'Hi,\n\nPlease find attached: ' + d.title + ' (' + d.name + ').\n\n— sent from the FS Database; download the file there and attach it before sending.';
+  location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+}
+
+/* ================================================================== *
+ *  Carriers                                                          *
+ * ================================================================== */
+function renderCarriers(){
+  const v = $('#view-carriers');
+  const cars = col.carriers();
+  const carriers = cars.filter(c => !c.isPlatform);
+  const platforms = cars.filter(c => c.isPlatform);
+  const card = c => {
+    const meta = CARRIER_META[c.key];
+    const plate = meta
+      ? '<span class="car-plate"><img src="' + meta.logo + '" alt="' + esc(c.name) + '"></span>'
+      : '<span class="car-plate" style="background:rgba(255,255,255,.09)"><span style="font-family:var(--mono);font-weight:700;font-size:13px;color:var(--dim)">' + esc(c.name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase()) + '</span></span>';
+    const dot = meta ? '<i style="width:9px;height:9px;border-radius:3px;background:' + carrierColor(c.key) + ';display:inline-block;margin-right:7px"></i>' : '';
+    return '<div class="car-card" data-car-id="' + c.id + '">' +
+    '<div class="car-top">' + plate + '<div><h3>' + dot + esc(c.name) + '</h3><div class="car-sub">' + esc(c.sub || '') + '</div></div></div>' +
+    (c.services ? '<div style="font-size:12.5px;color:var(--dim)">' + esc(c.services) + '</div>' : '') +
+    '<div class="car-fields">' +
+      '<div class="cf"><div class="cf-k">Account #</div><input value="' + esc(c.acct || '') + '" data-car="' + c.id + ':acct" placeholder="Account number"></div>' +
+      '<div class="cf"><div class="cf-k">Account rep</div><input value="' + esc(c.rep || '') + '" data-car="' + c.id + ':rep" placeholder="Rep name"></div>' +
+      '<div class="cf"><div class="cf-k">Phone</div><input value="' + esc(c.phone || '') + '" data-car="' + c.id + ':phone" placeholder="Support / rep phone"></div>' +
+      '<div class="cf"><div class="cf-k">Email</div><input value="' + esc(c.email || '') + '" data-car="' + c.id + ':email" placeholder="rep@carrier.com"></div>' +
+      '<div class="cf"><div class="cf-k">Portal URL</div><input value="' + esc(c.portal || '') + '" data-car="' + c.id + ':portal"></div>' +
+      (c.isPlatform ? '' : '<div class="cf"><div class="cf-k">Tracking URL — {t} = tracking #</div><input value="' + esc(c.trackingTpl || '') + '" data-car="' + c.id + ':trackingTpl"></div>') +
+    '</div>' +
+    '<div class="car-links">' +
+      '<button class="btn ghost small" data-portal="' + c.id + '">Open portal ↗</button>' +
+      (c.phone ? '<a class="btn ghost small" href="tel:' + esc(String(c.phone).replace(/\s/g, '')) + '">Call</a>' : '') +
+      (c.email ? '<a class="btn ghost small" href="mailto:' + esc(c.email) + '">Email</a>' : '') +
+    '</div>' +
+    (c.isPlatform ? '' :
+    '<div class="car-attach">' +
+      [['agreement','Carrier agreement'],['ratecard','Rate card'],['surcharges','Freight charges / surcharges']].map(pair => {
+        const ref = c[pair[0]];
+        const path = 'car:' + c.id + ':' + pair[0];
+        return '<div class="car-attach-row"><span class="lab">' + pair[1] + '</span>' +
+          (ref ? fileChip(ref, path) : uploadBtn(path, 'Attach')) + '</div>';
+      }).join('') + '</div>') +
+    '<div class="car-notes"><textarea data-car-notes="' + c.id + '" rows="2" placeholder="Surcharges, cutoffs, quirks…">' + esc(c.notes || '') + '</textarea></div>' +
+    '</div>';
+  };
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>Carriers<em>.</em></h1>' +
+  '<p class="vh-sub">Accounts, reps, portals, rates and agreements for the whole delivery network — plus the platforms that run it.</p></div>' +
+  '<div class="vh-actions"><input class="f-in" id="carNewName" placeholder="Carrier name…" style="width:190px"><button class="btn" data-act="car-add">+ Add carrier</button></div></div>' +
+  '<div class="car-grid">' + carriers.map(card).join('') + '</div>' +
+  '<div class="sec-cap" style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:26px 0 12px;display:flex;align-items:center;gap:9px">Platforms</div>' +
+  '<div class="car-grid">' + platforms.map(card).join('') + '</div>';
+}
+function carById(id){ return col.carriers().find(c => c.id === id); }
+function saveCarriers(){ DB.set('carriers', col.carriers()); }
+
+/* ================================================================== *
+ *  File-ref plumbing — one resolver for every upload slot            *
+ * ================================================================== */
+function resolveRef(path){
+  const p = path.split(':');
+  if(p[0] === 'doc'){
+    const d = col.docs().find(x => x.id === p[1]);
+    return d && { get: () => d, set(){}, del(){ }, save(){ DB.set('docs', col.docs()); } };
+  }
+  if(p[0] === 'car'){
+    const c = carById(p[1]);
+    return c && { get: () => c[p[2]], set(ref){ c[p[2]] = ref; }, del(){ delete c[p[2]]; }, save: saveCarriers };
+  }
+  if(p[0] === 'ob'){
+    const ob = obById(p[1]);
+    if(!ob) return null;
+    if(p[2] === 'q'){ ob.files = ob.files || {}; return { get: () => ob.files[p[3]], set(ref){ ob.files[p[3]] = ref; }, del(){ delete ob.files[p[3]]; }, save: saveOb }; }
+    if(p[2] === 'kyc'){ ob.kyc = ob.kyc || {}; ob.kyc[p[3]] = ob.kyc[p[3]] || {}; return { get: () => ob.kyc[p[3]].file, set(ref){ ob.kyc[p[3]].file = ref; }, del(){ delete ob.kyc[p[3]].file; }, save: saveOb }; }
+    if(p[2] === 'agr'){ ob.agreements = ob.agreements || {}; ob.agreements[p[3]] = ob.agreements[p[3]] || {}; return { get: () => ob.agreements[p[3]].file, set(ref){ ob.agreements[p[3]].file = ref; delete ob.agreements[p[3]].docId; }, del(){ delete ob.agreements[p[3]].file; }, save: saveOb }; }
+    if(p[2] === 'extra'){
+      ob.extras = ob.extras || [];
+      const idx = p[3] === 'new' ? -1 : parseInt(p[3], 10);
+      return { get: () => idx >= 0 ? ob.extras[idx] : null,
+               set(ref){ if(idx >= 0) ob.extras[idx] = ref; else ob.extras.push(ref); },
+               del(){ if(idx >= 0) ob.extras.splice(idx, 1); }, save: saveOb };
+    }
+  }
+  return null;
+}
+async function handleUpload(path, file){
+  if(file.size > 15 * 1048576){ toast('Keep files under 15 MB'); return; }
+  const slot = resolveRef(path);
+  if(!slot) return;
+  const old = slot.get();
+  if(old && old.fid) await fdel(old.fid);
+  const ref = await fput(file);
+  slot.set(ref); slot.save();
+  route();
+  toast('File attached');
+}
+async function handleRemove(path){
+  const slot = resolveRef(path);
+  if(!slot) return;
+  const ref = slot.get();
+  if(ref && ref.fid) await fdel(ref.fid);
+  slot.del(); slot.save();
+  route();
+}
+function handleDownload(path){
+  if(path.indexOf('doc:') === 0){
+    const d = col.docs().find(x => x.id === path.slice(4));
+    if(d) downloadRef(d);
+    return;
+  }
+  const slot = resolveRef(path);
+  if(slot) downloadRef(slot.get());
+}
+
+/* ================================================================== *
+ *  Backup — export / import / reset                                  *
+ * ================================================================== */
+function blobToB64(blob){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1] || '');
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+function b64ToBlob(b64, type){
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: type || 'application/octet-stream' });
+}
+async function exportBackup(){
+  toast('Building backup…');
+  const files = (await fall().catch(() => [])) || [];
+  const fx = [];
+  for(const f of files) fx.push({ id: f.id, name: f.name, type: f.type, b64: await blobToB64(f.blob) });
+  const payload = { app: 'fsdb', v: 1, exportedAt: new Date().toISOString(),
+    data: { clients: col.clients(), shipments: col.shipments(), ssOrders: col.ssOrders(), leads: col.leads(),
+            onboarding: col.onboarding(), docs: col.docs(), carriers: col.carriers(), settings: col.settings() },
+    files: fx };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fs-database-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function importBackup(file){
+  let payload;
+  try{ payload = JSON.parse(await file.text()); }catch(e){ toast('That file isn’t a valid backup'); return; }
+  if(!payload || payload.app !== 'fsdb' || !payload.data){ toast('That file isn’t an FS Database backup'); return; }
+  if(!confirm('Import this backup? It replaces everything currently in the database.')) return;
+  for(const k in payload.data) DB.set(k, payload.data[k]);
+  await idbOp('readwrite', st => st.clear()).catch(() => {});
+  for(const f of payload.files || []){
+    await idbOp('readwrite', st => st.put({ id: f.id, name: f.name, type: f.type, blob: b64ToBlob(f.b64, f.type) })).catch(() => {});
+  }
+  toast('Backup imported');
+  renderSsStatus(); updateCounts(); route();
+}
+async function resetDemo(){
+  if(!confirm('Reset to fresh demo data? Your added records are removed (settings are kept).')) return;
+  const keep = col.settings();
+  Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
+  DB.cache = {};
+  DB.set('settings', keep);
+  await idbOp('readwrite', st => st.clear()).catch(() => {});
+  seed();
+  updateCounts(); route();
+  toast('Demo data reset');
+}
+async function wipeAll(){
+  if(!confirm('Erase EVERYTHING — all records, uploads and settings?')) return;
+  if(!confirm('Really erase everything? Export a backup first if unsure.')) return;
+  Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
+  DB.cache = {};
+  await idbOp('readwrite', st => st.clear()).catch(() => {});
+  DB.set('meta', { seededAt: new Date().toISOString(), empty: true });
+  ['clients','shipments','ssOrders','leads','onboarding','docs','carriers'].forEach(k => DB.set(k, []));
+  renderSsStatus(); updateCounts(); route();
+  toast('Database erased');
+}
+async function refreshStorageNote(){
+  let used = 0;
+  Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => used += (localStorage.getItem(k) || '').length * 2);
+  let fileBytes = 0, quota = 0, usage = 0;
+  try{ const files = await fall(); (files || []).forEach(f => fileBytes += (f.blob && f.blob.size) || 0); }catch(e){}
+  try{ const est = await navigator.storage.estimate(); quota = est.quota || 0; usage = est.usage || 0; }catch(e){}
+  $('#storageNote').textContent = 'Records ' + fmtSize(used) + ' · uploaded files ' + fmtSize(fileBytes) +
+    (quota ? ' · browser allowance ' + fmtSize(quota) : '');
+  $('#storageBar').style.width = Math.max(2, Math.min(100, quota ? usage / quota * 100 : 2)) + '%';
+}
+
+/* ================================================================== *
+ *  Router, overlays, events, init                                    *
+ * ================================================================== */
+const RENDER = { dashboard: renderDashboard, leads: renderLeads, onboarding: renderOnboarding, documents: renderDocs, carriers: renderCarriers };
+function route(){
+  const h = location.hash.replace(/^#\/?/, '') || 'dashboard';
+  const parts = h.split('/');
+  const name = RENDER[parts[0]] ? parts[0] : 'dashboard';
+  $$('.view').forEach(x => x.classList.toggle('on', x.dataset.view === name));
+  $$('#sideNav a').forEach(a => a.classList.toggle('on', a.dataset.route === name));
+  RENDER[name](parts[1]);
+  $('#side').classList.remove('open');
+}
+function updateCounts(){
+  const open = col.leads().filter(l => ['new','contacted','quoted'].indexOf(l.status) >= 0).length;
+  const obs = col.onboarding().filter(o => o.status !== 'complete').length;
+  $('#countLeads').textContent = open || '';
+  $('#countOb').textContent = obs || '';
+  $('#countDocs').textContent = col.docs().length || '';
+}
+function openOverlay(sel){ closeOverlays(); $('#scrim').classList.add('on'); $(sel).classList.add('on'); }
+function closeOverlays(){
+  $('#scrim').classList.remove('on');
+  $$('.drawer,.modal').forEach(el => el.classList.remove('on'));
+}
+function openSettings(){
+  const s = col.settings();
+  $('#ssApiKey').value = s.ss.apiKey || '';
+  $('#ssSubKey').value = s.ss.subKey || '';
+  $('#ssProxy').value = s.ss.proxy || '';
+  $('#ssMsg').className = 'conn-msg';
+  openOverlay('#settingsModal');
+  refreshStorageNote();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if(!DB.get('meta', null)) seed();
+  renderSsStatus();
+  updateCounts();
+  if(!location.hash) location.hash = '#/dashboard';
+  route();
+
+  window.addEventListener('hashchange', route);
+  window.addEventListener('resize', debounce(() => { if($('#view-dashboard').classList.contains('on')) renderDashboard(); }, 250));
+
+  /* shell */
+  $('#burger').addEventListener('click', () => $('#side').classList.add('open'));
+  $('#scrim').addEventListener('click', () => { closeOverlays(); $('#side').classList.remove('open'); });
+  $$('[data-close]').forEach(b => b.addEventListener('click', closeOverlays));
+  $('#btnSettings').addEventListener('click', openSettings);
+  $('#ssStatus').addEventListener('click', openSettings);
+  $('#btnExport').addEventListener('click', exportBackup);
+  $('#btnExport2').addEventListener('click', exportBackup);
+  $('#btnImport').addEventListener('click', () => { $('#importIn').value = ''; $('#importIn').click(); });
+  $('#btnReseed').addEventListener('click', resetDemo);
+  $('#btnWipe').addEventListener('click', wipeAll);
+  $('#ssConnect').addEventListener('click', ssConnect);
+  $('#ssDisconnect').addEventListener('click', () => {
+    const s = col.settings(); s.ss.connected = false; DB.set('settings', s);
+    renderSsStatus(); route(); toast('Using demo data');
+  });
+  $('#leadSave').addEventListener('click', saveLeadFromDrawer);
+  $('#docSave').addEventListener('click', saveDocFromDrawer);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeOverlays(); $('#side').classList.remove('open'); } });
+
+  $('#fileIn').addEventListener('change', e => {
+    const f = e.target.files[0];
+    const cb = pendingUpload;
+    pendingUpload = null;
+    if(f && cb) cb(f);
+  });
+  $('#importIn').addEventListener('change', e => { if(e.target.files[0]) importBackup(e.target.files[0]); });
+
+  /* dashboard */
+  $('#view-dashboard').addEventListener('click', e => {
+    const t = e.target.closest('[data-range],[data-act]');
+    if(!t) return;
+    if(t.dataset.range){ const s = col.settings(); s.range = +t.dataset.range; DB.set('settings', s); renderDashboard(); }
+    else if(t.dataset.act === 'open-settings') openSettings();
+    else if(t.dataset.act === 'ss-sync') openSettings();
+    else if(t.dataset.act === 'twin'){ const c = t.dataset.chart; dashMode[c] = dashMode[c] === 'table' ? '' : 'table'; renderDashboard(); }
+  });
+  $('#view-dashboard').addEventListener('input', e => {
+    if(e.target.id === 'shipSearch'){ dashShipQ = e.target.value; filterShipFeed(); }
+  });
+
+  /* leads */
+  $('#view-leads').addEventListener('click', e => {
+    const t = e.target.closest('[data-filter],[data-act],[data-convert],[data-del-lead]');
+    if(!t) return;
+    if(t.dataset.filter){ leadFilter = t.dataset.filter; $$('#view-leads .pipe-chip').forEach(c => c.classList.toggle('on', c.dataset.filter === leadFilter)); filterLeads(); }
+    else if(t.dataset.act === 'add-lead'){ leadDrawerForm(); openOverlay('#leadDrawer'); }
+    else if(t.dataset.convert) convertLead(t.dataset.convert);
+    else if(t.dataset.delLead){ if(confirm('Delete this lead?')){ DB.set('leads', col.leads().filter(l => l.id !== t.dataset.delLead)); updateCounts(); renderLeads(); } }
+  });
+  $('#view-leads').addEventListener('change', e => {
+    const sel = e.target.closest('[data-status-for]');
+    if(sel){ const l = col.leads().find(x => x.id === sel.dataset.statusFor); if(l){ l.status = sel.value; DB.set('leads', col.leads()); updateCounts(); renderLeads(); } }
+  });
+  $('#view-leads').addEventListener('input', debounce(e => {
+    if(e.target.id === 'leadSearch'){ leadQ = e.target.value; filterLeads(); }
+    const ta = e.target.closest('[data-notes]');
+    if(ta){ const l = col.leads().find(x => x.id === ta.dataset.notes); if(l){ l.notes = ta.value; DB.set('leads', col.leads()); } }
+  }, 200));
+
+  /* onboarding */
+  $('#view-onboarding').addEventListener('click', e => {
+    const open = e.target.closest('[data-open-ob]');
+    if(open && !e.target.closest('a,button,select,input,textarea')){ location.hash = '#/onboarding/' + open.dataset.openOb; return; }
+    const t = e.target.closest('[data-act],[data-yn],[data-kyc],[data-up],[data-dl],[data-rm],[data-agr-unlink]');
+    if(!t) return;
+    if(t.dataset.act === 'ob-back'){ location.hash = '#/onboarding'; }
+    else if(t.dataset.act === 'ob-add'){
+      const name = $('#obNewName').value.trim();
+      if(!name){ toast('Type the client name first'); return; }
+      const obs = col.onboarding();
+      const ob = { id: 'ob-' + uid(), clientName: name, acct: 'FS-' + (1055 + obs.length), started: new Date().toISOString(),
+        status: 'in_progress', answers: { company_name: name }, files: {}, kyc: {}, agreements: {}, extras: [], notes: '' };
+      obs.unshift(ob); DB.set('onboarding', obs);
+      updateCounts(); location.hash = '#/onboarding/' + ob.id;
+    }
+    else if(t.dataset.yn){ const p = t.dataset.yn.split(':'); const ob = obById(p[0]); if(ob){ ob.answers = ob.answers || {}; ob.answers[p[1]] = ob.answers[p[1]] === p[2] ? '' : p[2]; saveOb(); route(); } }
+    else if(t.dataset.kyc){ const p = t.dataset.kyc.split(':'); const ob = obById(p[0]); if(ob){ ob.kyc = ob.kyc || {}; const cur = ob.kyc[p[1]] || {}; cur.done = cur.done ? 0 : 1; cur.date = cur.done ? new Date().toISOString() : cur.date; ob.kyc[p[1]] = cur; saveOb(); route(); } }
+    else if(t.dataset.up) askFile(file => handleUpload(t.dataset.up, file));
+    else if(t.dataset.dl) handleDownload(t.dataset.dl);
+    else if(t.dataset.rm){ if(confirm('Remove this file?')) handleRemove(t.dataset.rm); }
+    else if(t.dataset.agrUnlink){ const p = t.dataset.agrUnlink.split(':'); const ob = obById(p[0]); if(ob && ob.agreements[p[1]]){ delete ob.agreements[p[1]].docId; saveOb(); route(); } }
+  });
+  $('#view-onboarding').addEventListener('change', e => {
+    const q = e.target.closest('[data-q]');
+    if(q){ const p = q.dataset.q.split(':'); const ob = obById(p[0]); if(ob){ ob.answers = ob.answers || {}; ob.answers[p[1]] = q.value; saveOb();
+      if(p[1] === 'dangerous_goods' || p[1] === 'active_skus') route(); } return; }
+    const st = e.target.closest('[data-ob-status]');
+    if(st){ const ob = obById(st.dataset.obStatus); if(ob){ ob.status = st.value; saveOb(); updateCounts(); route(); } return; }
+    const ags = e.target.closest('[data-agr-status]');
+    if(ags){ const p = ags.dataset.agrStatus.split(':'); const ob = obById(p[0]); if(ob){ ob.agreements = ob.agreements || {}; const cur = ob.agreements[p[1]] || {}; cur.status = ags.value; cur.date = new Date().toISOString(); ob.agreements[p[1]] = cur; saveOb(); route(); } return; }
+    const agd = e.target.closest('[data-agr-doc]');
+    if(agd && agd.value){ const p = agd.dataset.agrDoc.split(':'); const ob = obById(p[0]); if(ob){ ob.agreements = ob.agreements || {}; const cur = ob.agreements[p[1]] || {}; cur.docId = agd.value; if(!cur.status || cur.status === 'not_sent'){ cur.status = 'sent'; cur.date = new Date().toISOString(); } ob.agreements[p[1]] = cur; saveOb(); route(); } }
+  });
+  $('#view-onboarding').addEventListener('input', debounce(e => {
+    const ta = e.target.closest('[data-ob-notes]');
+    if(ta){ const ob = obById(ta.dataset.obNotes); if(ob){ ob.notes = ta.value; saveOb(); } }
+  }, 250));
+
+  /* documents */
+  $('#view-documents').addEventListener('click', e => {
+    const t = e.target.closest('[data-cat],[data-act],[data-dl],[data-mail],[data-del-doc]');
+    if(!t) return;
+    if(t.dataset.cat){ docCat = t.dataset.cat; $$('#view-documents .pipe-chip').forEach(c => c.classList.toggle('on', c.dataset.cat === docCat)); filterDocs(); }
+    else if(t.dataset.act === 'add-doc'){ docDrawerForm(); openOverlay('#docDrawer'); }
+    else if(t.dataset.dl) handleDownload(t.dataset.dl);
+    else if(t.dataset.mail) mailDoc(t.dataset.mail);
+    else if(t.dataset.delDoc){
+      const d = col.docs().find(x => x.id === t.dataset.delDoc);
+      if(d && confirm('Delete “' + d.title + '”?')){
+        if(d.fid) fdel(d.fid);
+        DB.set('docs', col.docs().filter(x => x.id !== d.id));
+        updateCounts(); renderDocs();
+      }
+    }
+  });
+  $('#view-documents').addEventListener('input', e => {
+    if(e.target.id === 'docSearch'){ docQ = e.target.value; filterDocs(); }
+  });
+
+  /* carriers */
+  $('#view-carriers').addEventListener('click', e => {
+    const t = e.target.closest('[data-act],[data-portal],[data-up],[data-dl],[data-rm]');
+    if(!t) return;
+    if(t.dataset.act === 'car-add'){
+      const name = $('#carNewName').value.trim();
+      if(!name){ toast('Type the carrier name first'); return; }
+      const cars = col.carriers();
+      cars.push({ id: uid(), key: 'c-' + uid(), name, sub: '', services: '', acct: '', rep: '', phone: '', email: '', portal: '', trackingTpl: '', notes: '' });
+      DB.set('carriers', cars); renderCarriers(); toast('Carrier added');
+    }
+    else if(t.dataset.portal){ const c = carById(t.dataset.portal); if(c && c.portal) window.open(c.portal, '_blank', 'noopener'); else toast('Add a portal URL first'); }
+    else if(t.dataset.up) askFile(file => handleUpload(t.dataset.up, file));
+    else if(t.dataset.dl) handleDownload(t.dataset.dl);
+    else if(t.dataset.rm){ if(confirm('Remove this file?')) handleRemove(t.dataset.rm); }
+  });
+  $('#view-carriers').addEventListener('input', debounce(e => {
+    const f = e.target.closest('[data-car]');
+    if(f){ const p = f.dataset.car.split(':'); const c = carById(p[0]); if(c){ c[p[1]] = f.value; saveCarriers(); } return; }
+    const ta = e.target.closest('[data-car-notes]');
+    if(ta){ const c = carById(ta.dataset.carNotes); if(c){ c.notes = ta.value; saveCarriers(); } }
+  }, 250));
+});
+</script>
+</body>
+</html>
