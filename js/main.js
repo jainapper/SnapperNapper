@@ -92,33 +92,6 @@
     window.addEventListener("resize", queue);
   }
 
-  /* waitlist forms -> prefilled email (no backend required) */
-  const wireWaitlist = (id) => {
-    const form = document.getElementById(id);
-    if (!form) return;
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      if (!form.reportValidity()) return;
-      const email = form.querySelector("input[type=email]").value.trim();
-      const subject = "FYBRE waitlist — early access";
-      const body = [
-        `Put me on the FYBRE waitlist: ${email}`,
-        "",
-        "(Sent from fybrelab.com)",
-      ].join("\n");
-      window.location.href =
-        `mailto:hello@fybrelab.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      form.classList.add("sent");
-      const note = form.nextElementSibling;
-      if (note && note.classList.contains("waitlist-note")) {
-        note.textContent = "Almost in — hit send in the email that just opened.";
-        note.classList.add("confirmed");
-      }
-    });
-  };
-  wireWaitlist("waitlist-hero");
-  wireWaitlist("waitlist-footer");
-
   /* footer year */
   const year = document.getElementById("year");
   if (year) year.textContent = String(new Date().getFullYear());

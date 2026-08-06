@@ -79,12 +79,15 @@ python3 scripts/generate_brand.py
 - [ ] **Legal line** — add a registered legal name / company number to the
       footer if required; the guide marks the tagline as
       *Engineered for Growth®* — keep the ® consistent once registered
-- [ ] **Waitlist delivery** — the form opens the visitor's email app (no
-      backend). To collect signups silently instead, point both forms at
-      [Formspree](https://formspree.io) or a list tool (Mailchimp, Loops):
-      set `action="https://formspree.io/f/<id>" method="POST"` on the two
-      `<form>` elements in `index.html` and remove the mailto handler in
-      `js/main.js`.
+- [ ] **Ordering** — the site runs in live posture with no commerce backend:
+      "Get the Growth Kit" opens a prefilled order-enquiry email. Wire up a
+      real checkout (Shopify buy button, Stripe payment link) when ready by
+      swapping the two mailto CTAs in `index.html`.
+- [ ] **Ingestible placeholders** — six placeholder cards (four gummies, two
+      capsules) sit under Products with redacted names. When artwork and
+      pricing land: replace `assets/products/gummies-tba.svg` /
+      `capsules-tba.svg`, the `.tba-name` blocks and the "pricing to come"
+      copy in `index.html`.
 - [ ] **Claims review** — the copy carries the brand's own claims from the
       guide and live site (90-day follicular-density guarantee,
       science-backed); confirm wording with whoever signs off on product
