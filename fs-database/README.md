@@ -7,7 +7,8 @@ anywhere — open `index.html` or drop this folder on any static host.
 ```
 fs-database/
 ├── index.html      the whole app (styles + views + logic)
-├── assets/         brand + carrier logos (copied from the website)
+├── manifest.json   PWA manifest — lets phones install it like an app
+├── assets/         brand + carrier logos + home-screen icons
 └── README.md       this file
 ```
 
@@ -24,6 +25,9 @@ you're ready to run it for real.
 | **New Client Onboarding** | One record per new client: the **website questionnaire** (same sections and questions as fullstackfs.com.au/#/onboarding, each with its title), a **KYC checklist** (ASIC extract, director ID, ABN check, proof of address, bank/DDR, insurance, DG declaration) with an upload slot per item, and the four **agreements** (Services Agreement, NDA, Performance Guarantee, Rate Card) tracked Not sent → Sent → Signed and attached from the library or uploaded signed. Progress bar rolls all three up. |
 | **Client Documents** | The shared library — NDAs, agreements, guarantee docs, rate cards, and carrier freight-charge explainers. Categorised, searchable, taggable to a client, downloadable, and shareable (opens a pre-written email; attach the downloaded file). |
 | **Carriers** | A card per carrier — Australia Post, DHL Express, NZ Post, SEKO, Parcel Right — with account #, rep, phone, email, portal link, tracking-URL template, attached agreement / rate card / surcharge explainer, and notes. Starshipit and Extensiv sit below as platforms. |
+| **Client Go Live** | The default pre-launch gate, per client. Three checks pull **automatically from onboarding** (questionnaire complete, KYC complete, all agreements signed) and eight ops checks are ticked by hand (stock received, SKUs in Extensiv, Starshipit connected, test order dispatched, shipping rules, billing, returns, date confirmed) — each with a note and done-date. The **Mark client LIVE** button only appears when every box is ticked, and clicking it promotes the client onto the dashboard as Live. |
+| **Fullstack Catalog** | The internal FS catalog — packaging and consumables supplied by Eagle AU — with SKU, spec, unit cost, pack/MOQ, lead time, stock on hand (edit inline) and **live usage from sales data** (use-per-order × current orders/day → days of cover, flagged when cover drops under lead time + 14 days). Also holds **new product requests to Eagle AU**: drafted, submitted, then tracked Quoted → Approved → added to the catalog. |
+| **Fullstack PO** | What to order from Eagle AU, driven by the sales data: a reorder-suggestions table turns the catalog flags into a purchase order in one click. **Admin-only** — every PO action sits behind the admin PIN — and every PO needs a **second signature from a different person** before it can be sent. Flow: Draft → Awaiting 2nd signature → Approved → Sent (pre-written email + downloadable PO document, GST totals included). |
 
 ## Where the data lives
 
@@ -73,6 +77,32 @@ uses each order's own tracking link, and matches orders to clients by SKU prefix
 (e.g. `APN-…` → Alpine Peak Nutrition). Keys are stored only in the browser.
 If you'd rather lock the proxy down, hard-code the keys in the Worker and keep
 its URL private instead of passing keys through.
+
+## Eagle AU
+
+Product requests and purchase orders go to Eagle AU. **Where these should land on
+Eagle's side is still being confirmed** — so for now the app logs everything
+internally and opens a pre-written email to the contact set in
+*Settings → Eagle AU* (the PO document also downloads so it can be attached).
+Once their process is known — an inbox, a portal, an API — only the send step
+needs re-pointing; every request and PO is already structured data.
+
+## Admin PIN & the two-signature rule
+
+Creating, countersigning and sending POs is gated behind a shared **admin PIN** —
+first unlock on the PO tab sets it (change or lock it in Settings). Every PO must
+be signed by the person who prepared it and **countersigned by a different
+person** (different name, same PIN) before Send unlocks. Honest caveat: this is a
+client-side workflow control that keeps day-to-day fingers off the order button —
+it is not real security or a legally robust audit trail. When the app grows a
+backend, this is the first thing to upgrade to real accounts.
+
+## On phones
+
+The whole app is responsive, and it installs like a native app: open it on a
+phone → browser menu → **Add to Home Screen**. It launches full-screen in the
+Night Freight theme with its own icon. (For iPhones the app must be served over
+HTTPS — any of the hosts below do that out of the box.)
 
 ## Wiring the website forms in
 

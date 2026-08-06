@@ -7,6 +7,12 @@
 <title>FS Database — Fullstack Fulfillment</title>
 <meta name="description" content="Fullstack Fulfillment internal ops database — dashboard, leads, onboarding, documents and carriers.">
 <link rel="icon" href="assets/roo-blue.png" type="image/png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<meta name="theme-color" content="#0d0c0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FS Database">
 <style>
 /* ————— FS DATABASE · NIGHT FREIGHT ————— same brand system as fullstackfs.com.au */
 :root{
@@ -155,8 +161,8 @@ table.rows th{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spa
 table.rows td{font-size:13px;padding:10px 10px 10px 0;border-bottom:1px solid var(--stroke);vertical-align:middle}
 table.rows tr:last-child td{border-bottom:0}
 table.rows td.num,table.rows th.num{text-align:right;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
-table.rows .cell-main{font-weight:700;color:var(--text)}
-table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px}
+.cell-main{font-weight:700;color:var(--text)}
+.cell-sub{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px}
 .ship-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--stroke)}
 .ship-item:last-child{border-bottom:0}
 .ship-plate{width:44px;height:30px;flex:none;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:4px}
@@ -324,6 +330,38 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
 .empty img{height:74px;opacity:.5}
 .empty p{color:var(--faint);font-size:13px;max-width:340px}
 
+/* ————— go live ————— */
+.gl-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border:1px solid rgba(126,226,168,.3);background:rgba(126,226,168,.06);border-radius:14px;padding:14px 18px;margin-bottom:14px}
+.gl-banner.blocked{border-color:rgba(242,193,78,.3);background:rgba(242,193,78,.05)}
+.gl-banner b{font-size:14px}
+.gl-live-stamp{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ok)}
+.auto-chip{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cool);background:rgba(197,211,226,.08);border:1px solid rgba(197,211,226,.22);padding:2px 8px;border-radius:100px}
+.kyc-row .note-in{flex:1;min-width:140px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:8px;color:var(--dim);font-family:var(--sans);font-size:12px;padding:6px 10px;outline:none}
+.kyc-row .note-in:focus{border-color:var(--stroke-hi);color:var(--text)}
+
+/* ————— catalog & PO ————— */
+.lock-chip{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:7px 14px;border-radius:100px;cursor:pointer;transition:all .15s;border:1px solid var(--stroke);background:rgba(255,255,255,.04);color:var(--dim)}
+.lock-chip:hover{border-color:var(--stroke-hi);color:var(--text)}
+.lock-chip.on{color:var(--ok);border-color:rgba(126,226,168,.3);background:rgba(126,226,168,.07)}
+.num-in{width:82px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;outline:none;text-align:right;font-variant-numeric:tabular-nums}
+.num-in:focus{border-color:var(--stroke-hi)}
+.num-in.small{width:64px}
+table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
+.sug-flag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:100px}
+.po-line-total{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.po-totals{display:flex;justify-content:flex-end;gap:26px;border-top:1px solid var(--stroke);padding-top:14px;margin-top:6px;align-items:baseline}
+.po-totals .t-lab{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.po-totals .t-val{font-size:22px;font-weight:800}
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sig-card{border:1px dashed rgba(255,255,255,.16);border-radius:12px;padding:14px 16px;min-height:76px}
+.sig-card.signed{border-style:solid;border-color:rgba(126,226,168,.3);background:rgba(126,226,168,.05)}
+.sig-name{font-family:'Segoe Script','Bradley Hand',cursive;font-size:20px;color:var(--text)}
+.sig-meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--faint);margin-top:4px;text-transform:uppercase}
+.sig-k{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.req-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.req-row:last-child{border-bottom:0}
+.pin-in{width:120px;letter-spacing:.4em;font-family:var(--mono);text-align:center}
+
 /* ————— responsive ————— */
 @media(max-width:1180px){
   .kpis{grid-template-columns:repeat(3,1fr)}
@@ -332,16 +370,27 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
 }
 @media(max-width:840px){
   .app{grid-template-columns:1fr}
-  .side{position:fixed;left:0;width:min(280px,84vw);transform:translateX(-103%);transition:transform .25s ease;box-shadow:30px 0 80px rgba(0,0,0,.5)}
+  .side{position:fixed;left:0;width:min(280px,84vw);transform:translateX(-103%);transition:transform .25s ease;box-shadow:30px 0 80px rgba(0,0,0,.5);overflow-y:auto}
   .side.open{transform:none}
-  .main{padding:18px 16px 60px}
-  .mobile-top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
-  .burger{background:var(--raise);border:1px solid var(--stroke);border-radius:10px;color:var(--text);width:40px;height:40px;font-size:16px;cursor:pointer}
+  .main{padding:18px 16px calc(60px + env(safe-area-inset-bottom))}
+  .mobile-top{display:flex;align-items:center;gap:12px;margin-bottom:18px;position:sticky;top:0;z-index:50;background:linear-gradient(var(--ground) 78%,transparent);padding:10px 0 8px}
+  .burger{background:var(--raise);border:1px solid var(--stroke);border-radius:10px;color:var(--text);width:40px;height:40px;font-size:16px;cursor:pointer;flex:none}
   .mobile-top img{height:24px}
   .kpis{grid-template-columns:repeat(2,1fr)}
+  .kpi-v{font-size:25px}
   .qa{grid-template-columns:1fr}
-  .agr-row{grid-template-columns:1fr;gap:8px}
+  .agr-row,.req-row{grid-template-columns:1fr;gap:8px}
   .search input{width:150px}
+  .vh-title h1{font-size:22px}
+  .lead-facts{grid-template-columns:repeat(2,auto)}
+  .car-fields{grid-template-columns:1fr}
+  .sig-grid{grid-template-columns:1fr}
+  .view-head .f-in{width:100%!important}
+  .vh-actions{width:100%}
+  .vh-actions .search{flex:1}
+  .vh-actions .search input{width:100%}
+  .po-totals{justify-content:space-between}
+  .drawer{width:100vw}
 }
 </style>
 </head>
@@ -369,6 +418,11 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
         New Client Onboarding
         <span class="n-count" id="countOb"></span>
       </a>
+      <a href="#/golive" data-route="golive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 15.4 7.2 17.9l.9-5.4L4.2 8.7l5.4-.8z"/></svg>
+        Client Go Live
+        <span class="n-count" id="countGl"></span>
+      </a>
       <a href="#/documents" data-route="documents">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8L19 7.5v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2z"/><path d="M13.5 2.5v5h5"/><path d="M8 13h8M8 17h5"/></svg>
         Client Documents
@@ -377,6 +431,16 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
       <a href="#/carriers" data-route="carriers">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v10h-11z"/><path d="M13.5 10h4l3 3v3.5h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>
         Carriers
+      </a>
+      <a href="#/catalog" data-route="catalog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v10l-8 4.5-8-4.5V7z"/><path d="M4 7l8 4.5L20 7M12 11.5V21.5"/></svg>
+        Fullstack Catalog
+        <span class="n-count" id="countCat"></span>
+      </a>
+      <a href="#/po" data-route="po">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>
+        Fullstack PO
+        <span class="n-count" id="countPo"></span>
       </a>
     </nav>
     <div class="side-foot">
@@ -389,7 +453,7 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
         <button id="btnSettings">Settings</button>
         <button id="btnExport">Export</button>
       </div>
-      <div class="side-ver">FS Database · v1</div>
+      <div class="side-ver">FS Database · v2</div>
     </div>
   </aside>
 
@@ -405,6 +469,9 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
     <section class="view" id="view-onboarding" data-view="onboarding"></section>
     <section class="view" id="view-documents" data-view="documents"></section>
     <section class="view" id="view-carriers" data-view="carriers"></section>
+    <section class="view" id="view-golive" data-view="golive"></section>
+    <section class="view" id="view-catalog" data-view="catalog"></section>
+    <section class="view" id="view-po" data-view="po"></section>
   </main>
 </div>
 
@@ -429,6 +496,40 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
   </div>
 </aside>
 
+<aside class="drawer" id="catDrawer" aria-label="Add catalog item">
+  <div class="drawer-head"><h2>Add catalog item</h2><button class="x" data-close>✕</button></div>
+  <div class="drawer-body" id="catDrawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn" id="catSave">Save item</button>
+    <button class="btn ghost" data-close>Cancel</button>
+  </div>
+</aside>
+
+<aside class="drawer" id="reqDrawer" aria-label="New product request">
+  <div class="drawer-head"><h2>New product request → Eagle AU</h2><button class="x" data-close>✕</button></div>
+  <div class="drawer-body" id="reqDrawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn" id="reqSave">Save request</button>
+    <button class="btn ghost" data-close>Cancel</button>
+  </div>
+</aside>
+
+<div class="modal" id="adminModal" role="dialog" aria-modal="true" aria-label="Admin unlock">
+  <div class="modal-card" style="width:min(400px,100%)">
+    <button class="x" data-close>✕</button>
+    <h2 id="adminTitle">Admin unlock</h2>
+    <p class="msub" id="adminSub">Purchase orders are admin-only.</p>
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <div><label class="f-lab" for="adminName">Your name</label><input class="f-in" id="adminName" autocomplete="off" placeholder="Full name"></div>
+      <div><label class="f-lab" for="adminPin">Admin PIN</label><input class="f-in pin-in" id="adminPin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>
+      <div id="adminPin2Wrap" style="display:none"><label class="f-lab" for="adminPin2">Confirm new PIN</label><input class="f-in pin-in" id="adminPin2" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>
+      <div class="conn-msg" id="adminMsg"></div>
+      <button class="btn" id="adminGo">Unlock</button>
+      <p class="set-note">The PIN is a shared workflow control stored in this browser — it keeps honest fingers off the order button, it is not real security. Real sign-off trails need the backend phase.</p>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-label="Settings">
   <div class="modal-card">
     <button class="x" data-close>✕</button>
@@ -448,6 +549,27 @@ table.rows .cell-sub{display:block;font-family:var(--mono);font-size:10.5px;colo
       </div>
       <div class="conn-msg" id="ssMsg"></div>
       <p class="set-note">Keys are stored only in this browser. Direct calls to the Starshipit API are usually blocked by browsers (CORS) — the README ships a 20-line Cloudflare Worker proxy that makes the live connection work. Until then the dashboard runs on demo data.</p>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-cap">Eagle AU — supplier contact</div>
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <div class="f-row2">
+          <div><label class="f-lab" for="egContact">Contact name</label><input class="f-in" id="egContact" placeholder="Orders desk / rep"></div>
+          <div><label class="f-lab" for="egPhone">Phone</label><input class="f-in" id="egPhone" placeholder="+61 …"></div>
+        </div>
+        <div><label class="f-lab" for="egEmail">Orders email</label><input class="f-in" id="egEmail" type="email" placeholder="orders@…"></div>
+      </div>
+      <p class="set-note">Product requests and approved POs are emailed here (and logged in the app). Where these should land on Eagle AU's side is still being confirmed — once known, this can point at their portal or API instead.</p>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-cap">Admin</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn ghost small" id="btnChangePin">Change admin PIN</button>
+        <button class="btn ghost small" id="btnLock">Lock admin</button>
+      </div>
+      <p class="set-note">The admin PIN gates creating, countersigning and sending purchase orders. First unlock on the PO tab sets it.</p>
     </div>
 
     <div class="set-sec">
@@ -2030,6 +2152,789 @@ document.addEventListener('DOMContentLoaded', () => {
     if(ta){ const c = carById(ta.dataset.carNotes); if(c){ c.notes = ta.value; saveCarriers(); } }
   }, 250));
 });
+</script>
+<script>
+'use strict';
+/* ================================================================== *
+ *  v2 — Client Go Live · Fullstack Catalog · Fullstack PO            *
+ * ================================================================== */
+const colV2 = {
+  catalog:  () => DB.get('catalog', []),
+  requests: () => DB.get('requests', []),
+  pos:      () => DB.get('pos', []),
+  goLive:   () => DB.get('goLive', [])
+};
+const CAT_KINDS = [['satchel','Satchel'],['carton','Carton'],['mailer','Mailer'],['insert','Insert'],['label','Labels'],['consumable','Consumable'],['other','Other']];
+const REQ_STATES = [['draft','Draft'],['submitted','Submitted'],['quoted','Quoted'],['approved','Approved'],['declined','Declined']];
+const GL_DEFAULT = [
+  { key:'stock',   name:'First stock received & put away', hint:'Booked into Extensiv, quantities verified against the ASN' },
+  { key:'skus',    name:'SKUs built in Extensiv', hint:'Descriptions, weights and dims verified against the SKU list' },
+  { key:'store',   name:'Store connected via Starshipit', hint:'Orders flowing through, test label printed' },
+  { key:'test',    name:'Test order picked, packed & dispatched', hint:'Full end-to-end run with live tracking' },
+  { key:'rules',   name:'Shipping rules & carrier mapping set', hint:'Service selection per weight band and zone agreed' },
+  { key:'billing', name:'Billing set up', hint:'Rate card accepted, invoicing details in place' },
+  { key:'returns', name:'Returns process agreed', hint:'Return address, grading rules, notification emails' },
+  { key:'date',    name:'Go-live date confirmed', hint:'First dispatch day locked in with the client' }
+];
+function money2(n){ return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function seedV2(){
+  const dISO = d => new Date(Date.now() - d * 86400e3).toISOString();
+  if(DB.get('catalog', null) === null){
+    DB.set('catalog', [
+      { id:'cat-sat-a5', sku:'FS-SAT-A5', name:'Poly satchel A5 — 190×260', kind:'satchel', spec:'60 µm white, double glue strip', unitCost:0.22, pack:100, moq:500, leadDays:7,  stock:2400, usePerOrder:0.18, status:'active' },
+      { id:'cat-sat-a4', sku:'FS-SAT-A4', name:'Poly satchel A4 — 250×325', kind:'satchel', spec:'60 µm white, double glue strip', unitCost:0.28, pack:100, moq:500, leadDays:7,  stock:210,  usePerOrder:0.34, status:'active' },
+      { id:'cat-sat-a3', sku:'FS-SAT-A3', name:'Poly satchel A3 — 310×405', kind:'satchel', spec:'60 µm white, double glue strip', unitCost:0.38, pack:100, moq:500, leadDays:7,  stock:1900, usePerOrder:0.26, status:'active' },
+      { id:'cat-sat-a2', sku:'FS-SAT-A2', name:'Poly satchel A2 — 440×510', kind:'satchel', spec:'70 µm white, heavy duty',        unitCost:0.55, pack:50,  moq:250, leadDays:7,  stock:480,  usePerOrder:0.08, status:'active' },
+      { id:'cat-ctn-s',  sku:'FS-CTN-S',  name:'Carton S — 220×160×120',    kind:'carton',  spec:'Kraft, B flute',                 unitCost:0.78, pack:25,  moq:100, leadDays:10, stock:620,  usePerOrder:0.07, status:'active' },
+      { id:'cat-ctn-m',  sku:'FS-CTN-M',  name:'Carton M — 310×230×160',    kind:'carton',  spec:'Kraft, B flute',                 unitCost:1.05, pack:25,  moq:100, leadDays:10, stock:40,   usePerOrder:0.05, status:'active' },
+      { id:'cat-ctn-l',  sku:'FS-CTN-L',  name:'Carton L — 400×300×220',    kind:'carton',  spec:'Kraft, BC double wall',          unitCost:1.45, pack:20,  moq:60,  leadDays:10, stock:260,  usePerOrder:0.02, status:'active' },
+      { id:'cat-bub-m',  sku:'FS-BUB-M',  name:'Bubble mailer M — padded',  kind:'mailer',  spec:'Kraft outer, bubble lined',      unitCost:0.31, pack:100, moq:300, leadDays:7,  stock:900,  usePerOrder:0.06, status:'active' },
+      { id:'cat-ins',    sku:'FS-INS-STD',name:'Thank-you insert card',     kind:'insert',  spec:'A6 350gsm, FS orange print',     unitCost:0.06, pack:500, moq:1000,leadDays:14, stock:5200, usePerOrder:0.4,  status:'active' },
+      { id:'cat-tape',   sku:'FS-TAP-48', name:'Packing tape 48 mm — branded', kind:'consumable', spec:'PP acrylic, FS print, 66 m', unitCost:2.10, pack:36, moq:72, leadDays:14, stock:88, usePerOrder:0.012, status:'active' },
+      { id:'cat-lbl',    sku:'FS-LBL-4X6',name:'Thermal labels 4×6 — roll of 500', kind:'label', spec:'Direct thermal, perm adhesive', unitCost:6.50, pack:12, moq:24, leadDays:5, stock:41, usePerOrder:0.002, status:'active' },
+      { id:'cat-void',   sku:'FS-VOID-K', name:'Void fill — kraft roll 450 m', kind:'consumable', spec:'70gsm recycled kraft',     unitCost:18.00, pack:1,  moq:10,  leadDays:10, stock:3,  usePerOrder:0.004, status:'active' }
+    ]);
+  }
+  if(DB.get('requests', null) === null){
+    DB.set('requests', [
+      { id:'req-kkv', ts:dISO(6), name:'Branded satchel — Koala Kids 350×480', kind:'satchel',
+        spec:'2-colour print on white poly, 60 µm, double glue strip, client-supplied artwork', targetCost:'$0.42 @ 5k',
+        qty:'5,000 initial run', forClient:'Koala Kids Vitamins', status:'quoted', submittedTs:dISO(6),
+        notes:'Eagle came back at $0.45 @ 5k / $0.39 @ 10k — waiting on client sign-off.' },
+      { id:'req-xl', ts:dISO(1), name:'Carton XL — 500×400×300 double wall', kind:'carton',
+        spec:'Plain kraft, BC flute, bulk 10 kg tub shipments', targetCost:'~$2.10', qty:'500', forClient:'Iron Fuel Supplements',
+        status:'draft', notes:'' }
+    ]);
+  }
+  if(DB.get('pos', null) === null){
+    DB.set('pos', [
+      { id:'po-42', number:'PO-2026-0042', status:'sent', created:dISO(32), notes:'Winter restock',
+        sig1:{ name:'Operations (demo)', ts:dISO(32) }, sig2:{ name:'Director (demo)', ts:dISO(31) }, sentTs:dISO(31),
+        lines:[ { catId:'cat-sat-a4', qty:2000, unitCost:0.28 }, { catId:'cat-sat-a3', qty:1000, unitCost:0.38 }, { catId:'cat-lbl', qty:24, unitCost:6.50 } ] },
+      { id:'po-47', number:'PO-2026-0047', status:'pending', created:dISO(1), notes:'Cover for Southpaw launch volumes',
+        sig1:{ name:'Operations (demo)', ts:dISO(1) }, sig2:null, sentTs:null,
+        lines:[ { catId:'cat-sat-a2', qty:250, unitCost:0.55 }, { catId:'cat-ctn-l', qty:100, unitCost:1.45 } ] }
+    ]);
+  }
+  if(DB.get('goLive', null) === null){
+    const t9 = new Date(Date.now() + 9 * 86400e3).toISOString().slice(0, 10);
+    const t21 = new Date(Date.now() + 21 * 86400e3).toISOString().slice(0, 10);
+    DB.set('goLive', [
+      { id:'gl-kkv', clientName:'Koala Kids Vitamins', acct:'FS-1053', onboardingId:'ob-kkv', target:t9, status:'preparing', liveTs:null,
+        items:{ stock:{ done:1, date:dISO(4) }, skus:{ done:1, date:dISO(4) }, store:{ done:1, date:dISO(2), note:'Shopify connected, labels printing' },
+                test:{ done:1, date:dISO(1) }, rules:{ done:1, date:dISO(1) }, billing:{}, returns:{}, date:{ note:'Waiting on signed guarantee' } } },
+      { id:'gl-southpaw', clientName:'Southpaw Supps', acct:'FS-1055', onboardingId:'ob-southpaw', target:t21, status:'preparing', liveTs:null,
+        items:{ stock:{}, skus:{}, store:{}, test:{}, rules:{}, billing:{}, returns:{}, date:{} } }
+    ]);
+  }
+  const s = col.settings();
+  s.eagle = s.eagle || { contact:'', email:'', phone:'' };
+  if(!('adminPin' in s)) s.adminPin = '';
+  DB.set('settings', s);
+}
+
+/* ————— admin gate ————— */
+let adminUser = null, adminAfter = null, adminMode = 'unlock';
+function isAdmin(){ return !!adminUser; }
+function requireAdmin(then){
+  if(adminUser){ then(); return; }
+  adminAfter = then;
+  openAdminModal('unlock');
+}
+function openAdminModal(mode, opts){
+  adminMode = mode || 'unlock';
+  const s = col.settings();
+  const setup = !s.adminPin;
+  const title = $('#adminTitle'), sub = $('#adminSub'), nameWrap = $('#adminName').parentElement,
+        pin2Wrap = $('#adminPin2Wrap'), go = $('#adminGo'), msg = $('#adminMsg');
+  msg.className = 'conn-msg';
+  $('#adminName').value = adminUser ? adminUser.name : '';
+  $('#adminPin').value = ''; $('#adminPin2').value = '';
+  if(adminMode === 'newpin'){
+    title.textContent = 'Change admin PIN';
+    sub.textContent = 'Set the new PIN — it gates all PO actions.';
+    nameWrap.style.display = 'none'; pin2Wrap.style.display = '';
+    go.textContent = 'Save new PIN';
+  } else if(adminMode === 'sign'){
+    title.textContent = (opts && opts.title) || 'Countersign';
+    sub.textContent = (opts && opts.sub) || 'Second signature — a different person, same admin PIN.';
+    nameWrap.style.display = ''; pin2Wrap.style.display = 'none';
+    $('#adminName').value = '';
+    go.textContent = 'Sign';
+  } else {
+    title.textContent = setup ? 'Create the admin PIN' : 'Admin unlock';
+    sub.textContent = setup ? 'First time here — set the shared admin PIN and you’re unlocked.' : 'Purchase orders are admin-only.';
+    nameWrap.style.display = ''; pin2Wrap.style.display = setup ? '' : 'none';
+    go.textContent = setup ? 'Create & unlock' : 'Unlock';
+  }
+  openOverlay('#adminModal');
+  setTimeout(() => (adminMode === 'newpin' ? $('#adminPin') : $('#adminName')).focus(), 60);
+}
+function adminSubmit(){
+  const s = col.settings();
+  const msg = $('#adminMsg');
+  const fail = t => { msg.textContent = t; msg.className = 'conn-msg err'; };
+  const name = $('#adminName').value.trim();
+  const pin = $('#adminPin').value.trim();
+  if(adminMode === 'newpin'){
+    if(pin.length < 4) return fail('PIN needs at least 4 characters.');
+    if(pin !== $('#adminPin2').value.trim()) return fail('PINs don’t match.');
+    s.adminPin = pin; DB.set('settings', s);
+    closeOverlays(); toast('Admin PIN updated');
+    return;
+  }
+  const setup = !s.adminPin;
+  if(!name) return fail('Type your name — it goes on the signature.');
+  if(setup && adminMode === 'unlock'){
+    if(pin.length < 4) return fail('PIN needs at least 4 characters.');
+    if(pin !== $('#adminPin2').value.trim()) return fail('PINs don’t match.');
+    s.adminPin = pin; DB.set('settings', s);
+  } else if(pin !== s.adminPin) return fail('Wrong PIN.');
+  if(adminMode === 'sign'){
+    const cb = adminAfter; adminAfter = null;
+    closeOverlays();
+    if(cb) cb(name);
+    return;
+  }
+  adminUser = { name };
+  const cb = adminAfter; adminAfter = null;
+  closeOverlays(); toast('Admin unlocked — ' + name);
+  route();
+  if(cb) cb();
+}
+
+/* ————— demand math (sales data → usage) ————— */
+function dailyOrders30(){
+  const n = shippedBetween(daysBack(29).getTime(), Date.now() + 1).length;
+  return n / 30;
+}
+function catCalc(item, dOrders){
+  const dailyUse = (item.usePerOrder || 0) * dOrders;
+  const cover = dailyUse > 0 ? item.stock / dailyUse : Infinity;
+  const flagged = isFinite(cover) && cover < (item.leadDays || 7) + 14;
+  let suggested = 0;
+  if(flagged){
+    const need = Math.max(0, 60 * dailyUse - item.stock);
+    const pack = item.pack || 1;
+    suggested = Math.max(item.moq || pack, Math.ceil(need / pack) * pack);
+  }
+  return { dailyUse, cover, flagged, suggested };
+}
+function coverPill(c){
+  if(!isFinite(c)) return '<span class="pill dim">no usage</span>';
+  const d = Math.round(c);
+  return c < 14 ? '<span class="pill bad">' + d + 'd cover</span>'
+       : c < 28 ? '<span class="pill warn">' + d + 'd cover</span>'
+       : '<span class="pill ok">' + d + 'd cover</span>';
+}
+
+/* ================================================================== *
+ *  Client Go Live                                                    *
+ * ================================================================== */
+function glById(id){ return colV2.goLive().find(g => g.id === id); }
+function saveGl(){ DB.set('goLive', colV2.goLive()); }
+function glAuto(gl){
+  const ob = gl.onboardingId ? obById(gl.onboardingId) : null;
+  if(!ob) return null;
+  const c = obCounts(ob);
+  return { ob, c,
+    rows: [
+      { name: 'Onboarding questionnaire complete', done: c.q >= c.qTotal, detail: c.q + '/' + c.qTotal + ' answered' },
+      { name: 'KYC checklist complete', done: c.kyc >= c.kycTotal, detail: c.kyc + '/' + c.kycTotal + ' verified' },
+      { name: 'All agreements signed', done: c.signed >= c.agrTotal, detail: c.signed + '/' + c.agrTotal + ' signed' }
+    ] };
+}
+function glProgress(gl){
+  const auto = glAuto(gl);
+  const autoRows = auto ? auto.rows : [];
+  const opsDone = GL_DEFAULT.filter(i => gl.items[i.key] && gl.items[i.key].done).length;
+  const done = opsDone + autoRows.filter(r => r.done).length;
+  const total = GL_DEFAULT.length + autoRows.length;
+  return { done, total, opsDone, ready: done >= total, pct: Math.round(done / total * 100) };
+}
+function renderGoLive(param){
+  const v = $('#view-golive');
+  if(param){ renderGlDetail(v, param); return; }
+  const gls = colV2.goLive();
+  const obsFree = col.onboarding().filter(o => !gls.some(g => g.onboardingId === o.id));
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>Client Go Live<em>.</em></h1>' +
+  '<p class="vh-sub">The default pre-launch checklist, per client — nobody goes live until every box is ticked.</p></div>' +
+  '<div class="vh-actions"><select class="sel f-in" id="glNewOb" style="width:210px"><option value="">Link onboarding — optional</option>' +
+    obsFree.map(o => '<option value="' + o.id + '">' + esc(o.clientName) + '</option>').join('') + '</select>' +
+  '<input class="f-in" id="glNewName" placeholder="Client name…" style="width:180px">' +
+  '<button class="btn" data-act="gl-add">+ New go-live</button></div></div>' +
+  (gls.length ? '<div class="ob-grid">' + gls.map(gl => {
+    const p = glProgress(gl);
+    const live = gl.status === 'live';
+    return '<div class="ob-card" data-open-gl="' + gl.id + '" role="button" tabindex="0">' +
+    '<div class="ob-card-top"><div><h3>' + esc(gl.clientName) + '</h3><div class="ob-acct">' + esc(gl.acct || '') + (gl.target ? ' · target ' + esc(fmtDY(gl.target)) : '') + '</div></div>' +
+    (live ? '<span class="pill ok">Live</span>' : p.ready ? '<span class="pill ok">Ready</span>' : '<span class="pill warn">Preparing</span>') + '</div>' +
+    '<div class="prog"><i style="width:' + p.pct + '%"></i></div>' +
+    '<div class="prog-lab"><span>' + p.pct + '% ready</span><span>' + p.done + '/' + p.total + ' checks</span></div>' +
+    '<span class="ob-open">Open checklist →</span></div>';
+  }).join('') + '</div>'
+  : '<div class="empty"><img src="assets/roo-white.png" alt=""><p>No go-lives in flight. Start one for a client finishing onboarding.</p></div>');
+}
+function renderGlDetail(v, id){
+  const gl = glById(id);
+  if(!gl){ location.hash = '#/golive'; return; }
+  const p = glProgress(gl);
+  const auto = glAuto(gl);
+  const live = gl.status === 'live';
+  v.innerHTML =
+  '<button class="ob-back" data-act="gl-back">← All go-lives</button>' +
+  '<div class="ob-det-head"><div><h1 style="font-size:24px;font-weight:800">' + esc(gl.clientName) + '<em style="font-style:normal;color:var(--accent)">.</em></h1>' +
+  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="chip">' + esc(gl.acct || 'no account #') + '</span>' +
+  '<label class="chip" style="gap:8px">Target <input type="date" value="' + esc(gl.target || '') + '" data-gl-target="' + gl.id + '" style="background:none;border:0;color:var(--text);font-family:var(--mono);font-size:10.5px;outline:none;color-scheme:dark"></label>' +
+  (live ? '<span class="pill ok">Live since ' + esc(fmtDY(gl.liveTs)) + '</span>' : '') + '</div></div>' +
+  '<div style="min-width:220px;flex:0 1 300px"><div class="prog"><i style="width:' + p.pct + '%"></i></div>' +
+  '<div class="prog-lab" style="margin-top:5px"><span>' + p.pct + '% ready</span><span>' + p.done + '/' + p.total + ' checks</span></div></div></div>' +
+
+  (live
+    ? '<div class="gl-banner"><span class="gl-live-stamp">🚀 Client is LIVE — first dispatch day ' + esc(fmtDY(gl.liveTs)) + '</span></div>'
+    : p.ready
+      ? '<div class="gl-banner"><b>All checks passed — ' + esc(gl.clientName) + ' is ready.</b><button class="btn" data-act="gl-live" data-id="' + gl.id + '">Mark client LIVE 🚀</button></div>'
+      : '<div class="gl-banner blocked"><b>' + (p.total - p.done) + ' check' + (p.total - p.done === 1 ? '' : 's') + ' remaining before go-live.</b><span class="panel-meta">the Mark LIVE button appears when everything is ticked</span></div>') +
+
+  '<div class="ob-sections">' +
+  (auto ?
+  '<div class="panel"><div class="panel-head"><span class="panel-title">From onboarding</span><a class="ob-open" href="#/onboarding/' + esc(auto.ob.id) + '" style="text-decoration:none">open onboarding →</a></div>' +
+  auto.rows.map(r =>
+    '<div class="kyc-row' + (r.done ? ' done' : '') + '"><span class="kbox' + (r.done ? ' done' : '') + '" style="cursor:default">✓</span>' +
+    '<div class="kyc-name">' + esc(r.name) + '<small>' + esc(r.detail) + '</small></div><span class="auto-chip">auto</span></div>'
+  ).join('') + '</div>' : '') +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Launch checklist</span><span class="panel-meta">' + p.opsDone + ' of ' + GL_DEFAULT.length + ' done</span></div>' +
+  GL_DEFAULT.map(item => {
+    const st = gl.items[item.key] || {};
+    return '<div class="kyc-row' + (st.done ? ' done' : '') + '">' +
+    '<button class="kbox' + (st.done ? ' done' : '') + '" data-gl="' + gl.id + ':' + item.key + '"' + (live ? ' disabled' : '') + ' aria-label="Toggle ' + esc(item.name) + '">✓</button>' +
+    '<div class="kyc-name">' + esc(item.name) + '<small>' + esc(item.hint) + '</small></div>' +
+    '<input class="note-in" data-gl-note="' + gl.id + ':' + item.key + '" placeholder="Note…" value="' + esc(st.note || '') + '">' +
+    (st.done && st.date ? '<span class="ship-when">done ' + esc(fmtD(st.date)) + '</span>' : '') +
+    '</div>';
+  }).join('') + '</div>' +
+  '</div>';
+}
+function glMarkLive(id){
+  const gl = glById(id);
+  if(!gl || !glProgress(gl).ready) return;
+  gl.status = 'live';
+  gl.liveTs = new Date().toISOString();
+  saveGl();
+  /* promote into the Clients list that drives the dashboard */
+  const clients = col.clients();
+  let c = clients.find(x => x.acct === gl.acct || x.name.toLowerCase() === gl.clientName.toLowerCase());
+  if(c){ c.status = 'live'; }
+  else {
+    const ob = gl.onboardingId ? obById(gl.onboardingId) : null;
+    clients.push({ id: 'c-' + uid(), name: gl.clientName, acct: gl.acct || '', platform: (ob && ob.answers && ob.answers.ecom_platform) || '—', status: 'live', skus: [] });
+  }
+  DB.set('clients', clients);
+  const ob2 = gl.onboardingId ? obById(gl.onboardingId) : null;
+  if(ob2 && ob2.status !== 'complete'){ ob2.status = 'complete'; saveOb(); }
+  updateCounts(); route();
+  toast(gl.clientName + ' is LIVE 🚀');
+}
+
+/* ================================================================== *
+ *  Fullstack Catalog + product requests to Eagle AU                  *
+ * ================================================================== */
+let catQ = '';
+function catById(id){ return colV2.catalog().find(c => c.id === id); }
+function saveCat(){ DB.set('catalog', colV2.catalog()); }
+function saveReq(){ DB.set('requests', colV2.requests()); }
+function eagleEmailSet(){ const e = col.settings().eagle; return e && e.email; }
+function renderCatalog(){
+  const v = $('#view-catalog');
+  const items = colV2.catalog();
+  const reqs = colV2.requests();
+  const dOrders = dailyOrders30();
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>Fullstack Catalog<em>.</em></h1>' +
+  '<p class="vh-sub">The internal FS catalog — packaging and consumables supplied by Eagle AU — with live usage from sales data, plus new product requests.</p></div>' +
+  '<div class="vh-actions"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
+  '<input id="catSearch" type="text" placeholder="Search catalog…" value="' + esc(catQ) + '"></div>' +
+  '<button class="btn ghost" data-act="cat-additem">+ Add item</button>' +
+  '<button class="btn" data-act="cat-request">Request new product →</button></div></div>' +
+
+  (reqs.length ?
+  '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><span class="panel-title">Product requests → Eagle AU</span>' +
+  '<span class="panel-meta">' + (eagleEmailSet() ? 'sending to ' + esc(col.settings().eagle.email) : 'set the Eagle AU contact in Settings') + '</span></div>' +
+  reqs.map(r =>
+    '<div class="req-row"><div><span class="cell-main">' + esc(r.name) + '</span>' +
+    '<span class="cell-sub">' + esc(r.spec || '') + (r.forClient ? ' · for ' + esc(r.forClient) : '') + (r.qty ? ' · ' + esc(r.qty) : '') + (r.targetCost ? ' · target ' + esc(r.targetCost) : '') + '</span>' +
+    (r.notes ? '<span class="cell-sub" style="color:var(--dim)">' + esc(r.notes) + '</span>' : '') + '</div>' +
+    '<select class="sel mini" data-req-status="' + r.id + '">' + REQ_STATES.map(s => '<option value="' + s[0] + '"' + (r.status === s[0] ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select>' +
+    '<div class="rowbtns">' +
+      (r.status === 'draft' ? '<button class="tbtn" data-req-submit="' + r.id + '">✉ Submit to Eagle AU</button>' : '') +
+      (r.status === 'approved' ? '<button class="tbtn" data-req-tocat="' + r.id + '">＋ Add to catalog</button>' : '') +
+      '<button class="tbtn" data-req-del="' + r.id + '" style="color:var(--bad)">✕</button></div></div>'
+  ).join('') + '</div>' : '') +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Catalog</span><span class="panel-meta">' +
+  'usage from last-30d sales · ' + (Math.round(dOrders * 10) / 10) + ' orders/day</span></div>' +
+  '<div class="doc-table-wrap"><table class="rows" id="catTable">' +
+  '<tr><th>SKU</th><th>Item</th><th class="num">Unit cost</th><th class="num">Pack / MOQ</th><th class="num">Lead</th><th class="num">Stock</th><th class="num">Use /order</th><th>Cover</th></tr>' +
+  items.map(it => {
+    const cc = catCalc(it, dOrders);
+    return '<tr data-search="' + esc((it.sku + ' ' + it.name + ' ' + it.kind).toLowerCase()) + '">' +
+    '<td style="font-family:var(--mono);font-size:11.5px;color:var(--faint);white-space:nowrap">' + esc(it.sku) + '</td>' +
+    '<td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(lbl(CAT_KINDS, it.kind)) + (it.spec ? ' · ' + esc(it.spec) : '') + '</span></td>' +
+    '<td class="num">' + money2(it.unitCost) + '</td>' +
+    '<td class="num">' + nf(it.pack) + ' / ' + nf(it.moq) + '</td>' +
+    '<td class="num">' + (it.leadDays || 0) + 'd</td>' +
+    '<td class="num"><input class="num-in" type="number" min="0" step="1" value="' + (it.stock || 0) + '" data-cat-stock="' + it.id + '"></td>' +
+    '<td class="num"><input class="num-in small" type="number" min="0" step="0.01" value="' + (it.usePerOrder || 0) + '" data-cat-use="' + it.id + '"></td>' +
+    '<td>' + coverPill(cc.cover) + (cc.flagged ? ' <span class="sug-flag pill acc" style="border:0">reorder ' + nf(cc.suggested) + '</span>' : '') + '</td></tr>';
+  }).join('') + '</table></div>' +
+  '<p class="set-note" style="margin-top:12px">Use /order is each item’s average consumption per outbound order — cover days = stock ÷ (use × current orders/day). Items are flagged when cover drops under lead time + 14 days; the PO tab turns the flags into a purchase order.</p>' +
+  '</div>';
+  filterCat();
+}
+function filterCat(){
+  const q = catQ.trim().toLowerCase();
+  $$('#catTable tr[data-search]').forEach(tr => { tr.style.display = !q || tr.dataset.search.indexOf(q) >= 0 ? '' : 'none'; });
+}
+function catDrawerForm(){
+  $('#catDrawerBody').innerHTML =
+  '<div class="f-row2"><div><label class="f-lab">SKU <span>*</span></label><input class="f-in" id="cf-sku" placeholder="FS-…"></div>' +
+  '<div><label class="f-lab">Kind</label><select class="sel f-in" id="cf-kind">' + CAT_KINDS.map(k => '<option value="' + k[0] + '">' + k[1] + '</option>').join('') + '</select></div></div>' +
+  '<div><label class="f-lab">Name <span>*</span></label><input class="f-in" id="cf-name" placeholder="e.g. Poly satchel A1 — 600×650"></div>' +
+  '<div><label class="f-lab">Spec</label><input class="f-in" id="cf-spec" placeholder="Material, print, flute…"></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Unit cost $</label><input class="f-in" id="cf-cost" type="number" min="0" step="0.01" value="0"></div>' +
+  '<div><label class="f-lab">Lead time (days)</label><input class="f-in" id="cf-lead" type="number" min="0" step="1" value="7"></div></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Pack size</label><input class="f-in" id="cf-pack" type="number" min="1" step="1" value="100"></div>' +
+  '<div><label class="f-lab">MOQ</label><input class="f-in" id="cf-moq" type="number" min="0" step="1" value="500"></div></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Stock on hand</label><input class="f-in" id="cf-stock" type="number" min="0" step="1" value="0"></div>' +
+  '<div><label class="f-lab">Use per order</label><input class="f-in" id="cf-use" type="number" min="0" step="0.01" value="0"></div></div>';
+}
+function saveCatFromDrawer(){
+  const sku = $('#cf-sku').value.trim(), name = $('#cf-name').value.trim();
+  if(!sku || !name){ toast('SKU and name are required'); return; }
+  const items = colV2.catalog();
+  items.push({ id: uid(), sku, name, kind: $('#cf-kind').value, spec: $('#cf-spec').value.trim(),
+    unitCost: +$('#cf-cost').value || 0, pack: +$('#cf-pack').value || 1, moq: +$('#cf-moq').value || 0,
+    leadDays: +$('#cf-lead').value || 7, stock: +$('#cf-stock').value || 0, usePerOrder: +$('#cf-use').value || 0, status: 'active' });
+  DB.set('catalog', items);
+  closeOverlays(); renderCatalog(); toast('Catalog item added');
+}
+function reqDrawerForm(){
+  $('#reqDrawerBody').innerHTML =
+  '<div><label class="f-lab">Product name <span>*</span></label><input class="f-in" id="rf-name" placeholder="e.g. Branded satchel — Client 350×480"></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Kind</label><select class="sel f-in" id="rf-kind">' + CAT_KINDS.map(k => '<option value="' + k[0] + '">' + k[1] + '</option>').join('') + '</select></div>' +
+  '<div><label class="f-lab">For client — optional</label><select class="sel f-in" id="rf-client"><option value="">Fullstack general</option>' + col.clients().map(c => '<option>' + esc(c.name) + '</option>').join('') + '</select></div></div>' +
+  '<div><label class="f-lab">Spec / description <span>*</span></label><textarea class="f-in" id="rf-spec" rows="3" placeholder="Size, material, print, artwork status…"></textarea></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Target cost</label><input class="f-in" id="rf-cost" placeholder="e.g. $0.42 @ 5k"></div>' +
+  '<div><label class="f-lab">Initial quantity</label><input class="f-in" id="rf-qty" placeholder="e.g. 5,000"></div></div>' +
+  '<div><label class="f-lab">Notes</label><textarea class="f-in" id="rf-notes" rows="2"></textarea></div>' +
+  '<p class="set-note">Saved as a draft — submit it to Eagle AU from the requests list. Where requests land on Eagle’s side is still being confirmed, so for now submitting opens a pre-written email to the contact in Settings and logs the request here.</p>';
+}
+function saveReqFromDrawer(){
+  const name = $('#rf-name').value.trim(), spec = $('#rf-spec').value.trim();
+  if(!name || !spec){ toast('Name and spec are required'); return; }
+  const reqs = colV2.requests();
+  reqs.unshift({ id: uid(), ts: new Date().toISOString(), name, kind: $('#rf-kind').value, spec,
+    targetCost: $('#rf-cost').value.trim(), qty: $('#rf-qty').value.trim(), forClient: $('#rf-client').value,
+    status: 'draft', notes: $('#rf-notes').value.trim() });
+  DB.set('requests', reqs);
+  closeOverlays(); updateCounts(); renderCatalog(); toast('Request saved as draft');
+}
+function submitRequest(id){
+  const r = colV2.requests().find(x => x.id === id);
+  if(!r) return;
+  const eg = col.settings().eagle || {};
+  if(!eg.email){ toast('Set the Eagle AU email in Settings first'); openSettings(); return; }
+  const body = 'Hi ' + (eg.contact || 'team') + ',\n\nNew product request from Fullstack Fulfillment:\n\n' +
+    'Product: ' + r.name + '\nType: ' + lbl(CAT_KINDS, r.kind) + '\nSpec: ' + r.spec +
+    (r.qty ? '\nInitial quantity: ' + r.qty : '') + (r.targetCost ? '\nTarget cost: ' + r.targetCost : '') +
+    (r.forClient ? '\nFor client: ' + r.forClient : '') + (r.notes ? '\nNotes: ' + r.notes : '') +
+    '\n\nPlease come back with pricing and lead time.\n\nThanks,\nFullstack Fulfillment\n07 2111 6366 · info@fullstackfs.com.au';
+  location.href = 'mailto:' + encodeURIComponent(eg.email) + '?subject=' + encodeURIComponent('Fullstack — new product request: ' + r.name) + '&body=' + encodeURIComponent(body);
+  r.status = 'submitted';
+  r.submittedTs = new Date().toISOString();
+  saveReq(); updateCounts(); renderCatalog();
+  toast('Request marked submitted');
+}
+
+/* ================================================================== *
+ *  Fullstack PO — admin-only, two signatures                         *
+ * ================================================================== */
+function poById(id){ return colV2.pos().find(p => p.id === id); }
+function savePos(){ DB.set('pos', colV2.pos()); }
+function poTotal(po){ return po.lines.reduce((s, l) => s + l.qty * l.unitCost, 0); }
+function poNumberNext(){
+  const yr = new Date().getFullYear();
+  const seqs = colV2.pos().map(p => { const m = p.number.match(/(\d+)$/); return m ? +m[1] : 0; });
+  return 'PO-' + yr + '-' + String(Math.max(46, ...seqs) + 1).padStart(4, '0');
+}
+function poPill(status){
+  return status === 'draft' ? '<span class="pill dim">Draft</span>'
+    : status === 'pending' ? '<span class="pill warn">Awaiting 2nd signature</span>'
+    : status === 'approved' ? '<span class="pill info">Approved — ready to send</span>'
+    : '<span class="pill ok">Sent to Eagle AU</span>';
+}
+function lockChip(){
+  return isAdmin()
+    ? '<button class="lock-chip on" data-act="po-lock" title="Click to lock">🔓 Admin — ' + esc(adminUser.name) + '</button>'
+    : '<button class="lock-chip" data-act="po-unlock">🔒 Locked — admin only</button>';
+}
+function createDraftPO(lines, note){
+  const pos = colV2.pos();
+  const po = { id: uid(), number: poNumberNext(), status: 'draft', created: new Date().toISOString(),
+    notes: note || '', sig1: null, sig2: null, sentTs: null, lines: lines || [] };
+  pos.unshift(po); savePos(); updateCounts();
+  location.hash = '#/po/' + po.id;
+  return po;
+}
+function renderPO(param){
+  const v = $('#view-po');
+  if(param){ renderPoDetail(v, param); return; }
+  const dOrders = dailyOrders30();
+  const items = colV2.catalog();
+  const sugg = items.map(it => ({ it, cc: catCalc(it, dOrders) })).filter(x => x.cc.flagged);
+  const pos = colV2.pos();
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>Fullstack PO<em>.</em></h1>' +
+  '<p class="vh-sub">What to order from Eagle AU, driven by the sales data — admin-only, and every PO needs a second signature before it can be sent.</p></div>' +
+  '<div class="vh-actions">' + lockChip() + '<button class="btn" data-act="po-new">+ New purchase order</button></div></div>' +
+
+  '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><span class="panel-title">Reorder suggestions</span>' +
+  '<span class="panel-meta">from last-30d sales · ' + (Math.round(dOrders * 10) / 10) + ' orders/day · flags at &lt; lead + 14d cover</span></div>' +
+  (sugg.length ?
+  '<div class="doc-table-wrap"><table class="rows">' +
+  '<tr><th></th><th>Item</th><th class="num">Stock</th><th class="num">Use /day</th><th>Cover</th><th class="num">Lead</th><th class="num">Suggested qty</th></tr>' +
+  sugg.map(x =>
+    '<tr><td><label class="chk" style="padding:6px 8px;border:0;background:none"><input type="checkbox" checked data-sug="' + x.it.id + '" data-qty="' + x.cc.suggested + '"></label></td>' +
+    '<td><span class="cell-main">' + esc(x.it.name) + '</span><span class="cell-sub">' + esc(x.it.sku) + ' · ' + money2(x.it.unitCost) + '/unit</span></td>' +
+    '<td class="num">' + nf(x.it.stock) + '</td><td class="num">' + x.cc.dailyUse.toFixed(1) + '</td>' +
+    '<td>' + coverPill(x.cc.cover) + '</td><td class="num">' + x.it.leadDays + 'd</td>' +
+    '<td class="num" style="color:var(--accent);font-weight:700">' + nf(x.cc.suggested) + '</td></tr>'
+  ).join('') + '</table></div>' +
+  '<div style="margin-top:14px"><button class="btn small" data-act="po-from-sug">Create PO from ticked items →</button></div>'
+  : '<p style="color:var(--faint);font-size:13px;padding:6px 0">Nothing needs reordering right now — every item has healthy cover for its lead time.</p>') +
+  '</div>' +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Purchase orders</span><span class="panel-meta">' + pos.length + ' total</span></div>' +
+  (pos.length ?
+  '<div class="doc-table-wrap"><table class="rows">' +
+  '<tr><th>PO</th><th class="num">Lines</th><th class="num">Total ex GST</th><th>Status</th><th>Signatures</th><th></th></tr>' +
+  pos.map(po =>
+    '<tr><td><span class="cell-main">' + esc(po.number) + '</span><span class="cell-sub">' + esc(fmtDY(po.created)) + (po.notes ? ' · ' + esc(po.notes) : '') + '</span></td>' +
+    '<td class="num">' + po.lines.length + '</td><td class="num">' + money2(poTotal(po)) + '</td>' +
+    '<td>' + poPill(po.status) + '</td>' +
+    '<td style="font-family:var(--mono);font-size:10.5px;color:var(--faint)">' + (po.sig1 ? '① ' + esc(po.sig1.name) : '—') + (po.sig2 ? ' · ② ' + esc(po.sig2.name) : '') + '</td>' +
+    '<td><div class="rowbtns"><button class="tbtn" data-open-po="' + po.id + '">Open →</button></div></td></tr>'
+  ).join('') + '</table></div>'
+  : '<p style="color:var(--faint);font-size:13px;padding:6px 0">No purchase orders yet.</p>') +
+  '</div>';
+}
+function renderPoDetail(v, id){
+  const po = poById(id);
+  if(!po){ location.hash = '#/po'; return; }
+  const draft = po.status === 'draft';
+  const sub = poTotal(po), gst = sub * 0.1;
+  const eg = col.settings().eagle || {};
+  v.innerHTML =
+  '<button class="ob-back" data-act="po-back">← All purchase orders</button>' +
+  '<div class="ob-det-head"><div><h1 style="font-size:24px;font-weight:800">' + esc(po.number) + '<em style="font-style:normal;color:var(--accent)">.</em></h1>' +
+  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="chip">Supplier · Eagle AU' + (eg.contact ? ' — ' + esc(eg.contact) : '') + '</span>' +
+  '<span class="chip">Created ' + esc(fmtDY(po.created)) + '</span>' + poPill(po.status) + '</div></div>' +
+  '<div>' + lockChip() + '</div></div>' +
+
+  '<div class="ob-sections">' +
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Lines</span>' +
+  (draft && isAdmin() ? '<div class="p-tools"><select class="sel mini" id="poAddLine"><option value="">+ Add catalog item…</option>' +
+    colV2.catalog().filter(c => !po.lines.some(l => l.catId === c.id)).map(c => '<option value="' + c.id + '">' + esc(c.sku + ' — ' + c.name) + '</option>').join('') + '</select></div>' : '') +
+  '</div>' +
+  '<div class="doc-table-wrap"><table class="rows">' +
+  '<tr><th>Item</th><th class="num">Qty</th><th class="num">Unit ex GST</th><th class="num">Line total</th>' + (draft && isAdmin() ? '<th></th>' : '') + '</tr>' +
+  po.lines.map((l, i) => {
+    const it = catById(l.catId) || { name: '(removed item)', sku: '—', pack: 1 };
+    return '<tr><td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(it.sku) + ' · pack of ' + nf(it.pack) + '</span></td>' +
+    '<td class="num">' + (draft && isAdmin() ? '<input class="num-in" type="number" min="0" step="' + (it.pack || 1) + '" value="' + l.qty + '" data-po-qty="' + po.id + ':' + i + '">' : nf(l.qty)) + '</td>' +
+    '<td class="num">' + (draft && isAdmin() ? '<input class="num-in small" type="number" min="0" step="0.01" value="' + l.unitCost + '" data-po-cost="' + po.id + ':' + i + '">' : money2(l.unitCost)) + '</td>' +
+    '<td class="num po-line-total">' + money2(l.qty * l.unitCost) + '</td>' +
+    (draft && isAdmin() ? '<td><button class="iconbtn" data-po-rmline="' + po.id + ':' + i + '">✕</button></td>' : '') + '</tr>';
+  }).join('') + '</table></div>' +
+  '<div class="po-totals"><span><span class="t-lab">Subtotal ex GST</span><div class="t-val" style="font-size:15px">' + money2(sub) + '</div></span>' +
+  '<span><span class="t-lab">GST 10%</span><div class="t-val" style="font-size:15px">' + money2(gst) + '</div></span>' +
+  '<span><span class="t-lab">Total inc GST</span><div class="t-val">' + money2(sub + gst) + '</div></span></div>' +
+  '</div>' +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Notes</span></div>' +
+  '<div class="lead-notes"><textarea data-po-notes="' + po.id + '" rows="1" placeholder="Context for the approver…"' + (po.status === 'sent' ? ' readonly' : '') + '>' + esc(po.notes || '') + '</textarea></div></div>' +
+
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Signatures</span><span class="panel-meta">two different people, both with the admin PIN</span></div>' +
+  '<div class="sig-grid">' +
+  '<div class="sig-card' + (po.sig1 ? ' signed' : '') + '"><div class="sig-k">① Prepared &amp; authorised</div>' +
+    (po.sig1 ? '<div class="sig-name">' + esc(po.sig1.name) + '</div><div class="sig-meta">' + esc(fmtDY(po.sig1.ts)) + '</div>'
+             : '<div style="color:var(--faint);font-size:12.5px">Signed when the draft is submitted for countersign.</div>') + '</div>' +
+  '<div class="sig-card' + (po.sig2 ? ' signed' : '') + '"><div class="sig-k">② Countersigned</div>' +
+    (po.sig2 ? '<div class="sig-name">' + esc(po.sig2.name) + '</div><div class="sig-meta">' + esc(fmtDY(po.sig2.ts)) + '</div>'
+             : '<div style="color:var(--faint);font-size:12.5px">A second person signs before anything can be sent.</div>') + '</div>' +
+  '</div>' +
+  '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">' +
+  (po.status === 'draft' ? '<button class="btn" data-po-sign1="' + po.id + '">Sign &amp; request countersign</button><button class="btn danger small" data-po-del="' + po.id + '">Delete draft</button>' : '') +
+  (po.status === 'pending' ? '<button class="btn" data-po-sign2="' + po.id + '">Countersign as second person…</button><button class="btn ghost small" data-po-redraft="' + po.id + '">Back to draft</button>' : '') +
+  (po.status === 'approved' ? '<button class="btn" data-po-send="' + po.id + '">Send to Eagle AU ✉</button><button class="btn ghost small" data-po-dl="' + po.id + '">↓ Download PO</button>' : '') +
+  (po.status === 'sent' ? '<span class="gl-live-stamp">✓ Sent ' + esc(fmtDY(po.sentTs)) + '</span><button class="btn ghost small" data-po-dl="' + po.id + '">↓ Download PO</button><button class="btn ghost small" data-po-dup="' + po.id + '">Duplicate as draft</button>' : '') +
+  '</div></div>' +
+  '</div>';
+}
+function poDocText(po){
+  const eg = col.settings().eagle || {};
+  const sub = poTotal(po), gst = sub * 0.1;
+  const L = [];
+  L.push('FULLSTACK FULFILLMENT — PURCHASE ORDER');
+  L.push('======================================');
+  L.push('PO number : ' + po.number);
+  L.push('Date      : ' + fmtDY(po.sig2 ? po.sig2.ts : po.created));
+  L.push('Supplier  : Eagle AU' + (eg.contact ? ' — ' + eg.contact : '') + (eg.email ? ' <' + eg.email + '>' : ''));
+  L.push('Deliver to: Fullstack Fulfillment — [warehouse address]');
+  L.push('Contact   : 07 2111 6366 · info@fullstackfs.com.au');
+  L.push('');
+  L.push('LINES');
+  po.lines.forEach(l => {
+    const it = catById(l.catId) || { sku: '—', name: '(removed item)' };
+    L.push('  ' + it.sku.padEnd(12) + ' ' + it.name.padEnd(38).slice(0, 38) + ' x ' + String(l.qty).padStart(6) + ' @ ' + money2(l.unitCost).padStart(8) + ' = ' + money2(l.qty * l.unitCost).padStart(10));
+  });
+  L.push('');
+  L.push('Subtotal ex GST : ' + money2(sub));
+  L.push('GST 10%         : ' + money2(gst));
+  L.push('TOTAL inc GST   : ' + money2(sub + gst));
+  if(po.notes) L.push('\nNotes: ' + po.notes);
+  L.push('');
+  L.push('Authorised   : ' + (po.sig1 ? po.sig1.name + ' — ' + fmtDY(po.sig1.ts) : '—'));
+  L.push('Countersigned: ' + (po.sig2 ? po.sig2.name + ' — ' + fmtDY(po.sig2.ts) : '—'));
+  L.push('');
+  L.push('Generated from the FS Database.');
+  return L.join('\n');
+}
+function poDownload(po){ downloadRef({ name: po.number + '.txt', body: poDocText(po) }); }
+function poSend(po){
+  const eg = col.settings().eagle || {};
+  if(!eg.email){ toast('Set the Eagle AU email in Settings first'); openSettings(); return; }
+  location.href = 'mailto:' + encodeURIComponent(eg.email) + '?subject=' + encodeURIComponent('Fullstack Fulfillment — ' + po.number) +
+    '&body=' + encodeURIComponent('Hi ' + (eg.contact || 'team') + ',\n\nPlease find our purchase order below.\n\n' + poDocText(po) + '\n\n(The PO document is also attached as a file.)');
+  poDownload(po);
+  po.status = 'sent';
+  po.sentTs = new Date().toISOString();
+  savePos(); updateCounts(); route();
+  toast(po.number + ' sent to Eagle AU');
+}
+
+/* ————— counts (v2-aware override) ————— */
+function updateCounts(){
+  const open = col.leads().filter(l => ['new','contacted','quoted'].indexOf(l.status) >= 0).length;
+  const obs = col.onboarding().filter(o => o.status !== 'complete').length;
+  $('#countLeads').textContent = open || '';
+  $('#countOb').textContent = obs || '';
+  $('#countDocs').textContent = col.docs().length || '';
+  const gl = colV2.goLive().filter(g => g.status !== 'live').length;
+  const reqs = colV2.requests().filter(r => ['draft','submitted','quoted'].indexOf(r.status) >= 0).length;
+  const pend = colV2.pos().filter(p => p.status === 'pending' || p.status === 'approved').length;
+  if($('#countGl')) $('#countGl').textContent = gl || '';
+  if($('#countCat')) $('#countCat').textContent = reqs || '';
+  if($('#countPo')) $('#countPo').textContent = pend || '';
+}
+/* demo reset — v2-aware override */
+async function resetDemo(){
+  if(!confirm('Reset to fresh demo data? Your added records are removed (settings are kept).')) return;
+  const keep = col.settings();
+  Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
+  DB.cache = {};
+  DB.set('settings', keep);
+  await idbOp('readwrite', st => st.clear()).catch(() => {});
+  seed(); seedV2();
+  updateCounts(); route();
+  toast('Demo data reset');
+}
+async function wipeAll(){
+  if(!confirm('Erase EVERYTHING — all records, uploads and settings?')) return;
+  if(!confirm('Really erase everything? Export a backup first if unsure.')) return;
+  Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
+  DB.cache = {};
+  await idbOp('readwrite', st => st.clear()).catch(() => {});
+  DB.set('meta', { seededAt: new Date().toISOString(), empty: true });
+  ['clients','shipments','ssOrders','leads','onboarding','docs','carriers','catalog','requests','pos','goLive'].forEach(k => DB.set(k, []));
+  adminUser = null;
+  renderSsStatus(); updateCounts(); route();
+  toast('Database erased');
+}
+
+/* register the new routes before the first route() runs */
+Object.assign(RENDER, { golive: renderGoLive, catalog: renderCatalog, po: renderPO });
+seedV2();
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateCounts();
+
+  /* go live */
+  $('#view-golive').addEventListener('click', e => {
+    const open = e.target.closest('[data-open-gl]');
+    if(open && !e.target.closest('a,button,select,input,textarea')){ location.hash = '#/golive/' + open.dataset.openGl; return; }
+    const t = e.target.closest('[data-act],[data-gl]');
+    if(!t) return;
+    if(t.dataset.act === 'gl-back'){ location.hash = '#/golive'; }
+    else if(t.dataset.act === 'gl-add'){
+      const obId = $('#glNewOb').value;
+      const ob = obId ? obById(obId) : null;
+      const name = $('#glNewName').value.trim() || (ob && ob.clientName);
+      if(!name){ toast('Type the client name or pick an onboarding'); return; }
+      const gls = colV2.goLive();
+      const gl = { id: 'gl-' + uid(), clientName: name, acct: (ob && ob.acct) || '', onboardingId: obId || null,
+        target: '', status: 'preparing', liveTs: null, items: {} };
+      gls.unshift(gl); saveGl(); updateCounts();
+      location.hash = '#/golive/' + gl.id;
+    }
+    else if(t.dataset.act === 'gl-live') glMarkLive(t.dataset.id);
+    else if(t.dataset.gl){
+      const p = t.dataset.gl.split(':');
+      const gl = glById(p[0]);
+      if(gl && gl.status !== 'live'){
+        const cur = gl.items[p[1]] || {};
+        cur.done = cur.done ? 0 : 1;
+        if(cur.done) cur.date = new Date().toISOString();
+        gl.items[p[1]] = cur; saveGl(); route();
+      }
+    }
+  });
+  $('#view-golive').addEventListener('change', e => {
+    const tgt = e.target.closest('[data-gl-target]');
+    if(tgt){ const gl = glById(tgt.dataset.glTarget); if(gl){ gl.target = tgt.value; saveGl(); } }
+  });
+  $('#view-golive').addEventListener('input', debounce(e => {
+    const n = e.target.closest('[data-gl-note]');
+    if(n){ const p = n.dataset.glNote.split(':'); const gl = glById(p[0]); if(gl){ gl.items[p[1]] = gl.items[p[1]] || {}; gl.items[p[1]].note = n.value; saveGl(); } }
+  }, 250));
+
+  /* catalog */
+  $('#view-catalog').addEventListener('click', e => {
+    const t = e.target.closest('[data-act],[data-req-submit],[data-req-del],[data-req-tocat]');
+    if(!t) return;
+    if(t.dataset.act === 'cat-additem'){ catDrawerForm(); openOverlay('#catDrawer'); }
+    else if(t.dataset.act === 'cat-request'){ reqDrawerForm(); openOverlay('#reqDrawer'); }
+    else if(t.dataset.reqSubmit) submitRequest(t.dataset.reqSubmit);
+    else if(t.dataset.reqTocat){
+      const r = colV2.requests().find(x => x.id === t.dataset.reqTocat);
+      if(r){ catDrawerForm(); openOverlay('#catDrawer');
+        $('#cf-name').value = r.name; $('#cf-kind').value = r.kind || 'other'; $('#cf-spec').value = r.spec || '';
+        $('#cf-sku').focus(); }
+    }
+    else if(t.dataset.reqDel){
+      if(confirm('Delete this product request?')){ DB.set('requests', colV2.requests().filter(x => x.id !== t.dataset.reqDel)); updateCounts(); renderCatalog(); }
+    }
+  });
+  $('#view-catalog').addEventListener('change', e => {
+    const st = e.target.closest('[data-cat-stock]');
+    if(st){ const it = catById(st.dataset.catStock); if(it){ it.stock = Math.max(0, +st.value || 0); saveCat(); renderCatalog(); } return; }
+    const us = e.target.closest('[data-cat-use]');
+    if(us){ const it = catById(us.dataset.catUse); if(it){ it.usePerOrder = Math.max(0, +us.value || 0); saveCat(); renderCatalog(); } return; }
+    const rs = e.target.closest('[data-req-status]');
+    if(rs){ const r = colV2.requests().find(x => x.id === rs.dataset.reqStatus); if(r){ r.status = rs.value; saveReq(); updateCounts(); renderCatalog(); } }
+  });
+  $('#view-catalog').addEventListener('input', e => {
+    if(e.target.id === 'catSearch'){ catQ = e.target.value; filterCat(); }
+  });
+
+  /* PO */
+  $('#view-po').addEventListener('click', e => {
+    const t = e.target.closest('[data-act],[data-open-po],[data-po-sign1],[data-po-sign2],[data-po-del],[data-po-redraft],[data-po-send],[data-po-dl],[data-po-dup],[data-po-rmline]');
+    if(!t) return;
+    if(t.dataset.act === 'po-back'){ location.hash = '#/po'; }
+    else if(t.dataset.act === 'po-unlock') requireAdmin(() => {});
+    else if(t.dataset.act === 'po-lock'){ adminUser = null; route(); toast('Admin locked'); }
+    else if(t.dataset.act === 'po-new') requireAdmin(() => createDraftPO([], ''));
+    else if(t.dataset.act === 'po-from-sug') requireAdmin(() => {
+      const lines = $$('#view-po [data-sug]:checked').map(cb => {
+        const it = catById(cb.dataset.sug);
+        return it ? { catId: it.id, qty: +cb.dataset.qty || it.moq, unitCost: it.unitCost } : null;
+      }).filter(Boolean);
+      if(!lines.length){ toast('Tick at least one item'); return; }
+      createDraftPO(lines, 'Reorder — generated from sales-data suggestions');
+    });
+    else if(t.dataset.openPo){ location.hash = '#/po/' + t.dataset.openPo; }
+    else if(t.dataset.poSign1) requireAdmin(() => {
+      const po = poById(t.dataset.poSign1);
+      if(!po) return;
+      if(!po.lines.length || !poTotal(po)){ toast('Add at least one line first'); return; }
+      po.sig1 = { name: adminUser.name, ts: new Date().toISOString() };
+      po.status = 'pending'; savePos(); updateCounts(); route();
+      toast('Signed — waiting on a second signature');
+    });
+    else if(t.dataset.poSign2){
+      const po = poById(t.dataset.poSign2);
+      if(!po) return;
+      adminAfter = name => {
+        if(po.sig1 && name.trim().toLowerCase() === po.sig1.name.trim().toLowerCase()){ toast('The second signature must be a different person'); return; }
+        po.sig2 = { name, ts: new Date().toISOString() };
+        po.status = 'approved'; savePos(); updateCounts(); route();
+        toast(po.number + ' approved — ready to send');
+      };
+      openAdminModal('sign', { title: 'Countersign ' + po.number, sub: 'Second signatory — different person, admin PIN.' });
+    }
+    else if(t.dataset.poDel){ if(confirm('Delete this draft PO?')){ DB.set('pos', colV2.pos().filter(p => p.id !== t.dataset.poDel)); updateCounts(); location.hash = '#/po'; } }
+    else if(t.dataset.poRedraft) requireAdmin(() => { const po = poById(t.dataset.poRedraft); if(po){ po.status = 'draft'; po.sig1 = null; savePos(); updateCounts(); route(); } });
+    else if(t.dataset.poSend) requireAdmin(() => poSend(poById(t.dataset.poSend)));
+    else if(t.dataset.poDl){ const po = poById(t.dataset.poDl); if(po) poDownload(po); }
+    else if(t.dataset.poDup) requireAdmin(() => { const src = poById(t.dataset.poDup); if(src) createDraftPO(src.lines.map(l => ({ ...l })), 'Repeat of ' + src.number); });
+    else if(t.dataset.poRmline) requireAdmin(() => { const p = t.dataset.poRmline.split(':'); const po = poById(p[0]); if(po && po.status === 'draft'){ po.lines.splice(+p[1], 1); savePos(); route(); } });
+  });
+  $('#view-po').addEventListener('change', e => {
+    const add = e.target.closest('#poAddLine');
+    if(add && add.value){
+      const parts = location.hash.split('/');
+      const po = poById(parts[2]);
+      const it = catById(add.value);
+      if(po && it && po.status === 'draft'){ po.lines.push({ catId: it.id, qty: it.moq || it.pack || 1, unitCost: it.unitCost }); savePos(); route(); }
+      return;
+    }
+    const q = e.target.closest('[data-po-qty]');
+    if(q){ const p = q.dataset.poQty.split(':'); const po = poById(p[0]); if(po){ po.lines[+p[1]].qty = Math.max(0, +q.value || 0); savePos(); route(); } return; }
+    const c = e.target.closest('[data-po-cost]');
+    if(c){ const p = c.dataset.poCost.split(':'); const po = poById(p[0]); if(po){ po.lines[+p[1]].unitCost = Math.max(0, +c.value || 0); savePos(); route(); } }
+  });
+  $('#view-po').addEventListener('input', debounce(e => {
+    const n = e.target.closest('[data-po-notes]');
+    if(n){ const po = poById(n.dataset.poNotes); if(po && po.status !== 'sent'){ po.notes = n.value; savePos(); } }
+  }, 250));
+
+  /* admin modal + drawers + settings extras */
+  $('#adminGo').addEventListener('click', adminSubmit);
+  $('#adminPin').addEventListener('keydown', e => { if(e.key === 'Enter') adminSubmit(); });
+  $('#adminPin2').addEventListener('keydown', e => { if(e.key === 'Enter') adminSubmit(); });
+  $('#catSave').addEventListener('click', saveCatFromDrawer);
+  $('#reqSave').addEventListener('click', saveReqFromDrawer);
+  $('#btnChangePin').addEventListener('click', () => requireAdmin(() => openAdminModal('newpin')));
+  $('#btnLock').addEventListener('click', () => { adminUser = null; closeOverlays(); route(); toast('Admin locked'); });
+  ['egContact','egEmail','egPhone'].forEach(fid => {
+    $('#' + fid).addEventListener('change', () => {
+      const s = col.settings();
+      s.eagle = s.eagle || {};
+      s.eagle.contact = $('#egContact').value.trim();
+      s.eagle.email = $('#egEmail').value.trim();
+      s.eagle.phone = $('#egPhone').value.trim();
+      DB.set('settings', s);
+    });
+  });
+});
+/* settings modal — fill Eagle fields too */
+function openSettings(){
+  const s = col.settings();
+  $('#ssApiKey').value = s.ss.apiKey || '';
+  $('#ssSubKey').value = s.ss.subKey || '';
+  $('#ssProxy').value = s.ss.proxy || '';
+  const eg = s.eagle || {};
+  $('#egContact').value = eg.contact || '';
+  $('#egEmail').value = eg.email || '';
+  $('#egPhone').value = eg.phone || '';
+  $('#ssMsg').className = 'conn-msg';
+  openOverlay('#settingsModal');
+  refreshStorageNote();
+}
 </script>
 </body>
 </html>
