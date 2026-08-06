@@ -61,6 +61,7 @@ button{font-family:var(--sans)}
 .side-nav a.on{color:var(--text);background:rgba(245,93,47,.1);border-color:rgba(245,93,47,.25)}
 .side-nav a.on svg{color:var(--accent);opacity:1}
 .side-nav .n-count{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--faint);background:rgba(255,255,255,.05);border:1px solid var(--stroke);padding:2px 8px;border-radius:100px}
+.side-nav .n-count:empty{display:none}
 .side-nav a.on .n-count{color:var(--accent);background:rgba(245,93,47,.12);border-color:rgba(245,93,47,.3)}
 .side-foot{border-top:1px solid var(--stroke);padding-top:14px;display:flex;flex-direction:column;gap:10px}
 .ss-status{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid var(--stroke);border-radius:11px;background:rgba(255,255,255,.02);cursor:pointer;transition:border-color .15s}
@@ -362,6 +363,27 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
 .req-row:last-child{border-bottom:0}
 .pin-in{width:120px;letter-spacing:.4em;font-family:var(--mono);text-align:center}
 
+/* ————— team ————— */
+.user-switch{display:flex;gap:9px;align-items:center;padding:9px 11px;border:1px solid var(--stroke);border-radius:11px;background:rgba(255,255,255,.02)}
+.u-avatar{width:27px;height:27px;border-radius:50%;background:rgba(245,93,47,.14);color:var(--accent);font-family:var(--mono);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;border:1px solid rgba(245,93,47,.3);text-transform:uppercase}
+.u-avatar.big{width:42px;height:42px;font-size:14px}
+.user-switch .sel{flex:1;min-width:0;padding:6px 26px 6px 9px;font-size:12px;border:0;background-color:transparent}
+.team-card .role-pill{margin-left:auto}
+.tab-toggles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tab-toggles .chk input:disabled + span{opacity:.45}
+.tab-toggles .chk:has(input:disabled){cursor:not-allowed;opacity:.75}
+.team-you{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ok);border:1px solid rgba(126,226,168,.3);background:rgba(126,226,168,.07);padding:3px 9px;border-radius:100px}
+
+/* ————— transit ————— */
+.transit-hero{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.transit-hero .th-v{font-size:34px;font-weight:800;letter-spacing:-.02em}
+.transit-hero .th-k{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.tc-row{display:grid;grid-template-columns:16px minmax(90px,1fr) auto auto;gap:9px;align-items:center;padding:5px 0;font-size:12px;color:var(--dim)}
+.tc-row i{width:10px;height:10px;border-radius:3px}
+.tc-row .tc-v{font-family:var(--mono);font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
+.tc-row .tc-n{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:right}
+.ship-transit{font-family:var(--mono);font-size:9px;color:var(--cool);letter-spacing:.04em}
+
 /* ————— responsive ————— */
 @media(max-width:1180px){
   .kpis{grid-template-columns:repeat(3,1fr)}
@@ -442,8 +464,17 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
         Fullstack PO
         <span class="n-count" id="countPo"></span>
       </a>
+      <a href="#/team" data-route="team">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="3.2"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M3 19.5c.5-3.3 2.6-5.2 5.5-5.2s5 1.9 5.5 5.2"/><path d="M15.5 14.6c2.4.2 4.1 1.9 4.5 4.4"/></svg>
+        Team
+        <span class="n-count" id="countTeam"></span>
+      </a>
     </nav>
     <div class="side-foot">
+      <div class="user-switch" title="Who is using the database on this device">
+        <span class="u-avatar" id="uAvatar">FS</span>
+        <select class="sel" id="userSel" aria-label="Current user"></select>
+      </div>
       <div class="ss-status" id="ssStatus" role="button" tabindex="0" title="Starshipit connection — open settings">
         <span class="ss-dot" id="ssDot"></span>
         <img src="assets/starshipit.svg" alt="Starshipit">
@@ -453,7 +484,7 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
         <button id="btnSettings">Settings</button>
         <button id="btnExport">Export</button>
       </div>
-      <div class="side-ver">FS Database · v2</div>
+      <div class="side-ver">FS Database · v3</div>
     </div>
   </aside>
 
@@ -472,6 +503,7 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
     <section class="view" id="view-golive" data-view="golive"></section>
     <section class="view" id="view-catalog" data-view="catalog"></section>
     <section class="view" id="view-po" data-view="po"></section>
+    <section class="view" id="view-team" data-view="team"></section>
   </main>
 </div>
 
@@ -869,9 +901,17 @@ function seed(){
         const value = items.reduce((sum, it) => sum + (priceOf[it.sku] || 30) * it.qty, 0);
         const ts = new Date(day.getTime() + (8 + Math.floor(R() * 9)) * 3600e3 + Math.floor(R() * 3600e3));
         const ageDays = (now - ts) / 86400e3;
-        const status = ageDays > 4 ? 'delivered' : ageDays > 0.8 ? 'transit' : 'packed';
+        /* door-to-door transit varies by carrier + lane */
+        const reg = dest[1];
+        const transit = carrier === 'dhl' ? (['SG','US','UK','JP'].indexOf(reg) >= 0 ? 4 + R() * 3 : 1 + R() * 1.3)
+          : carrier === 'seko' ? 5 + R() * 4
+          : carrier === 'nzpost' ? 3 + R() * 2.5
+          : carrier === 'parcelright' ? 1 + R() * 2
+          : reg === 'WA' ? 4 + R() * 2 : reg === 'TAS' ? 3 + R() * 2 : reg === 'SA' ? 2.5 + R() * 1.5 : 1.4 + R() * 2;
+        const status = ageDays > transit ? 'delivered' : ageDays > 0.35 ? 'transit' : 'packed';
         shipments.push({ id: uid() + orderNo, orderNo: 'FS-' + (orderNo++), clientId: c.id, carrier,
-          dest: dest[0] + ' ' + dest[1], tracking: trackFor(carrier), status, date: ts.toISOString(), items, value });
+          dest: dest[0] + ' ' + dest[1], tracking: trackFor(carrier), status, date: ts.toISOString(),
+          deliveredTs: status === 'delivered' ? new Date(ts.getTime() + transit * 86400e3).toISOString() : null, items, value });
       }
     }
   }
@@ -1048,6 +1088,7 @@ function mapSsOrder(o, shipped){
     trackingUrl: o.tracking_url || '',
     status: shipped ? (String(o.status || '').toLowerCase() === 'delivered' ? 'delivered' : 'transit') : 'unshipped',
     date: o.shipped_date || o.order_date || new Date().toISOString(),
+    deliveredTs: o.delivery_date || o.delivered_date || null,
     items,
     value: o.declared_value || o.total_price || null
   };
@@ -1146,7 +1187,7 @@ function barPath(x, y, w, h, r){
 function colChart(host, data, opts){
   opts = opts || {};
   host.innerHTML = '';
-  const W = Math.max(host.clientWidth || 560, 300), H = 196, padT = 10, padB = 24, padL = 40, padR = 6;
+  const W = Math.max(host.clientWidth || 560, 300), H = opts.height || 196, padT = 10, padB = 24, padL = 40, padR = 6;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': opts.label || 'Column chart' }, host);
   const maxV = Math.max(1, ...data.map(d => d.value));
@@ -1162,9 +1203,10 @@ function colChart(host, data, opts){
     const x = padL + i * band + (band - barW) / 2, y = padT + plotH - h;
     if(d.value > 0) svgEl('path', { d: barPath(x, y, barW, h, 4), fill: 'var(--chart-1)', 'data-i': i }, svg);
   });
-  [0, n - 1].forEach(i => {
+  (opts.allLabels ? data.map((_, i) => i) : [0, n - 1]).forEach(i => {
     if(i < 0 || !data[i]) return;
-    svgEl('text', { x: padL + i * band + band / 2, y: H - 7, 'text-anchor': i === 0 ? 'start' : 'end', fill: '#6a6a64', 'font-size': 10, 'font-family': 'var(--mono)' }, svg).textContent = data[i].label;
+    const anchor = opts.allLabels ? 'middle' : i === 0 ? 'start' : 'end';
+    svgEl('text', { x: padL + i * band + band / 2, y: H - 7, 'text-anchor': anchor, fill: '#6a6a64', 'font-size': 10, 'font-family': 'var(--mono)' }, svg).textContent = data[i].label;
   });
   /* hover bands — the hit target is the whole column slot, not the painted bar */
   data.forEach((d, i) => {
@@ -1317,7 +1359,20 @@ function dashStats(N){
   const topSkus = Object.values(skuMap).sort((a, b) => b.units - a.units).slice(0, 7);
   const open = currentOrders().filter(o => o.status === 'unshipped');
   const activeSkus = col.clients().reduce((s, c) => s + c.skus.length, 0);
-  return { cur, prev, perDay, byCarrier, byClient, topSkus, open,
+  /* transit — collection to destination, per delivered order */
+  const transits = cur.filter(o => o.deliveredTs)
+    .map(o => ({ o, t: (new Date(o.deliveredTs) - new Date(o.date)) / 86400e3 }))
+    .filter(x => x.t > 0 && x.t < 30);
+  const buckets = [['≤1d', 0], ['2d', 0], ['3d', 0], ['4d', 0], ['5d', 0], ['6d+', 0]];
+  transits.forEach(x => buckets[Math.min(5, Math.max(0, Math.ceil(x.t) - 1))][1]++);
+  const carrierTransit = CARRIERS.map(k => {
+    const mine = transits.filter(x => x.o.carrier === k);
+    return { key: k, label: CARRIER_META[k].name, color: carrierColor(k), n: mine.length,
+      avg: mine.length ? mine.reduce((s, x) => s + x.t, 0) / mine.length : null };
+  }).filter(x => x.n);
+  const transit = { n: transits.length, buckets, byCarrier: carrierTransit,
+    avg: transits.length ? transits.reduce((s, x) => s + x.t, 0) / transits.length : null };
+  return { cur, prev, perDay, byCarrier, byClient, topSkus, open, transit,
     kpi: {
       orders: cur.length, ordersPrev: prev.length,
       units: units(cur), unitsPrev: units(prev),
@@ -1334,7 +1389,7 @@ function delta(cur, prev, N){
 const STATUS_PILL = { delivered: ['ok','Delivered'], transit: ['info','In transit'], packed: ['warn','Packed'], unshipped: ['acc','Awaiting pick'] };
 function pillFor(status){ const p = STATUS_PILL[status] || ['dim', status]; return '<span class="pill ' + p[0] + '">' + esc(p[1]) + '</span>'; }
 const dashMode = {};   // chartId -> 'table'
-let dashShipQ = '';
+let dashShipQ = '', dashShipStatus = '';
 
 function skuName(sku){
   for(const c of col.clients()){ const hit = c.skus.find(s => s.sku === sku); if(hit) return hit.name; }
@@ -1349,11 +1404,13 @@ function shipRow(o){
   const plate = meta
     ? '<span class="ship-plate"><img src="' + meta.logo + '" alt="' + esc(meta.name) + '"></span>'
     : '<span class="ship-plate" style="background:rgba(255,255,255,.08)"><span style="font-family:var(--mono);font-size:8.5px;color:var(--faint)">' + esc((o.carrierLabel || o.carrier || '—').slice(0, 6).toUpperCase()) + '</span></span>';
-  return '<div class="ship-item" data-search="' + esc((o.orderNo + ' ' + clientOf(o) + ' ' + o.dest + ' ' + o.tracking).toLowerCase()) + '">' +
+  return '<div class="ship-item" data-status="' + esc(o.status) + '" data-search="' + esc((o.orderNo + ' ' + clientOf(o) + ' ' + o.dest + ' ' + o.tracking).toLowerCase()) + '">' +
     plate +
     '<span class="ship-info"><span class="ship-id">#' + esc(o.orderNo) + ' <span style="color:var(--faint);font-weight:400">· ' + esc(clientOf(o)) + '</span></span>' +
     '<span class="ship-dest">' + esc(o.dest || '—') + ' · ' + trackBit + '</span></span>' +
-    '<span class="ship-right">' + pillFor(o.status) + '<span class="ship-when">' + esc(timeAgo(o.date)) + '</span></span></div>';
+    '<span class="ship-right">' + pillFor(o.status) + '<span class="ship-when">' + esc(timeAgo(o.date)) + '</span>' +
+    (o.deliveredTs ? '<span class="ship-transit">' + ((new Date(o.deliveredTs) - new Date(o.date)) / 86400e3).toFixed(1) + 'd door-to-door</span>' : '') +
+  '</span></div>';
 }
 
 function renderDashboard(){
@@ -1407,12 +1464,18 @@ function renderDashboard(){
     '<div class="panel"><div class="panel-head"><span class="panel-title">Carrier mix</span><div class="p-tools"><span class="panel-meta">orders · last ' + N + 'd</span>' +
       '<button class="tbtn" data-act="twin" data-chart="carrier" aria-pressed="' + (dashMode.carrier === 'table') + '">⊞ table</button></div></div>' +
       '<div class="chart-box" id="ch-carrier"></div></div>' +
+    '<div class="panel"><div class="panel-head"><span class="panel-title">Transit times</span><div class="p-tools"><span class="panel-meta">collection → delivered</span>' +
+      '<button class="tbtn" data-act="twin" data-chart="transit" aria-pressed="' + (dashMode.transit === 'table') + '">⊞ table</button></div></div>' +
+      '<div class="chart-box" id="ch-transit"></div></div>' +
     '<div class="panel"><div class="panel-head"><span class="panel-title">Units sold by client</span><div class="p-tools"><span class="panel-meta">last ' + N + 'd</span>' +
       '<button class="tbtn" data-act="twin" data-chart="client" aria-pressed="' + (dashMode.client === 'table') + '">⊞ table</button></div></div>' +
       '<div class="chart-box" id="ch-client"></div></div>' +
     '<div class="panel"><div class="panel-head"><span class="panel-title">Recent shipments</span><span class="panel-meta">live tracking links</span></div>' +
       '<div class="search" style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
       '<input id="shipSearch" type="text" placeholder="Order, client, tracking…" value="' + esc(dashShipQ) + '" style="width:100%"></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
+        [['', 'All'], ['delivered', 'Delivered'], ['transit', 'In transit'], ['packed', 'Packed'], ['unshipped', 'Awaiting']].map(f =>
+          '<button class="tbtn" data-shipstatus="' + f[0] + '" aria-pressed="' + (dashShipStatus === f[0]) + '">' + f[1] + '</button>').join('') + '</div>' +
       '<div id="shipFeed"></div></div>' +
   '</div></div>';
 
@@ -1431,24 +1494,40 @@ function renderDashboard(){
   if(dashMode.client === 'table'){
     twinTable(cliHost, ['Client', 'Units'], st.byClient.map(c => [c.label, nf(c.value)]));
   } else hbars(cliHost, st.byClient.slice(0, 6));
+  const trHost = $('#ch-transit'), tr = st.transit;
+  if(dashMode.transit === 'table'){
+    twinTable(trHost, ['Transit', 'Orders'],
+      tr.buckets.map(b => [b[0], nf(b[1])]).concat(tr.byCarrier.map(c => [c.label + ' — average', c.avg.toFixed(1) + ' days'])));
+  } else if(!tr.n){
+    trHost.innerHTML = '<p style="color:var(--faint);font-size:12.5px;padding:8px 0">No delivered orders in this range yet.</p>';
+  } else {
+    trHost.innerHTML = '<div class="transit-hero"><span class="th-v">' + tr.avg.toFixed(1) + 'd</span><span class="th-k">avg door-to-door · ' + nf(tr.n) + ' delivered</span></div>' +
+      '<div id="ch-transit-hist"></div><div id="ch-transit-car" style="margin-top:12px;border-top:1px solid var(--stroke);padding-top:10px"></div>';
+    colChart($('#ch-transit-hist'), tr.buckets.map(b => ({ label: b[0], title: b[0] + ' door-to-door', value: b[1] })),
+      { series: 'Orders', label: 'Transit time distribution', allLabels: true, height: 132 });
+    $('#ch-transit-car').innerHTML = tr.byCarrier.map(c =>
+      '<div class="tc-row"><i style="background:' + c.color + '"></i><span>' + esc(c.label) + '</span><span class="tc-v">' + c.avg.toFixed(1) + 'd</span><span class="tc-n">' + nf(c.n) + ' orders</span></div>').join('');
+  }
 
   sparkline($('#sp-orders'), st.perDay.map(d => d.orders));
   sparkline($('#sp-units'), st.perDay.map(d => d.units));
   sparkline($('#sp-clients'), st.perDay.map(d => d.clients));
   sparkline($('#sp-skus'), st.perDay.map(d => d.skus));
 
-  /* shipments feed — newest first: open orders pinned, then shipped */
-  const feed = st.open.slice().sort((a, b) => new Date(b.date) - new Date(a.date))
-    .concat(st.cur.slice().sort((a, b) => new Date(b.date) - new Date(a.date)));
-  $('#shipFeed').innerHTML = feed.slice(0, 60).map(shipRow).join('') || '<p style="color:var(--faint);font-size:12.5px;padding:12px 0">No shipments in this range.</p>';
+  /* shipments feed — open orders pinned, then newest of each status so every filter has rows */
+  const desc = (a, b) => new Date(b.date) - new Date(a.date);
+  const shipped = st.cur.slice().sort(desc);
+  const feed = st.open.slice().sort(desc)
+    .concat(['packed', 'transit', 'delivered'].flatMap(s => shipped.filter(o => o.status === s).slice(0, 40)).sort(desc));
+  $('#shipFeed').innerHTML = feed.map(shipRow).join('') || '<p style="color:var(--faint);font-size:12.5px;padding:12px 0">No shipments in this range.</p>';
   filterShipFeed();
 }
 function filterShipFeed(){
   const q = dashShipQ.trim().toLowerCase();
   let shown = 0;
   $$('#shipFeed .ship-item').forEach(el => {
-    const hit = !q || el.dataset.search.indexOf(q) >= 0;
-    el.style.display = (hit && shown < 9) ? '' : 'none';
+    const hit = (!q || el.dataset.search.indexOf(q) >= 0) && (!dashShipStatus || el.dataset.status === dashShipStatus);
+    el.style.display = (hit && shown < 10) ? '' : 'none';
     if(hit) shown++;
   });
 }
@@ -2039,12 +2118,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* dashboard */
   $('#view-dashboard').addEventListener('click', e => {
-    const t = e.target.closest('[data-range],[data-act]');
+    const t = e.target.closest('[data-range],[data-act],[data-shipstatus]');
     if(!t) return;
     if(t.dataset.range){ const s = col.settings(); s.range = +t.dataset.range; DB.set('settings', s); renderDashboard(); }
     else if(t.dataset.act === 'open-settings') openSettings();
     else if(t.dataset.act === 'ss-sync') openSettings();
     else if(t.dataset.act === 'twin'){ const c = t.dataset.chart; dashMode[c] = dashMode[c] === 'table' ? '' : 'table'; renderDashboard(); }
+    else if(t.dataset.shipstatus != null){
+      dashShipStatus = t.dataset.shipstatus;
+      $$('#view-dashboard [data-shipstatus]').forEach(b => b.setAttribute('aria-pressed', b.dataset.shipstatus === dashShipStatus));
+      filterShipFeed();
+    }
   });
   $('#view-dashboard').addEventListener('input', e => {
     if(e.target.id === 'shipSearch'){ dashShipQ = e.target.value; filterShipFeed(); }
@@ -2935,6 +3019,250 @@ function openSettings(){
   openOverlay('#settingsModal');
   refreshStorageNote();
 }
+</script>
+<script>
+'use strict';
+/* ================================================================== *
+ *  v3 — Team, per-user tab visibility, transit backfill              *
+ * ================================================================== */
+const TABS = [
+  ['dashboard', 'Dashboard'], ['leads', 'New Client Leads'], ['onboarding', 'New Client Onboarding'],
+  ['golive', 'Client Go Live'], ['documents', 'Client Documents'], ['carriers', 'Carriers'],
+  ['catalog', 'Fullstack Catalog'], ['po', 'Fullstack PO'], ['team', 'Team']
+];
+function colUsers(){ return DB.get('users', []); }
+function saveUsers(){ DB.set('users', colUsers()); }
+function initials(name){
+  const words = String(name || '?').replace(/[^A-Za-zÀ-ÿ0-9 ]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  return (words.slice(0, 2).map(w => w[0]).join('') || '?').toUpperCase();
+}
+
+function seedV3(){
+  if(DB.get('users', null) === null){
+    const all = {}; TABS.forEach(t => all[t[0]] = true);
+    const ts = new Date().toISOString();
+    DB.set('users', [
+      { id:'u-admin', name:'FS Admin', email:'info@fullstackfs.com.au', role:'admin', tabs: Object.assign({}, all), added: ts },
+      { id:'u-ware', name:'Warehouse (demo)', email:'warehouse@fullstackfs.com.au', role:'member',
+        tabs:{ dashboard:true, leads:false, onboarding:true, golive:true, documents:true, carriers:true, catalog:true, po:false, team:false }, added: ts },
+      { id:'u-sales', name:'Sales (demo)', email:'sales@fullstackfs.com.au', role:'member',
+        tabs:{ dashboard:true, leads:true, onboarding:true, golive:false, documents:true, carriers:false, catalog:false, po:false, team:false }, added: ts }
+    ]);
+  }
+  const s = col.settings();
+  if(!s.currentUserId) s.currentUserId = 'u-admin';
+  DB.set('settings', s);
+  /* older stored demo shipments predate transit tracking — backfill delivered timestamps */
+  const sh = DB.get('shipments', null);
+  if(Array.isArray(sh) && sh.length && !sh.some(x => 'deliveredTs' in x)){
+    sh.forEach(x => {
+      if(x.status === 'delivered'){
+        const base = x.carrier === 'seko' ? 6.5 : x.carrier === 'nzpost' ? 4 : x.carrier === 'dhl' ? 2.2 : x.carrier === 'parcelright' ? 1.9 : 2.5;
+        x.deliveredTs = new Date(new Date(x.date).getTime() + (base + Math.random() * 1.6) * 86400e3).toISOString();
+      } else x.deliveredTs = null;
+    });
+    DB.set('shipments', sh);
+  }
+}
+
+function currentUser(){
+  const users = colUsers();
+  return users.find(u => u.id === col.settings().currentUserId) || users[0] || null;
+}
+function tabAllowed(name){
+  const u = currentUser();
+  if(!u) return true;
+  if(name === 'dashboard') return true;
+  if(name === 'team' && u.role === 'admin') return true;
+  return !!(u.tabs && u.tabs[name]);
+}
+function applyTabAccess(){
+  $$('#sideNav a').forEach(a => { a.style.display = tabAllowed(a.dataset.route) ? '' : 'none'; });
+}
+function fillUserSwitcher(){
+  const sel = $('#userSel');
+  const users = colUsers();
+  const cur = currentUser();
+  sel.innerHTML = '';
+  users.forEach(u => {
+    const o = document.createElement('option');
+    o.value = u.id; o.textContent = u.name;
+    if(cur && u.id === cur.id) o.selected = true;
+    sel.appendChild(o);
+  });
+  $('#uAvatar').textContent = cur ? initials(cur.name) : 'FS';
+}
+
+/* route — same flow, now access-guarded */
+function route(){
+  const h = location.hash.replace(/^#\/?/, '') || 'dashboard';
+  const parts = h.split('/');
+  let name = RENDER[parts[0]] ? parts[0] : 'dashboard';
+  if(!tabAllowed(name)){
+    if(parts[0] !== 'dashboard'){ location.hash = '#/dashboard'; return; }
+    name = 'dashboard';
+  }
+  $$('.view').forEach(x => x.classList.toggle('on', x.dataset.view === name));
+  $$('#sideNav a').forEach(a => a.classList.toggle('on', a.dataset.route === name));
+  RENDER[name](parts[1]);
+  applyTabAccess();
+  $('#side').classList.remove('open');
+}
+
+/* ————— Team view ————— */
+function renderTeam(){
+  const v = $('#view-team');
+  const users = colUsers();
+  const cur = currentUser();
+  const canEdit = cur && cur.role === 'admin';
+  const admins = users.filter(u => u.role === 'admin').length;
+  v.innerHTML =
+  '<div class="view-head"><div class="vh-title"><h1>Team<em>.</em></h1>' +
+  '<p class="vh-sub">Who uses the FS Database — and exactly which tabs each person sees. Switch users from the sidebar; hidden tabs disappear from their menu.</p></div>' +
+  (canEdit ?
+  '<div class="vh-actions"><input class="f-in" id="tmName" placeholder="Name…" style="width:150px">' +
+  '<input class="f-in" id="tmEmail" type="email" placeholder="Email…" style="width:190px">' +
+  '<select class="sel f-in" id="tmRole" style="width:110px"><option value="member">Member</option><option value="admin">Admin</option></select>' +
+  '<button class="btn" data-act="team-add">+ Add user</button></div>' : '') +
+  '</div>' +
+  (canEdit ? '' : '<div class="gl-banner blocked" style="margin-bottom:14px"><b>Viewing as ' + esc(cur ? cur.name : '—') + ' (member)</b><span class="panel-meta">only admins can change team settings — switch users in the sidebar</span></div>') +
+  '<div class="car-grid">' + users.map(u => {
+    const isCur = cur && u.id === cur.id;
+    const lastAdmin = u.role === 'admin' && admins <= 1;
+    return '<div class="car-card team-card">' +
+    '<div class="car-top"><span class="u-avatar big">' + esc(initials(u.name)) + '</span>' +
+    '<div style="min-width:0"><h3 style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' + esc(u.name) + (isCur ? '<span class="team-you">You · this device</span>' : '') + '</h3>' +
+    '<div class="car-sub" style="text-transform:none;letter-spacing:0">' + esc(u.email || 'no email') + '</div></div>' +
+    (u.role === 'admin' ? '<span class="pill acc role-pill">Admin</span>' : '<span class="pill dim role-pill">Member</span>') + '</div>' +
+    '<div><div class="cf-k" style="margin-bottom:7px">Tabs this user can see</div><div class="tab-toggles">' +
+    TABS.map(t => {
+      const locked = t[0] === 'dashboard' || (t[0] === 'team' && u.role === 'admin');
+      const on = locked ? true : !!(u.tabs && u.tabs[t[0]]);
+      return '<label class="chk"><input type="checkbox" data-utab="' + u.id + ':' + t[0] + '"' + (on ? ' checked' : '') + ((locked || !canEdit) ? ' disabled' : '') + '><span>' + esc(t[1]) + (t[0] === 'dashboard' ? ' — always on' : (t[0] === 'team' && u.role === 'admin') ? ' — admins always' : '') + '</span></label>';
+    }).join('') + '</div></div>' +
+    '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">' +
+    (isCur ? '' : '<button class="btn ghost small" data-uswitch="' + u.id + '">Switch to this user</button>') +
+    (canEdit ? '<select class="sel" data-urole="' + u.id + '"' + (lastAdmin ? ' disabled title="The last admin cannot be demoted"' : '') + '><option value="member"' + (u.role === 'member' ? ' selected' : '') + '>Member</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option></select>' : '') +
+    '<span class="spacer" style="flex:1"></span>' +
+    (canEdit && !isCur && !lastAdmin ? '<button class="iconbtn" data-udel="' + u.id + '">Delete</button>' : '') +
+    '</div></div>';
+  }).join('') + '</div>' +
+  '<p class="set-note" style="margin-top:16px">This is a device-level switcher, not a login — each person picks themselves in the sidebar and the menu shows only their tabs. It keeps day-to-day screens tidy and fingers out of admin areas, but anyone at the machine can switch users. Real per-person logins arrive with the backend phase (and the PO admin PIN stays as the hard gate meanwhile).</p>';
+}
+
+/* ————— backup covers every collection (v3 override) ————— */
+const BACKUP_KEYS = ['clients','shipments','ssOrders','leads','onboarding','docs','carriers','catalog','requests','pos','goLive','users','settings'];
+async function exportBackup(){
+  toast('Building backup…');
+  const files = (await fall().catch(() => [])) || [];
+  const fx = [];
+  for(const f of files) fx.push({ id: f.id, name: f.name, type: f.type, b64: await blobToB64(f.blob) });
+  const data = {};
+  BACKUP_KEYS.forEach(k => data[k] = DB.get(k, k === 'settings' ? col.settings() : []));
+  const payload = { app: 'fsdb', v: 3, exportedAt: new Date().toISOString(), data, files: fx };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fs-database-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function resetDemo(){
+  if(!confirm('Reset to fresh demo data? Your added records are removed (settings are kept).')) return;
+  const keep = col.settings();
+  Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
+  DB.cache = {};
+  DB.set('settings', keep);
+  await idbOp('readwrite', st => st.clear()).catch(() => {});
+  seed(); seedV2(); seedV3();
+  fillUserSwitcher(); updateCounts(); route();
+  toast('Demo data reset');
+}
+async function wipeAll(){
+  if(!confirm('Erase EVERYTHING — all records, uploads and settings?')) return;
+  if(!confirm('Really erase everything? Export a backup first if unsure.')) return;
+  Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
+  DB.cache = {};
+  await idbOp('readwrite', st => st.clear()).catch(() => {});
+  DB.set('meta', { seededAt: new Date().toISOString(), empty: true });
+  ['clients','shipments','ssOrders','leads','onboarding','docs','carriers','catalog','requests','pos','goLive','users'].forEach(k => DB.set(k, []));
+  adminUser = null;
+  renderSsStatus(); fillUserSwitcher(); updateCounts(); route();
+  toast('Database erased');
+}
+
+Object.assign(RENDER, { team: renderTeam });
+seedV3();
+
+document.addEventListener('DOMContentLoaded', () => {
+  fillUserSwitcher();
+  applyTabAccess();
+  if($('#countTeam')) $('#countTeam').textContent = '';
+
+  $('#userSel').addEventListener('change', e => {
+    const s = col.settings();
+    s.currentUserId = e.target.value;
+    DB.set('settings', s);
+    const u = currentUser();
+    fillUserSwitcher();
+    applyTabAccess();
+    toast('Now browsing as ' + (u ? u.name : '—'));
+    const name = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/')[0];
+    if(!tabAllowed(name)) location.hash = '#/dashboard'; else route();
+  });
+
+  $('#view-team').addEventListener('click', e => {
+    const t = e.target.closest('[data-act],[data-uswitch],[data-udel]');
+    if(!t) return;
+    if(t.dataset.act === 'team-add'){
+      const name = $('#tmName').value.trim();
+      if(!name){ toast('Type a name first'); return; }
+      const users = colUsers();
+      const tabs = { dashboard:true, leads:true, onboarding:true, golive:true, documents:true, carriers:true, catalog:false, po:false, team:false };
+      users.push({ id: 'u-' + uid(), name, email: $('#tmEmail').value.trim(), role: $('#tmRole').value, tabs, added: new Date().toISOString() });
+      saveUsers(); fillUserSwitcher(); renderTeam();
+      toast(name + ' added to the team');
+    }
+    else if(t.dataset.uswitch){
+      const s = col.settings();
+      s.currentUserId = t.dataset.uswitch;
+      DB.set('settings', s);
+      fillUserSwitcher(); applyTabAccess();
+      const u = currentUser();
+      toast('Now browsing as ' + (u ? u.name : '—'));
+      if(!tabAllowed('team')) location.hash = '#/dashboard'; else route();
+    }
+    else if(t.dataset.udel){
+      const u = colUsers().find(x => x.id === t.dataset.udel);
+      if(u && confirm('Remove ' + u.name + ' from the team?')){
+        DB.set('users', colUsers().filter(x => x.id !== u.id));
+        fillUserSwitcher(); renderTeam();
+      }
+    }
+  });
+  $('#view-team').addEventListener('change', e => {
+    const cur = currentUser();
+    if(!cur || cur.role !== 'admin') return;
+    const tg = e.target.closest('[data-utab]');
+    if(tg){
+      const p = tg.dataset.utab.split(':');
+      const u = colUsers().find(x => x.id === p[0]);
+      if(u){ u.tabs = u.tabs || {}; u.tabs[p[1]] = tg.checked; saveUsers(); applyTabAccess(); }
+      return;
+    }
+    const rl = e.target.closest('[data-urole]');
+    if(rl){
+      const u = colUsers().find(x => x.id === rl.dataset.urole);
+      if(!u) return;
+      if(u.role === 'admin' && rl.value === 'member' && colUsers().filter(x => x.role === 'admin').length <= 1){
+        toast('At least one admin is required'); renderTeam(); return;
+      }
+      u.role = rl.value;
+      if(u.role === 'admin'){ u.tabs = u.tabs || {}; u.tabs.team = true; }
+      saveUsers(); applyTabAccess(); renderTeam();
+    }
+  });
+});
 </script>
 </body>
 </html>
