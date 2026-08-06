@@ -1,45 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260" role="img" aria-label="FYBRE Black — night serum dropper bottle">
-  <defs>
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#26262B"/>
-      <stop offset="0.5" stop-color="#0E0E10"/>
-      <stop offset="1" stop-color="#050506"/>
-    </linearGradient>
-    <linearGradient id="cap" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#2A2A2E"/>
-      <stop offset="0.5" stop-color="#0A0A0B"/>
-      <stop offset="1" stop-color="#1C1C20"/>
-    </linearGradient>
-    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="6"/>
-    </filter>
-  </defs>
-
-  <!-- ground shadow -->
-  <ellipse cx="100" cy="244" rx="52" ry="8" fill="#000000" opacity="0.4" filter="url(#soft)"/>
-
-  <!-- dropper bulb -->
-  <path d="M86 44 a14 14 0 0 1 28 0 v6 H86 Z" fill="url(#cap)" stroke="#3A3A40" stroke-width="1"/>
-  <!-- dropper collar -->
-  <rect x="80" y="50" width="40" height="32" rx="4" fill="url(#cap)" stroke="#3A3A40" stroke-width="1"/>
-  <rect x="86" y="56" width="4" height="20" rx="2" fill="#FFFFFF" opacity="0.1"/>
-  <!-- volt collar ring -->
-  <rect x="80" y="78" width="40" height="4" fill="#C8FF2E"/>
-  <!-- neck -->
-  <rect x="86" y="82" width="28" height="12" fill="#141416"/>
-
-  <!-- bottle body, rim-lit -->
-  <path d="M62 106 q0 -12 14 -12 h48 q14 0 14 12 v112 q0 14 -14 14 h-48 q-14 0 -14 -14 Z" fill="url(#body)" stroke="#3A3A40" stroke-width="1"/>
-  <!-- specular highlight -->
-  <rect x="70" y="104" width="5" height="118" rx="2.5" fill="#FFFFFF" opacity="0.16"/>
-
-  <!-- label: growth bars + rules -->
-  <g transform="translate(83 138)">
-    <path d="M0 34 V21.59 A3.23 3.23 0 0 1 6.46 21.59 V34 Z M11.05 34 V12.41 A3.23 3.23 0 0 1 17.51 12.41 V34 Z M22.1 34 V3.23 A3.23 3.23 0 0 1 28.56 3.23 V34 Z" fill="#C8FF2E"/>
-  </g>
-  <rect x="83" y="186" width="34" height="3" fill="#F2F0EA"/>
-  <rect x="83" y="196" width="24" height="2" fill="#F2F0EA" opacity="0.4"/>
-  <rect x="83" y="203" width="28" height="2" fill="#F2F0EA" opacity="0.4"/>
-  <!-- volt dose mark -->
-  <rect x="83" y="214" width="12" height="4" fill="#C8FF2E"/>
+<defs>
+<linearGradient id="wbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F2F2EE"/><stop offset="1" stop-color="#D9D9D2"/></linearGradient>
+<linearGradient id="kbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#28282D"/><stop offset="0.5" stop-color="#0E0E10"/><stop offset="1" stop-color="#050506"/></linearGradient>
+<linearGradient id="voltg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F1F3E2"/><stop offset="0.5" stop-color="#E0EC8C"/><stop offset="1" stop-color="#E5FA46"/></linearGradient>
+<filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<ellipse cx="100" cy="244" rx="50" ry="8" fill="#000" opacity="0.45" filter="url(#soft)"/>
+<path d="M86 42 a14 14 0 0 1 28 0 v6 H86 Z" fill="url(#kbody)" stroke="#3A3A40" stroke-width="1"/>
+<rect x="80" y="48" width="40" height="30" rx="4" fill="url(#kbody)" stroke="#3A3A40" stroke-width="1"/>
+<rect x="86" y="54" width="4" height="18" rx="2" fill="#FFF" opacity="0.1"/>
+<rect x="80" y="74" width="40" height="4" fill="#D8F231"/>
+<rect x="86" y="78" width="28" height="12" fill="#141416"/>
+<path d="M64 102 q0 -12 14 -12 h44 q14 0 14 12 v118 q0 12 -14 12 h-44 q-14 0 -14 -12 Z" fill="url(#kbody)" stroke="#3A3A40" stroke-width="1"/>
+<rect x="71" y="100" width="5" height="122" rx="2.5" fill="#FFF" opacity="0.14"/>
+<g transform="translate(84 128) scale(0.2573)"><path d="M34 11 Q34 0 45 0 H115 Q119.2 0.2 116.8 3.3 L95.1 22.9 Q86 32 73 32 H34 Z M11 32 H34 V45 Q34 52 29.1 56.9 L2.4 83.6 Q-1.35 86.35 0 81.8 V43 Q0 32 11 32 Z M34 77 Q34 66 45 66 H115 Q119.2 66.2 116.8 69.3 L95.1 88.9 Q86 98 73 98 H34 Z M11 102 H34 V130 Q34 137 29.1 141.9 L2.4 168.6 Q-1.35 171.35 0 166.8 V113 Q0 102 11 102 Z" fill="#D8F231"/></g>
+<rect x="84" y="188" width="32" height="3" fill="#F5F5F2"/>
+<rect x="84" y="198" width="22" height="2" fill="#F5F5F2" opacity="0.4"/>
+<rect x="84" y="205" width="27" height="2" fill="#F5F5F2" opacity="0.4"/>
 </svg>

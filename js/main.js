@@ -78,7 +78,7 @@
       stage.style.setProperty("--night", night.toFixed(3));
       const isNight = night > 0.5;
       stage.classList.toggle("is-night", isNight);
-      phase.textContent = isNight ? "Night — Recovery" : "Day — Activation";
+      phase.textContent = isNight ? "Night mode. Growth mode." : "Day mode — Activation";
     };
 
     const queue = () => {

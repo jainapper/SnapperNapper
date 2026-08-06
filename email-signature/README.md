@@ -1,9 +1,9 @@
 # FYBRE — email signature
 
 `signature.html` is a table-based, image-free signature that renders reliably
-in Outlook (Windows, Mac, Web), Gmail, and Apple Mail. The growth-bars tile
-is built from coloured table cells, so nothing breaks when a client blocks
-remote images.
+in Outlook (Windows, Mac, Web), Gmail, and Apple Mail. The tile approximates
+the F glyph with a styled letter, so nothing breaks when a client blocks
+remote images; swap in the real mark once the site is live (see below).
 
 ## Personalise
 

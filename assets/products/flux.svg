@@ -1,39 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260" role="img" aria-label="FYBRE Flux — scalp stimulation paddle brush">
-  <defs>
-    <linearGradient id="paddle" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#26262B"/>
-      <stop offset="0.5" stop-color="#0E0E10"/>
-      <stop offset="1" stop-color="#050506"/>
-    </linearGradient>
-    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="6"/>
-    </filter>
-  </defs>
-
-  <!-- ground shadow -->
-  <ellipse cx="100" cy="248" rx="40" ry="7" fill="#000000" opacity="0.4" filter="url(#soft)"/>
-
-  <!-- paddle head, rim-lit -->
-  <rect x="50" y="22" width="100" height="130" rx="46" fill="url(#paddle)" stroke="#3A3A40" stroke-width="1"/>
-
-  <!-- bristle matrix: volt contact points -->
-  <g fill="#C8FF2E">
-    <circle cx="82"  cy="52"  r="3.4"/><circle cx="100" cy="52"  r="3.4"/><circle cx="118" cy="52"  r="3.4"/>
-    <circle cx="73"  cy="70"  r="3.4"/><circle cx="91"  cy="70"  r="3.4"/><circle cx="109" cy="70"  r="3.4"/><circle cx="127" cy="70"  r="3.4"/>
-    <circle cx="82"  cy="88"  r="3.4"/><circle cx="100" cy="88"  r="3.4"/><circle cx="118" cy="88"  r="3.4"/>
-    <circle cx="73"  cy="106" r="3.4"/><circle cx="91"  cy="106" r="3.4"/><circle cx="109" cy="106" r="3.4"/><circle cx="127" cy="106" r="3.4"/>
-    <circle cx="82"  cy="124" r="3.4"/><circle cx="100" cy="124" r="3.4"/><circle cx="118" cy="124" r="3.4"/>
-  </g>
-
-  <!-- neck -->
-  <path d="M88 150 q2 10 -2 18 h28 q-4 -8 -2 -18 Z" fill="#0E0E10" stroke="#3A3A40" stroke-width="1"/>
-
-  <!-- handle -->
-  <rect x="84" y="166" width="32" height="80" rx="15" fill="url(#paddle)" stroke="#3A3A40" stroke-width="1"/>
-  <!-- grip ribs -->
-  <rect x="92" y="182" width="16" height="2.5" rx="1.25" fill="#3A3A40"/>
-  <rect x="92" y="190" width="16" height="2.5" rx="1.25" fill="#3A3A40"/>
-  <rect x="92" y="198" width="16" height="2.5" rx="1.25" fill="#3A3A40"/>
-  <!-- volt lanyard ring -->
-  <rect x="92" y="228" width="16" height="5" rx="2.5" fill="#C8FF2E"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260" role="img" aria-label="FYBRE Flux — stimulation brush box">
+<defs>
+<linearGradient id="wbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F2F2EE"/><stop offset="1" stop-color="#D9D9D2"/></linearGradient>
+<linearGradient id="kbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#28282D"/><stop offset="0.5" stop-color="#0E0E10"/><stop offset="1" stop-color="#050506"/></linearGradient>
+<linearGradient id="voltg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F1F3E2"/><stop offset="0.5" stop-color="#E0EC8C"/><stop offset="1" stop-color="#E5FA46"/></linearGradient>
+<filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<ellipse cx="100" cy="246" rx="62" ry="8" fill="#000" opacity="0.4" filter="url(#soft)"/>
+<rect x="46" y="38" width="108" height="200" rx="8" fill="url(#voltg)" stroke="#0A0A0B" stroke-width="1.5"/>
+<rect x="46" y="64" width="108" height="1.5" fill="#0A0A0B" opacity="0.55"/>
+<g transform="translate(62 84) scale(0.3275)"><path d="M34 11 Q34 0 45 0 H115 Q119.2 0.2 116.8 3.3 L95.1 22.9 Q86 32 73 32 H34 Z M11 32 H34 V45 Q34 52 29.1 56.9 L2.4 83.6 Q-1.35 86.35 0 81.8 V43 Q0 32 11 32 Z M34 77 Q34 66 45 66 H115 Q119.2 66.2 116.8 69.3 L95.1 88.9 Q86 98 73 98 H34 Z M11 102 H34 V130 Q34 137 29.1 141.9 L2.4 168.6 Q-1.35 171.35 0 166.8 V113 Q0 102 11 102 Z" fill="#0A0A0B"/></g>
+<rect x="62" y="160" width="56" height="4" fill="#0A0A0B"/>
+<rect x="62" y="172" width="38" height="2.5" fill="#0A0A0B" opacity="0.55"/>
+<rect x="62" y="180" width="46" height="2.5" fill="#0A0A0B" opacity="0.55"/>
+<rect x="62" y="202" width="76" height="10" fill="#0A0A0B"/>
+<rect x="120" y="46" width="26" height="10" rx="2" fill="#0A0A0B"/>
 </svg>

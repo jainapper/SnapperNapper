@@ -1,7 +1,11 @@
 # FYBRE — fybrelab.com
 
-Brand and website for **FYBRE**, the 24-hour hair growth system —
-performance hair science for professionals, athletes and high-achievers.
+Brand implementation and website for **FYBRE™** — *Engineered for Growth®*.
+Not a beauty brand: a performance system for hair, skin, and body, launching
+with the 24-hour hair growth system. Built to the **FYBRE Brand DNA** guide
+(Noize Agency): the F glyph, the extended FYBRE™ wordmark, the volt
+gradient, and the official product line and copy.
+
 A fast, dependency-free static site plus a full logo system and a matching
 email signature.
 
@@ -14,27 +18,32 @@ email signature.
 │   ├── brand/              logo system (SVG + PNG + ICO)
 │   ├── fonts/              self-hosted Archivo + Space Mono (SIL OFL)
 │   ├── products/           product illustrations (hand-drawn SVG)
-│   └── og-image.png        social sharing card
+│   └── og-image.png        social sharing card (volt gradient lockup)
 ├── email-signature/        signature.html + install guide
 └── scripts/generate_brand.py   regenerates every brand asset + web fonts
 ```
 
-## Identity
+## Identity (per the Brand DNA)
 
-- **Mark** — the growth bars: three ascending strands, rounded at the tip,
-  planted on a shared baseline. Hair fibre × bar chart × signal meter —
-  *growth you can measure*. The bars are the brand's atomic element, reused
-  across the site as bullets, dividers and data punctuation.
-- **Palette** — carbon `#0A0A0B` · bone `#F2F0EA` · volt `#C8FF2E`
-  (olive `#55700A` is volt's readable twin on light backgrounds)
-- **Type** — Archivo Expanded Black (display) · Archivo (body) ·
-  Space Mono (data labels)
-- **Voice** — sports science, not cosmetics: protocols, numbers, guarantees.
+- **Mark** — the F glyph: four fibre-blades with 45° cuts and wind-swept
+  tips, stacked into a forward-leaning F. Reconstructed as vector from the
+  brand guide and reused across the site as watermark, favicon and label.
+- **Lockup** — glyph + `FYBRE™` in extended grotesk caps, with the tagline
+  `ENGINEERED FOR GROWTH` tracked out and width-matched beneath.
+- **Palette** — carbon `#0A0A0B` · paper `#F5F5F2` · volt `#D8F231`, with
+  the volt gradient (`#F1F3E2 → #E0EC8C → #E5FA46`) for feature moments
+  (olive `#57660A` is volt's readable twin on light backgrounds)
+- **Type** — Archivo (variable width/weight; extended caps for display) ·
+  Space Mono for data labels
+- **Voice** — sports science, not cosmetics: protocols, modes, numbers,
+  guarantees. Product taglines from the guide: *Night mode. Growth mode.* ·
+  *Unstoppable growth — all day long.* · *Bold hair. Bold moves.* ·
+  *Brush. Boost. Breakthrough.*
 
 The signature move on the site: **the 24-hour theatre**. Scrolling through
 "The System" runs a clock from 06:00 to 06:00 while the stage crossfades
-from day (bone) to night (carbon) — day activation hands over to night
-recovery, exactly like the product line (FYBRE White → FYBRE Black).
+from day (paper) to night (carbon) — day mode hands over to night mode,
+exactly like the product pair (FYBRE White → FYBRE Black).
 
 To tweak the logo system or regenerate fonts, edit
 `scripts/generate_brand.py` and run:
@@ -46,8 +55,9 @@ python3 scripts/generate_brand.py
 
 | File | Use |
 |---|---|
-| `assets/brand/mark.svg` / `mark-dark.svg` / `mark-volt.svg` | bars for light / dark / accent use |
-| `assets/brand/logo-light.svg` / `logo-dark.svg` | full lockup (wordmark is vector paths — no font needed) |
+| `assets/brand/mark.svg` / `mark-dark.svg` / `mark-volt.svg` | F glyph for light / dark / accent use |
+| `assets/brand/logo-light.svg` / `logo-dark.svg` | glyph + FYBRE™ lockup (vector paths — no font needed) |
+| `assets/brand/logo-tagline-light.svg` / `logo-tagline-dark.svg` | full lockup with ENGINEERED FOR GROWTH |
 | `assets/brand/favicon.svg` + `favicon.ico` | browser icons |
 | `assets/brand/apple-touch-icon.png` | iOS / avatar-sized tile |
 | `assets/og-image.png` | link previews (WhatsApp, Instagram, LinkedIn, X…) |
@@ -55,24 +65,34 @@ python3 scripts/generate_brand.py
 ## Content checklist before going live
 
 - [ ] **Instagram handle** — the site links to
-      `https://www.instagram.com/fybrelab/`; confirm that's the real handle
-      (three places in `index.html`, one in `email-signature/signature.html`)
+      `https://www.instagram.com/fybrehair/` (packaging in the brand guide
+      prints FYBREHAIR.COM); confirm the real handle (three places in
+      `index.html`, one in `email-signature/signature.html`)
+- [ ] **Domain strategy** — this repo deploys to `fybrelab.com` (FYBRE Lab
+      is the research division per the guide); packaging references
+      `fybrehair.com`. If both domains exist, point one at the other.
 - [ ] **Contact email** — waitlist submissions and the signature use
       `hello@fybrelab.com`; swap if the inbox differs (`js/main.js`,
       `email-signature/signature.html`)
 - [ ] **Signature placeholders** — name, title, mobile in
       `email-signature/signature.html`
 - [ ] **Legal line** — add a registered legal name / company number to the
-      footer if required
+      footer if required; the guide marks the tagline as
+      *Engineered for Growth®* — keep the ® consistent once registered
 - [ ] **Waitlist delivery** — the form opens the visitor's email app (no
       backend). To collect signups silently instead, point both forms at
       [Formspree](https://formspree.io) or a list tool (Mailchimp, Loops):
       set `action="https://formspree.io/f/<id>" method="POST"` on the two
       `<form>` elements in `index.html` and remove the mailto handler in
       `js/main.js`.
-- [ ] **Claims review** — the copy carries the brand's own claims (90-day
-      follicular-density guarantee, science-backed); confirm wording with
-      whoever signs off on product claims before launch.
+- [ ] **Claims review** — the copy carries the brand's own claims from the
+      guide and live site (90-day follicular-density guarantee,
+      science-backed); confirm wording with whoever signs off on product
+      claims before launch.
+- [ ] **Photography** — the brand guide's packaging renders and lifestyle
+      photography aren't in this repo; the product SVGs are placeholders in
+      the same art direction. Swap in the real packshots when available
+      (`assets/products/*.svg`, referenced from `index.html`).
 
 ## Preview locally
 

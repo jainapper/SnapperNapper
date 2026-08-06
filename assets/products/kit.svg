@@ -1,35 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260" role="img" aria-label="FYBRE Growth Kit — the complete system box">
-  <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#1B1B1F"/>
-      <stop offset="0.5" stop-color="#0E0E10"/>
-      <stop offset="1" stop-color="#060607"/>
-    </linearGradient>
-    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2E2E34"/>
-      <stop offset="1" stop-color="#1B1B1F"/>
-    </linearGradient>
-    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="6"/>
-    </filter>
-  </defs>
-
-  <!-- ground shadow -->
-  <ellipse cx="100" cy="248" rx="70" ry="9" fill="#000000" opacity="0.4" filter="url(#soft)"/>
-
-  <!-- box -->
-  <rect x="32" y="52" width="136" height="188" rx="10" fill="url(#face)" stroke="#3A3A40" stroke-width="1"/>
-  <!-- lid -->
-  <path d="M32 62 q0 -10 10 -10 h116 q10 0 10 10 v24 H32 Z" fill="url(#lid)"/>
-  <rect x="32" y="85" width="136" height="1.5" fill="#C8FF2E" opacity="0.9"/>
-
-  <!-- volt growth bars, large -->
-  <g transform="translate(72 116)">
-    <path d="M0 64 V40.64 A6.08 6.08 0 0 1 12.16 40.64 V64 Z M20.8 64 V23.36 A6.08 6.08 0 0 1 32.96 23.36 V64 Z M41.6 64 V6.08 A6.08 6.08 0 0 1 53.76 6.08 V64 Z" fill="#C8FF2E"/>
-  </g>
-
-  <!-- label rules -->
-  <rect x="72" y="198" width="56" height="3" fill="#F2F0EA"/>
-  <rect x="72" y="208" width="38" height="2" fill="#F2F0EA" opacity="0.4"/>
-  <rect x="72" y="215" width="46" height="2" fill="#F2F0EA" opacity="0.4"/>
+<defs>
+<linearGradient id="wbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F2F2EE"/><stop offset="1" stop-color="#D9D9D2"/></linearGradient>
+<linearGradient id="kbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#28282D"/><stop offset="0.5" stop-color="#0E0E10"/><stop offset="1" stop-color="#050506"/></linearGradient>
+<linearGradient id="voltg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F1F3E2"/><stop offset="0.5" stop-color="#E0EC8C"/><stop offset="1" stop-color="#E5FA46"/></linearGradient>
+<filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<ellipse cx="105" cy="246" rx="78" ry="9" fill="#000" opacity="0.45" filter="url(#soft)"/>
+<rect x="26" y="56" width="158" height="184" rx="10" fill="url(#kbody)" stroke="#3A3A40" stroke-width="1"/>
+<path d="M26 66 q0 -10 10 -10 h138 q10 0 10 10 v22 H26 Z" fill="#1E1E23"/>
+<rect x="26" y="87" width="158" height="1.5" fill="#D8F231" opacity="0.95"/>
+<g transform="translate(48 112) scale(0.5380)"><path d="M34 11 Q34 0 45 0 H115 Q119.2 0.2 116.8 3.3 L95.1 22.9 Q86 32 73 32 H34 Z M11 32 H34 V45 Q34 52 29.1 56.9 L2.4 83.6 Q-1.35 86.35 0 81.8 V43 Q0 32 11 32 Z M34 77 Q34 66 45 66 H115 Q119.2 66.2 116.8 69.3 L95.1 88.9 Q86 98 73 98 H34 Z M11 102 H34 V130 Q34 137 29.1 141.9 L2.4 168.6 Q-1.35 171.35 0 166.8 V113 Q0 102 11 102 Z" fill="url(#voltg)"/></g>
+<rect x="118" y="176" width="52" height="3.5" fill="#F5F5F2"/>
+<rect x="118" y="186" width="36" height="2.5" fill="#F5F5F2" opacity="0.4"/>
+<rect x="118" y="193" width="44" height="2.5" fill="#F5F5F2" opacity="0.4"/>
+<rect x="118" y="210" width="14" height="5" fill="#D8F231"/>
 </svg>
