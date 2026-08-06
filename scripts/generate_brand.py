@@ -1,42 +1,59 @@
 #!/usr/bin/env python3
-"""Generate the VC Limited brand assets (logos, favicons, OG image).
+"""Generate the FYBRE brand assets (logos, favicons, OG image, web fonts).
 
-Identity: "VC." — the full stop. Space Grotesk letterforms (converted to
-vector paths, so no font dependency) closed by an orange square period:
-we identify. we implement. we deliver. The orange square is the brand's
-atomic element, reused across the site as bullets and punctuation.
-Orange / black / white. Fonts are SIL OFL licensed and cached on first run.
+Identity: the growth bars — three ascending strands, rounded at the tip,
+planted on a shared baseline. Hair fibre × bar chart × signal meter: growth
+you can measure. The bars are the brand's atomic element, reused across the
+site as bullets, dividers and data punctuation.
+
+Palette: carbon black / bone white / volt green.
+Type: Archivo (variable width+weight; Expanded Black for display) and
+Space Mono for data labels. Fonts are SIL OFL licensed and cached on first
+run; the script also subsets them into the self-hosted woff2 files used by
+the site.
 
 Usage:  python3 scripts/generate_brand.py
 Deps:   pip install fonttools brotli pillow
 """
 
+import io
 import urllib.request
 from pathlib import Path
 
+from fontTools import subset
 from fontTools.misc.transform import Transform
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 BRAND = ROOT / "assets" / "brand"
 ASSETS = ROOT / "assets"
+FONTS = ROOT / "assets" / "fonts"
 CACHE = ROOT / ".fontcache"
 
 # ---------------------------------------------------------------- palette ----
-BLACK = "#0B0B0C"
+CARBON = "#0A0A0B"
+CARBON_2 = "#121214"
+BONE = "#F2F0EA"
 WHITE = "#FFFFFF"
-ORANGE = "#FF4D00"
-ORANGE_SOFT = "#FF7A3D"
-GRAY = "#A3A3AA"
+VOLT = "#C8FF2E"
+GRAY = "#B9B9C0"
 
+GF_RAW = "https://raw.githubusercontent.com/google/fonts/main/ofl"
 FONT_URLS = {
-    "spacegrotesk-700.ttf": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj4PVksj.ttf",
-    "spacegrotesk-500.ttf": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj7aUUsj.ttf",
-    "plexmono-500.ttf": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJ8lc.ttf",
+    "Archivo-var.ttf": f"{GF_RAW}/archivo/Archivo%5Bwdth%2Cwght%5D.ttf",
+    "SpaceMono-Regular.ttf": f"{GF_RAW}/spacemono/SpaceMono-Regular.ttf",
+    "SpaceMono-Bold.ttf": f"{GF_RAW}/spacemono/SpaceMono-Bold.ttf",
 }
+
+# latin + punctuation + the arrows the site uses for data callouts
+SUBSET_UNICODES = (
+    "U+0000-00FF,U+0131,U+0152-0153,U+2013-2014,U+2018-201A,U+201C-201E,"
+    "U+2022,U+2026,U+2039-203A,U+2190-2199,U+00D7,U+2212"
+)
 
 
 def font_path(name: str) -> Path:
@@ -47,17 +64,27 @@ def font_path(name: str) -> Path:
     return p
 
 
+def archivo_static(wght: int, wdth: int) -> Path:
+    """Instance the Archivo variable font at a fixed weight/width."""
+    CACHE.mkdir(exist_ok=True)
+    p = CACHE / f"archivo-{wght}-{wdth}.ttf"
+    if not p.exists():
+        font = TTFont(font_path("Archivo-var.ttf"))
+        instantiateVariableFont(font, {"wght": wght, "wdth": wdth}, inplace=True)
+        font.save(p)
+    return p
+
+
 # ------------------------------------------------------------ mark ratios ----
-# The period square is sized relative to cap height, sitting on the baseline.
-SQUARE_RATIO = 0.24   # square side / cap height
-SQUARE_GAP = 0.10     # gap between letters and square / cap height
-MARK_TRACK = -0.045   # tracking for the tight "VC." one-liner
-BLOCK_TRACK_TOP = -0.03    # "VC" line of the stacked block
-BLOCK_TRACK_BOT = -0.015   # "LTD" line of the stacked block
-BLOCK_GAP = 0.16      # vertical gap between block lines / top cap height
+# The growth bars, in units of the wordmark cap height (baseline-aligned).
+BAR_W = 0.19          # bar width / cap height
+BAR_GAP = 0.135       # gap between bars / cap height
+BAR_HEIGHTS = (0.46, 0.73, 1.0)   # ascending strand heights / cap height
+MARK_GAP = 0.36       # gap between bars and wordmark / cap height
+WORD_TRACK = 0.012    # tracking for the FYBRE wordmark (em)
 
 
-# ------------------------------------------------------------ text paths ----
+# ------------------------------------------------------------- text paths ----
 def fmt(v: float) -> str:
     s = f"{v:.2f}".rstrip("0").rstrip(".")
     return s if s else "0"
@@ -93,171 +120,116 @@ def cap_height(font_file: Path) -> float:
     return font["OS/2"].sCapHeight / font["head"].unitsPerEm
 
 
-# ------------------------------------------------------------- svg files ----
+# -------------------------------------------------------------- bars (svg) ----
+def bar_path(x: float, baseline: float, w: float, h: float) -> str:
+    """One strand: flat foot on the baseline, rounded tip."""
+    r = w / 2
+    return (
+        f"M{fmt(x)} {fmt(baseline)} "
+        f"V{fmt(baseline - h + r)} "
+        f"A{fmt(r)} {fmt(r)} 0 0 1 {fmt(x + w)} {fmt(baseline - h + r)} "
+        f"V{fmt(baseline)} Z"
+    )
+
+
+def bars_svg(cap: float, x: float, baseline: float, color: str) -> tuple[str, float]:
+    """The growth bars. Returns (svg fragment, end_x)."""
+    w = BAR_W * cap
+    gap = BAR_GAP * cap
+    parts = []
+    cx = x
+    for hr in BAR_HEIGHTS:
+        parts.append(bar_path(cx, baseline, w, hr * cap))
+        cx += w + gap
+    d = " ".join(parts)
+    return f'<path d="{d}" fill="{color}"/>', cx - gap
+
+
+def svg_doc(inner: str, w: float, h: float, label: str = "FYBRE") -> str:
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" '
+        f'width="{fmt(w)}" height="{fmt(h)}" role="img" aria-label="{label}">{inner}</svg>'
+    )
+
+
 def write(p: Path, content: str):
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content.strip() + "\n")
     print(f"  wrote {p.relative_to(ROOT)}")
 
 
-def vc_dot_svg(text: str, cap_px: float, color: str, pad: float = 4.0,
-               tracking: float = -0.02) -> tuple[str, float, float]:
-    """Return (inner svg, width, height) for `text` + orange square period."""
-    grotesk = font_path("spacegrotesk-700.ttf")
-    caph = cap_height(grotesk)
-    size = cap_px / caph
-    height = cap_px + 2 * pad
-    baseline = pad + cap_px
-    d, end_x = text_path(grotesk, text, size, pad, baseline, tracking_em=tracking)
-    sq = SQUARE_RATIO * cap_px
-    sx = end_x + SQUARE_GAP * cap_px
-    inner = (
-        f'<path d="{d}" fill="{color}"/>'
-        f'<rect x="{fmt(sx)}" y="{fmt(baseline - sq)}" width="{fmt(sq)}" height="{fmt(sq)}" fill="{ORANGE}"/>'
-    )
-    return inner, sx + sq + pad, height
-
-
-def block_svg(color: str, cap1: float = 42.0, pad: float = 4.0) -> tuple[str, float, float]:
-    """Stacked 'VC / LTD.' block, both lines justified to equal width.
-
-    Returns (inner svg, width, height)."""
-    grotesk = font_path("spacegrotesk-700.ttf")
-    caph = cap_height(grotesk)
-
-    def line_width(text, cap, tracking):
-        _, end = text_path(grotesk, text, cap / caph, 0, 0, tracking_em=tracking)
-        return end
-
-    w_vc = line_width("VC", cap1, BLOCK_TRACK_TOP)
-    # find cap2 so LTD + gap + square fills the same width
-    lo, hi = cap1 * 0.2, cap1
-    for _ in range(60):
-        mid = (lo + hi) / 2
-        w = line_width("LTD", mid, BLOCK_TRACK_BOT) + (SQUARE_GAP + SQUARE_RATIO) * mid
-        if w > w_vc:
-            hi = mid
-        else:
-            lo = mid
-    cap2 = (lo + hi) / 2
-
-    base1 = pad + cap1
-    base2 = base1 + BLOCK_GAP * cap1 + cap2
-    d1, _ = text_path(grotesk, "VC", cap1 / caph, pad, base1, tracking_em=BLOCK_TRACK_TOP)
-    d2, e2 = text_path(grotesk, "LTD", cap2 / caph, pad, base2, tracking_em=BLOCK_TRACK_BOT)
-    sq = SQUARE_RATIO * cap2
-    sqx = e2 + SQUARE_GAP * cap2
-    inner = (
-        f'<path d="{d1}" fill="{color}"/><path d="{d2}" fill="{color}"/>'
-        f'<rect x="{fmt(sqx)}" y="{fmt(base2 - sq)}" width="{fmt(sq)}" height="{fmt(sq)}" fill="{ORANGE}"/>'
-    )
-    return inner, pad + w_vc + pad, base2 + pad
-
-
 def gen_marks():
-    # tight "VC." one-liner, transparent background
-    for name, color in [("mark.svg", BLACK), ("mark-dark.svg", WHITE)]:
-        inner, w, h = vc_dot_svg("VC", 44, color, tracking=MARK_TRACK)
-        svg = (
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" '
-            f'width="{fmt(w)}" height="{fmt(h)}" role="img" aria-label="VC Limited">{inner}</svg>'
-        )
-        write(BRAND / name, svg)
-
-    # stacked block mark, transparent background
-    for name, color in [("block.svg", BLACK), ("block-dark.svg", WHITE)]:
-        inner, w, h = block_svg(color)
-        svg = (
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" '
-            f'width="{fmt(w)}" height="{fmt(h)}" role="img" aria-label="VC Limited">{inner}</svg>'
-        )
-        write(BRAND / name, svg)
-
-    # tile: black rounded square, stacked block centred
-    inner, w, h = block_svg(WHITE)
-    scale = 58.0 / h
-    ox = (96 - w * scale) / 2
-    oy = (96 - 58.0) / 2
-    fav = (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">'
-        f'<rect width="96" height="96" rx="20" fill="{BLACK}"/>'
-        f'<g transform="translate({fmt(ox)} {fmt(oy)}) scale({fmt(scale)})">{inner}</g></svg>'
-    )
-    write(BRAND / "favicon.svg", fav)
+    cap, pad = 44.0, 4.0
+    baseline = pad + cap
+    # bars alone — carbon (light bg), bone (dark bg), volt (accent)
+    for name, color in [("mark.svg", CARBON), ("mark-dark.svg", BONE),
+                        ("mark-volt.svg", VOLT)]:
+        inner, end = bars_svg(cap, pad, baseline, color)
+        write(BRAND / name, svg_doc(inner, end + pad, cap + 2 * pad))
 
 
 def gen_lockups():
-    # full wordmark: "VC LIMITED" closed by the orange square
-    for name, color in [("logo-light.svg", BLACK), ("logo-dark.svg", WHITE)]:
-        inner, w, h = vc_dot_svg("VC LIMITED", 30, color, tracking=-0.012)
-        svg = (
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {fmt(w)} {fmt(h)}" '
-            f'width="{fmt(w)}" height="{fmt(h)}" role="img" aria-label="VC Limited">{inner}</svg>'
-        )
-        write(BRAND / name, svg)
+    cap, pad = 30.0, 4.0
+    baseline = pad + cap
+    display = archivo_static(900, 125)
+    size = cap / cap_height(display)
+    # light bg: all carbon · dark bg: volt bars + bone wordmark
+    for name, bar_color, word_color in [
+        ("logo-light.svg", CARBON, CARBON),
+        ("logo-dark.svg", VOLT, BONE),
+    ]:
+        bars, bars_end = bars_svg(cap, pad, baseline, bar_color)
+        d, end_x = text_path(display, "FYBRE", size, bars_end + MARK_GAP * cap,
+                             baseline, tracking_em=WORD_TRACK)
+        inner = bars + f'<path d="{d}" fill="{word_color}"/>'
+        write(BRAND / name, svg_doc(inner, end_x + pad, cap + 2 * pad))
 
 
-# ---------------------------------------------------------------- raster ----
+def gen_favicon_svg():
+    # carbon rounded tile, volt bars centred
+    cap = 54.0
+    w = (3 * BAR_W + 2 * BAR_GAP) * cap
+    x = (96 - w) / 2
+    baseline = (96 + cap) / 2
+    bars, _ = bars_svg(cap, x, baseline, VOLT)
+    inner = f'<rect width="96" height="96" rx="20" fill="{CARBON}"/>{bars}'
+    write(BRAND / "favicon.svg", svg_doc(inner, 96, 96))
+
+
+# ----------------------------------------------------------------- raster ----
 def hex_rgb(h: str, a: int = 255):
     h = h.lstrip("#")
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) + (a,)
 
 
-def draw_vc_dot(d: ImageDraw.ImageDraw, x: float, baseline: float, cap_px: float,
-                text_rgba, orange_rgba, text: str = "VC") -> float:
-    """Raster twin of vc_dot_svg. Returns the end x."""
-    grotesk = font_path("spacegrotesk-700.ttf")
-    ratio = cap_height(grotesk)
-    font = ImageFont.truetype(str(grotesk), round(cap_px / ratio))
-    d.text((x, baseline), text, font=font, fill=text_rgba, anchor="ls")
-    end = x + d.textlength(text, font=font)
-    sq = SQUARE_RATIO * cap_px
-    sx = end + SQUARE_GAP * cap_px
-    d.rectangle([sx, baseline - sq, sx + sq, baseline], fill=orange_rgba)
-    return sx + sq
+def draw_bars(d: ImageDraw.ImageDraw, cap: float, x: float, baseline: float,
+              fill) -> float:
+    """Raster twin of bars_svg. Returns the end x."""
+    w = BAR_W * cap
+    gap = BAR_GAP * cap
+    cx = x
+    for hr in BAR_HEIGHTS:
+        h = hr * cap
+        d.rounded_rectangle([cx, baseline - h, cx + w, baseline],
+                            radius=w / 2, corners=(True, True, False, False),
+                            fill=fill)
+        cx += w + gap
+    return cx - gap
 
 
 def tile(size: int, rounded: bool) -> Image.Image:
-    """Black tile with the stacked 'VC / LTD.' block centred."""
+    """Carbon tile with the volt growth bars centred."""
     ss = 4
     n = size * ss
     img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     if rounded:
-        d.rounded_rectangle([0, 0, n - 1, n - 1], radius=n * 0.21, fill=hex_rgb(BLACK))
+        d.rounded_rectangle([0, 0, n - 1, n - 1], radius=n * 0.21, fill=hex_rgb(CARBON))
     else:
-        d.rectangle([0, 0, n, n], fill=hex_rgb(BLACK))
-
-    grotesk = font_path("spacegrotesk-700.ttf")
-    ratio = cap_height(grotesk)
-
-    def width_at(text, cap):
-        font = ImageFont.truetype(str(grotesk), round(cap / ratio))
-        return d.textlength(text, font=font)
-
-    # block height 58/96 of the tile, same proportions as block_svg
-    cap1 = n * 58 / 96 / (1 + BLOCK_GAP + 0.615)   # 0.615 ~ cap2/cap1 from the svg solve
-    w_vc = width_at("VC", cap1)
-    lo, hi = cap1 * 0.2, cap1
-    for _ in range(40):
-        mid = (lo + hi) / 2
-        if width_at("LTD", mid) + (SQUARE_GAP + SQUARE_RATIO) * mid > w_vc:
-            hi = mid
-        else:
-            lo = mid
-    cap2 = (lo + hi) / 2
-    block_h = cap1 + BLOCK_GAP * cap1 + cap2
-    x0 = (n - w_vc) / 2
-    base1 = (n - block_h) / 2 + cap1
-    base2 = base1 + BLOCK_GAP * cap1 + cap2
-
-    f1 = ImageFont.truetype(str(grotesk), round(cap1 / ratio))
-    f2 = ImageFont.truetype(str(grotesk), round(cap2 / ratio))
-    d.text((x0, base1), "VC", font=f1, fill=hex_rgb(WHITE), anchor="ls")
-    d.text((x0, base2), "LTD", font=f2, fill=hex_rgb(WHITE), anchor="ls")
-    sq = SQUARE_RATIO * cap2
-    sx = x0 + d.textlength("LTD", font=f2) + SQUARE_GAP * cap2
-    d.rectangle([sx, base2 - sq, sx + sq, base2], fill=hex_rgb(ORANGE))
+        d.rectangle([0, 0, n, n], fill=hex_rgb(CARBON))
+    cap = n * 54 / 96
+    w = (3 * BAR_W + 2 * BAR_GAP) * cap
+    draw_bars(d, cap, (n - w) / 2, (n + cap) / 2, hex_rgb(VOLT))
     return img.resize((size, size), Image.LANCZOS)
 
 
@@ -271,36 +243,76 @@ def gen_icons():
 def gen_og():
     W, H, ss = 1200, 630, 2
     w, h = W * ss, H * ss
-    img = Image.new("RGBA", (w, h), hex_rgb(BLACK))
+    img = Image.new("RGBA", (w, h), hex_rgb(CARBON))
+    d = ImageDraw.Draw(img)
 
-    # ghost "VC." bleeding off the right edge
+    # faint lab grid
+    step = 60 * ss
+    for gx in range(0, w, step):
+        d.line([gx, 0, gx, h], fill=(255, 255, 255, 7), width=1)
+    for gy in range(0, h, step):
+        d.line([0, gy, w, gy], fill=(255, 255, 255, 7), width=1)
+
+    # ghost bars bleeding off the bottom-right
     ghost = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw_vc_dot(ImageDraw.Draw(ghost), w * 0.60, h * 0.86, h * 0.62,
-                hex_rgb(WHITE, 12), hex_rgb(ORANGE, 55))
+    draw_bars(ImageDraw.Draw(ghost), h * 1.1, w * 0.66, h * 1.28, hex_rgb(VOLT, 26))
     img = Image.alpha_composite(img, ghost)
     d = ImageDraw.Draw(img)
 
     margin = 96 * ss
-    sg_m = ImageFont.truetype(str(font_path("spacegrotesk-500.ttf")), 40 * ss)
-    mono = ImageFont.truetype(str(font_path("plexmono-500.ttf")), 26 * ss)
+    display = str(archivo_static(900, 125))
+    sub = ImageFont.truetype(str(archivo_static(600, 100)), 40 * ss)
+    mono = ImageFont.truetype(str(font_path("SpaceMono-Bold.ttf")), 25 * ss)
 
-    draw_vc_dot(d, margin, 300 * ss, 88 * ss, hex_rgb(WHITE), hex_rgb(ORANGE),
-                text="VC LIMITED")
-    d.text((margin, 356 * ss), "Logistics × manufacturing, engineered for results.",
-           font=sg_m, fill=hex_rgb(GRAY))
-    d.line([margin, 476 * ss, margin + 56 * ss, 476 * ss],
-           fill=hex_rgb(ORANGE), width=3 * ss)
-    d.text((margin, 494 * ss), "VCLTD.CO — BUSINESS BAY, DUBAI",
-           font=mono, fill=hex_rgb(ORANGE_SOFT))
+    # volt bars mark
+    draw_bars(d, 60 * ss, margin, 148 * ss, hex_rgb(VOLT))
+
+    # FYBRE wordmark
+    cap_ratio = cap_height(CACHE / "archivo-900-125.ttf")
+    word = ImageFont.truetype(display, round(128 * ss / cap_ratio))
+    d.text((margin - 6 * ss, 352 * ss), "FYBRE", font=word,
+           fill=hex_rgb(WHITE), anchor="ls")
+
+    d.text((margin, 424 * ss), "The 24-hour growth system. Engineered, not promised.",
+           font=sub, fill=hex_rgb(GRAY))
+    d.line([margin, 500 * ss, margin + 56 * ss, 500 * ss],
+           fill=hex_rgb(VOLT), width=3 * ss)
+    d.text((margin, 520 * ss), "FYBRELAB.COM — PERFORMANCE HAIR SCIENCE",
+           font=mono, fill=hex_rgb(VOLT))
 
     img.resize((W, H), Image.LANCZOS).convert("RGB").save(ASSETS / "og-image.png", quality=92)
     print("  wrote assets/og-image.png")
 
 
+# -------------------------------------------------------------- web fonts ----
+def subset_font(src: Path, out: Path, keep_variations: bool = True):
+    args = [
+        str(src),
+        f"--output-file={out}",
+        "--flavor=woff2",
+        f"--unicodes={SUBSET_UNICODES}",
+        "--layout-features=*",
+        "--notdef-outline",
+        "--no-hinting",
+        "--desubroutinize",
+    ]
+    subset.main(args)
+    print(f"  wrote {out.relative_to(ROOT)} ({out.stat().st_size // 1024} KB)")
+
+
+def gen_fonts():
+    FONTS.mkdir(parents=True, exist_ok=True)
+    subset_font(font_path("Archivo-var.ttf"), FONTS / "archivo-var-latin.woff2")
+    subset_font(font_path("SpaceMono-Regular.ttf"), FONTS / "spacemono-400-latin.woff2")
+    subset_font(font_path("SpaceMono-Bold.ttf"), FONTS / "spacemono-700-latin.woff2")
+
+
 if __name__ == "__main__":
-    print("Generating VC Limited brand assets…")
+    print("Generating FYBRE brand assets…")
     gen_marks()
     gen_lockups()
+    gen_favicon_svg()
     gen_icons()
     gen_og()
+    gen_fonts()
     print("Done.")

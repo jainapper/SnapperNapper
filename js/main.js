@@ -1,4 +1,4 @@
-/* VC Limited — vcltd.co */
+/* FYBRE — fybrelab.com */
 (() => {
   "use strict";
 
@@ -44,26 +44,80 @@
     revealed.forEach((el) => io.observe(el));
   }
 
-  /* contact form -> prefilled email (no backend required) */
-  const form = document.getElementById("contact-form");
-  if (form) {
+  /* ------------------------------------------------ the 24-hour theatre
+     Scrolling through #system runs the clock from 06:00 to 06:00:
+     the stage darkens as the day protocol hands over to the night one. */
+  const system = document.getElementById("system");
+  const track = document.getElementById("sys-track");
+  const stage = document.getElementById("sys-stage");
+  const clock = document.getElementById("sys-clock");
+  const phase = document.getElementById("sys-phase");
+
+  if (system && !reduceMotion) {
+    system.classList.add("enhanced");
+
+    const NIGHT_AT = 22;          /* lights out */
+    const clamp01 = (v) => Math.min(1, Math.max(0, v));
+    const smooth = (v) => { v = clamp01(v); return v * v * (3 - 2 * v); };
+    let ticking = false;
+
+    const render = () => {
+      ticking = false;
+      const rect = track.getBoundingClientRect();
+      const span = rect.height - window.innerHeight;
+      if (span <= 0) return;
+      const p = clamp01(-rect.top / span);
+
+      const t = 6 + p * 24;                    /* 06:00 → 30:00 (= 06:00) */
+      const hh = String(Math.floor(t % 24)).padStart(2, "0");
+      const mm = String(Math.floor((t % 1) * 60)).padStart(2, "0");
+      clock.textContent = `${hh}:${mm}`;
+
+      const night = smooth((t - (NIGHT_AT - 1.4)) / 2.2);
+      stage.style.setProperty("--p", p.toFixed(4));
+      stage.style.setProperty("--night", night.toFixed(3));
+      const isNight = night > 0.5;
+      stage.classList.toggle("is-night", isNight);
+      phase.textContent = isNight ? "Night — Recovery" : "Day — Activation";
+    };
+
+    const queue = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(render);
+      }
+    };
+    render();
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue);
+  }
+
+  /* waitlist forms -> prefilled email (no backend required) */
+  const wireWaitlist = (id) => {
+    const form = document.getElementById(id);
+    if (!form) return;
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (!form.reportValidity()) return;
-      const v = (id) => document.getElementById(id).value.trim();
-      const name = `${v("cf-fname")} ${v("cf-lname")}`.trim();
-      const subject = `Website enquiry — ${name}`;
+      const email = form.querySelector("input[type=email]").value.trim();
+      const subject = "FYBRE waitlist — early access";
       const body = [
-        `Name: ${name}`,
-        `Email: ${v("cf-email")}`,
-        `Phone: ${v("cf-phone") || "—"}`,
+        `Put me on the FYBRE waitlist: ${email}`,
         "",
-        v("cf-comment"),
+        "(Sent from fybrelab.com)",
       ].join("\n");
       window.location.href =
-        `mailto:info@vcltd.co?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        `mailto:hello@fybrelab.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      form.classList.add("sent");
+      const note = form.nextElementSibling;
+      if (note && note.classList.contains("waitlist-note")) {
+        note.textContent = "Almost in — hit send in the email that just opened.";
+        note.classList.add("confirmed");
+      }
     });
-  }
+  };
+  wireWaitlist("waitlist-hero");
+  wireWaitlist("waitlist-footer");
 
   /* footer year */
   const year = document.getElementById("year");

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260" role="img" aria-label="FYBRE Flux — scalp stimulation paddle brush">
+  <defs>
+    <linearGradient id="paddle" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#26262B"/>
+      <stop offset="0.5" stop-color="#0E0E10"/>
+      <stop offset="1" stop-color="#050506"/>
+    </linearGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <!-- ground shadow -->
+  <ellipse cx="100" cy="248" rx="40" ry="7" fill="#000000" opacity="0.4" filter="url(#soft)"/>
+
+  <!-- paddle head, rim-lit -->
+  <rect x="50" y="22" width="100" height="130" rx="46" fill="url(#paddle)" stroke="#3A3A40" stroke-width="1"/>
+
+  <!-- bristle matrix: volt contact points -->
+  <g fill="#C8FF2E">
+    <circle cx="82"  cy="52"  r="3.4"/><circle cx="100" cy="52"  r="3.4"/><circle cx="118" cy="52"  r="3.4"/>
+    <circle cx="73"  cy="70"  r="3.4"/><circle cx="91"  cy="70"  r="3.4"/><circle cx="109" cy="70"  r="3.4"/><circle cx="127" cy="70"  r="3.4"/>
+    <circle cx="82"  cy="88"  r="3.4"/><circle cx="100" cy="88"  r="3.4"/><circle cx="118" cy="88"  r="3.4"/>
+    <circle cx="73"  cy="106" r="3.4"/><circle cx="91"  cy="106" r="3.4"/><circle cx="109" cy="106" r="3.4"/><circle cx="127" cy="106" r="3.4"/>
+    <circle cx="82"  cy="124" r="3.4"/><circle cx="100" cy="124" r="3.4"/><circle cx="118" cy="124" r="3.4"/>
+  </g>
+
+  <!-- neck -->
+  <path d="M88 150 q2 10 -2 18 h28 q-4 -8 -2 -18 Z" fill="#0E0E10" stroke="#3A3A40" stroke-width="1"/>
+
+  <!-- handle -->
+  <rect x="84" y="166" width="32" height="80" rx="15" fill="url(#paddle)" stroke="#3A3A40" stroke-width="1"/>
+  <!-- grip ribs -->
+  <rect x="92" y="182" width="16" height="2.5" rx="1.25" fill="#3A3A40"/>
+  <rect x="92" y="190" width="16" height="2.5" rx="1.25" fill="#3A3A40"/>
+  <rect x="92" y="198" width="16" height="2.5" rx="1.25" fill="#3A3A40"/>
+  <!-- volt lanyard ring -->
+  <rect x="92" y="228" width="16" height="5" rx="2.5" fill="#C8FF2E"/>
+</svg>
