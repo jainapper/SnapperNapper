@@ -3315,15 +3315,24 @@ function pwHash(userId, password){ return sha256Hex('fsdb·' + userId + '·' + p
 
 function seedV4(){
   const users = colUsers();
-  if(users.length && !users.some(u => u.id === 'u-jai')){
+  if(!users.length) return;
+  if(!users.some(u => u.id === 'u-jai')){
     const all = {}; TABS.forEach(t => all[t[0]] = true);
     users.unshift({ id:'u-jai', name:'Jai Napper', email:'jai.napper@fullstackfs.com.au', role:'admin',
       tabs: Object.assign({}, all), added: new Date().toISOString(),
       pw: '67dddb93b65bc8a3be6671626bbb073944659b210d30c2d6487748e99f3b0738' });
-    saveUsers();
     const s = col.settings();
     if(!s.currentUserId || s.currentUserId === 'u-admin'){ s.currentUserId = 'u-jai'; DB.set('settings', s); }
   }
+  if(!users.some(u => u.id === 'u-darlene')){
+    const darlene = { id:'u-darlene', name:'Darlene McGlynn', email:'darlene.mcglynn@fullstackfs.com.au', role:'member',
+      tabs:{ dashboard:true, leads:true, onboarding:true, golive:true, documents:true, carriers:true, catalog:false, po:false, team:false },
+      added: new Date().toISOString(),
+      pw: '310ef3ab491e27de5694fd2b669b4f60cf5b9226d2c6161714ebe40a629764d3' };
+    const at = users.findIndex(u => u.id === 'u-jai');
+    users.splice(at >= 0 ? at + 1 : users.length, 0, darlene);
+  }
+  saveUsers();
 }
 
 function authedId(){ try{ return sessionStorage.getItem('fsdb.auth'); }catch(e){ return null; } }
