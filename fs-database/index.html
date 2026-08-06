@@ -384,6 +384,15 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
 .tc-row .tc-n{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:right}
 .ship-transit{font-family:var(--mono);font-size:9px;color:var(--cool);letter-spacing:.04em}
 
+/* ————— lock screen ————— */
+.lock{position:fixed;inset:0;background:radial-gradient(900px 540px at 50% -10%,rgba(245,93,47,.12),transparent),var(--ground);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.lock.on{display:flex}
+.lock-card{width:min(400px,100%);background:var(--raise);border:1px solid var(--stroke);border-radius:22px;padding:34px 32px 28px;display:flex;flex-direction:column;gap:14px;box-shadow:0 40px 120px rgba(0,0,0,.65)}
+.lock-card img{height:32px;align-self:flex-start}
+.lock-card h1{font-size:21px;font-weight:800;letter-spacing:-.01em}
+.lock-sub{color:var(--dim);font-size:13px;margin-top:-8px}
+.lock-note{font-size:11px;color:var(--faint);line-height:1.55}
+
 /* ————— responsive ————— */
 @media(max-width:1180px){
   .kpis{grid-template-columns:repeat(3,1fr)}
@@ -484,7 +493,7 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
         <button id="btnSettings">Settings</button>
         <button id="btnExport">Export</button>
       </div>
-      <div class="side-ver">FS Database · v3</div>
+      <div class="side-ver">FS Database · v4</div>
     </div>
   </aside>
 
@@ -616,6 +625,19 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
       <p class="set-note" id="storageNote">—</p>
       <p class="set-note">Everything lives in this browser (localStorage + IndexedDB) — nothing is sent to a server. Use <b>Export backup</b> to move or share the database; it downloads a single JSON file including uploaded documents.</p>
     </div>
+  </div>
+</div>
+
+<div class="lock" id="lockScreen" role="dialog" aria-label="Sign in">
+  <div class="lock-card">
+    <img src="assets/logo-white.png" alt="Fullstack Fulfillment">
+    <h1>FS Database<span style="color:var(--accent)">.</span></h1>
+    <p class="lock-sub">Pick who you are to continue.</p>
+    <div><label class="f-lab" for="lockUser">User</label><select class="sel f-in" id="lockUser" style="width:100%"></select></div>
+    <div id="lockPwWrap"><label class="f-lab" for="lockPw">Password</label><input class="f-in" id="lockPw" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <div class="conn-msg" id="lockMsg"></div>
+    <button class="btn" id="lockGo" style="justify-content:center">Enter →</button>
+    <p class="lock-note">Everything in the FS Database lives in this browser. Team members without a password enter directly; password-protected admin accounts unlock purchase-order controls.</p>
   </div>
 </div>
 
@@ -2248,7 +2270,7 @@ const colV2 = {
   pos:      () => DB.get('pos', []),
   goLive:   () => DB.get('goLive', [])
 };
-const CAT_KINDS = [['satchel','Satchel'],['carton','Carton'],['mailer','Mailer'],['insert','Insert'],['label','Labels'],['consumable','Consumable'],['other','Other']];
+const CAT_KINDS = [['powder','Powder'],['rtd','RTD / Drinks'],['capsules','Capsules & Gummies'],['sachets','Sachets'],['accessory','Accessories'],['apparel','Apparel'],['other','Other']];
 const REQ_STATES = [['draft','Draft'],['submitted','Submitted'],['quoted','Quoted'],['approved','Approved'],['declined','Declined']];
 const GL_DEFAULT = [
   { key:'stock',   name:'First stock received & put away', hint:'Booked into Extensiv, quantities verified against the ASN' },
@@ -2264,41 +2286,56 @@ function money2(n){ return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toL
 
 function seedV2(){
   const dISO = d => new Date(Date.now() - d * 86400e3).toISOString();
-  if(DB.get('catalog', null) === null){
+  /* products manufactured by Eagle AU — the FS catalog mirrors live client SKUs
+     so sell-through comes straight from the sales data; migrate any old-format data */
+  const catCur = DB.get('catalog', null);
+  const migrate = Array.isArray(catCur) && catCur.some(c => c && 'usePerOrder' in c);
+  if(catCur === null || migrate){
     DB.set('catalog', [
-      { id:'cat-sat-a5', sku:'FS-SAT-A5', name:'Poly satchel A5 — 190×260', kind:'satchel', spec:'60 µm white, double glue strip', unitCost:0.22, pack:100, moq:500, leadDays:7,  stock:2400, usePerOrder:0.18, status:'active' },
-      { id:'cat-sat-a4', sku:'FS-SAT-A4', name:'Poly satchel A4 — 250×325', kind:'satchel', spec:'60 µm white, double glue strip', unitCost:0.28, pack:100, moq:500, leadDays:7,  stock:210,  usePerOrder:0.34, status:'active' },
-      { id:'cat-sat-a3', sku:'FS-SAT-A3', name:'Poly satchel A3 — 310×405', kind:'satchel', spec:'60 µm white, double glue strip', unitCost:0.38, pack:100, moq:500, leadDays:7,  stock:1900, usePerOrder:0.26, status:'active' },
-      { id:'cat-sat-a2', sku:'FS-SAT-A2', name:'Poly satchel A2 — 440×510', kind:'satchel', spec:'70 µm white, heavy duty',        unitCost:0.55, pack:50,  moq:250, leadDays:7,  stock:480,  usePerOrder:0.08, status:'active' },
-      { id:'cat-ctn-s',  sku:'FS-CTN-S',  name:'Carton S — 220×160×120',    kind:'carton',  spec:'Kraft, B flute',                 unitCost:0.78, pack:25,  moq:100, leadDays:10, stock:620,  usePerOrder:0.07, status:'active' },
-      { id:'cat-ctn-m',  sku:'FS-CTN-M',  name:'Carton M — 310×230×160',    kind:'carton',  spec:'Kraft, B flute',                 unitCost:1.05, pack:25,  moq:100, leadDays:10, stock:40,   usePerOrder:0.05, status:'active' },
-      { id:'cat-ctn-l',  sku:'FS-CTN-L',  name:'Carton L — 400×300×220',    kind:'carton',  spec:'Kraft, BC double wall',          unitCost:1.45, pack:20,  moq:60,  leadDays:10, stock:260,  usePerOrder:0.02, status:'active' },
-      { id:'cat-bub-m',  sku:'FS-BUB-M',  name:'Bubble mailer M — padded',  kind:'mailer',  spec:'Kraft outer, bubble lined',      unitCost:0.31, pack:100, moq:300, leadDays:7,  stock:900,  usePerOrder:0.06, status:'active' },
-      { id:'cat-ins',    sku:'FS-INS-STD',name:'Thank-you insert card',     kind:'insert',  spec:'A6 350gsm, FS orange print',     unitCost:0.06, pack:500, moq:1000,leadDays:14, stock:5200, usePerOrder:0.4,  status:'active' },
-      { id:'cat-tape',   sku:'FS-TAP-48', name:'Packing tape 48 mm — branded', kind:'consumable', spec:'PP acrylic, FS print, 66 m', unitCost:2.10, pack:36, moq:72, leadDays:14, stock:88, usePerOrder:0.012, status:'active' },
-      { id:'cat-lbl',    sku:'FS-LBL-4X6',name:'Thermal labels 4×6 — roll of 500', kind:'label', spec:'Direct thermal, perm adhesive', unitCost:6.50, pack:12, moq:24, leadDays:5, stock:41, usePerOrder:0.002, status:'active' },
-      { id:'cat-void',   sku:'FS-VOID-K', name:'Void fill — kraft roll 450 m', kind:'consumable', spec:'70gsm recycled kraft',     unitCost:18.00, pack:1,  moq:10,  leadDays:10, stock:3,  usePerOrder:0.004, status:'active' }
+      { id:'cat-apn-wpi-choc', sku:'APN-WPI-CHOC-1KG', name:'Whey Protein Isolate — Chocolate 1 kg', brand:'Alpine Peak Nutrition', kind:'powder', unitCost:24.50, pack:6,  moq:500,  leadDays:28, stock:2140, status:'active' },
+      { id:'cat-apn-wpi-van',  sku:'APN-WPI-VAN-1KG',  name:'Whey Protein Isolate — Vanilla 1 kg',   brand:'Alpine Peak Nutrition', kind:'powder', unitCost:24.50, pack:6,  moq:500,  leadDays:28, stock:1876, status:'active' },
+      { id:'cat-apn-cre',      sku:'APN-CRE-MONO-500', name:'Creatine Monohydrate 500 g',            brand:'Alpine Peak Nutrition', kind:'powder', unitCost:14.20, pack:12, moq:500,  leadDays:28, stock:940,  status:'active' },
+      { id:'cat-apn-pwo',      sku:'APN-PWO-BERRY-300',name:'Pre-Workout — Wild Berry 300 g',        brand:'Alpine Peak Nutrition', kind:'powder', unitCost:17.80, pack:12, moq:500,  leadDays:28, stock:132,  status:'active' },
+      { id:'cat-apn-rtd',      sku:'APN-RTD-CHOC-12PK',name:'RTD Protein Shake — Choc 12-pack',      brand:'Alpine Peak Nutrition', kind:'rtd',    unitCost:21.60, pack:4,  moq:300,  leadDays:30, stock:64,   status:'active' },
+      { id:'cat-apn-shaker',   sku:'APN-SHAKER-700',   name:'Shaker 700 ml',                          brand:'Alpine Peak Nutrition', kind:'accessory', unitCost:3.80, pack:24, moq:1000, leadDays:35, stock:3320, status:'active' },
+      { id:'cat-if-pre',       sku:'IF-PRE-MANGO-400', name:'Pre-Workout — Mango 400 g',             brand:'Iron Fuel Supplements', kind:'powder', unitCost:19.40, pack:12, moq:500,  leadDays:28, stock:890,  status:'active' },
+      { id:'cat-if-bcaa',      sku:'IF-BCAA-COLA-300', name:'BCAA Recovery — Cola 300 g',            brand:'Iron Fuel Supplements', kind:'powder', unitCost:15.30, pack:12, moq:500,  leadDays:28, stock:70,   status:'active' },
+      { id:'cat-if-crtn',      sku:'IF-CRTN-1KG',      name:'Creatine Monohydrate 1 kg',             brand:'Iron Fuel Supplements', kind:'powder', unitCost:22.90, pack:6,  moq:400,  leadDays:28, stock:610,  status:'active' },
+      { id:'cat-if-shkr',      sku:'IF-SHKR-600',      name:'Iron Fuel Shaker 600 ml',               brand:'Iron Fuel Supplements', kind:'accessory', unitCost:3.40, pack:24, moq:1000, leadDays:35, stock:1500, status:'active' },
+      { id:'cat-if-tee',       sku:'IF-TEE-BLK-L',     name:'Training Tee — Black L',                brand:'Iron Fuel Supplements', kind:'apparel', unitCost:12.80, pack:20, moq:200,  leadDays:40, stock:300,  status:'active' },
+      { id:'cat-gw-coll',      sku:'GW-COLL-300',      name:'Collagen Peptides 300 g',               brand:'Glow Wellness Co',      kind:'powder', unitCost:18.20, pack:12, moq:500,  leadDays:25, stock:300,  status:'active' },
+      { id:'cat-gw-greens',    sku:'GW-GREENS-250',    name:'Daily Greens Blend 250 g',              brand:'Glow Wellness Co',      kind:'powder', unitCost:23.40, pack:12, moq:500,  leadDays:25, stock:640,  status:'active' },
+      { id:'cat-gw-sleep',     sku:'GW-SLEEP-60',      name:'Sleep Gummies 60 ct',                   brand:'Glow Wellness Co',      kind:'capsules', unitCost:11.60, pack:24, moq:1000, leadDays:25, stock:90,   status:'active' },
+      { id:'cat-gw-hydr',      sku:'GW-HYDR-20',       name:'Hydration Sticks 20-pack',              brand:'Glow Wellness Co',      kind:'sachets', unitCost:9.80,  pack:20, moq:800,  leadDays:25, stock:720,  status:'active' },
+      { id:'cat-gw-bottle',    sku:'GW-BOTTLE-750',    name:'Glass Bottle 750 ml',                   brand:'Glow Wellness Co',      kind:'accessory', unitCost:7.40, pack:12, moq:500,  leadDays:35, stock:510,  status:'active' },
+      { id:'cat-psl-noo',      sku:'PSL-NOO-60',       name:'Nootropic Focus Caps 60 ct',            brand:'Peak State Labs',       kind:'capsules', unitCost:16.40, pack:24, moq:500,  leadDays:21, stock:480,  status:'active' },
+      { id:'cat-psl-elec',     sku:'PSL-ELEC-LEM-500', name:'Electrolytes — Lemon 500 g',            brand:'Peak State Labs',       kind:'powder', unitCost:12.60, pack:12, moq:500,  leadDays:21, stock:520,  status:'active' },
+      { id:'cat-psl-mag',      sku:'PSL-MAG-120',      name:'Magnesium Night Caps 120 ct',           brand:'Peak State Labs',       kind:'capsules', unitCost:10.90, pack:24, moq:500,  leadDays:21, stock:610,  status:'active' },
+      { id:'cat-psl-omega',    sku:'PSL-OMEGA-90',     name:'Omega-3 Softgels 90 ct',                brand:'Peak State Labs',       kind:'capsules', unitCost:9.70,  pack:24, moq:500,  leadDays:21, stock:400,  status:'active' },
+      { id:'cat-kkv-multi',    sku:'KKV-MULTI-90',     name:'Kids Multi Gummies 90 ct',              brand:'Koala Kids Vitamins',   kind:'capsules', unitCost:9.40,  pack:24, moq:1000, leadDays:25, stock:400,  status:'active' },
+      { id:'cat-kkv-vitc',     sku:'KKV-VITC-60',      name:'Vitamin C Chews 60 ct',                 brand:'Koala Kids Vitamins',   kind:'capsules', unitCost:6.80,  pack:24, moq:1000, leadDays:25, stock:350,  status:'active' },
+      { id:'cat-kkv-probio',   sku:'KKV-PROBIO-30',    name:'Kids Probiotic Sachets 30-pack',        brand:'Koala Kids Vitamins',   kind:'sachets', unitCost:12.20, pack:20, moq:800,  leadDays:25, stock:280,  status:'active' }
     ]);
   }
-  if(DB.get('requests', null) === null){
+  if(DB.get('requests', null) === null || migrate){
     DB.set('requests', [
-      { id:'req-kkv', ts:dISO(6), name:'Branded satchel — Koala Kids 350×480', kind:'satchel',
-        spec:'2-colour print on white poly, 60 µm, double glue strip, client-supplied artwork', targetCost:'$0.42 @ 5k',
-        qty:'5,000 initial run', forClient:'Koala Kids Vitamins', status:'quoted', submittedTs:dISO(6),
-        notes:'Eagle came back at $0.45 @ 5k / $0.39 @ 10k — waiting on client sign-off.' },
-      { id:'req-xl', ts:dISO(1), name:'Carton XL — 500×400×300 double wall', kind:'carton',
-        spec:'Plain kraft, BC flute, bulk 10 kg tub shipments', targetCost:'~$2.10', qty:'500', forClient:'Iron Fuel Supplements',
-        status:'draft', notes:'' }
+      { id:'req-apn-trop', ts:dISO(6), name:'Pre-Workout — Tropical Punch 300 g (new flavour)', kind:'powder',
+        spec:'Line extension of APN-PWO — same base formula, tropical flavour system, 300 g tub', targetCost:'$17.50 @ 1k units',
+        qty:'1,000 units', forClient:'Alpine Peak Nutrition', status:'quoted', submittedTs:dISO(6),
+        notes:'Eagle quoted $18.10 @ 1k / $16.90 @ 2.5k — flavour sample approved by client.' },
+      { id:'req-kkv-iron', ts:dISO(1), name:'Kids Iron + Vitamin C Gummies 60 ct', kind:'capsules',
+        spec:'New SKU — iron bisglycinate + vitamin C, berry flavour, 60 ct jar, child-safe lid', targetCost:'~$8.20', qty:'1,500 units',
+        forClient:'Koala Kids Vitamins', status:'draft', notes:'' }
     ]);
   }
-  if(DB.get('pos', null) === null){
+  if(DB.get('pos', null) === null || migrate){
     DB.set('pos', [
-      { id:'po-42', number:'PO-2026-0042', status:'sent', created:dISO(32), notes:'Winter restock',
+      { id:'po-42', number:'PO-2026-0042', status:'sent', created:dISO(32), notes:'Winter restock — Eagle AU production run',
         sig1:{ name:'Operations (demo)', ts:dISO(32) }, sig2:{ name:'Director (demo)', ts:dISO(31) }, sentTs:dISO(31),
-        lines:[ { catId:'cat-sat-a4', qty:2000, unitCost:0.28 }, { catId:'cat-sat-a3', qty:1000, unitCost:0.38 }, { catId:'cat-lbl', qty:24, unitCost:6.50 } ] },
-      { id:'po-47', number:'PO-2026-0047', status:'pending', created:dISO(1), notes:'Cover for Southpaw launch volumes',
+        lines:[ { catId:'cat-apn-wpi-choc', qty:500, unitCost:24.50 }, { catId:'cat-apn-cre', qty:500, unitCost:14.20 }, { catId:'cat-gw-coll', qty:500, unitCost:18.20 } ] },
+      { id:'po-47', number:'PO-2026-0047', status:'pending', created:dISO(1), notes:'APN low-stock cover — needs countersign',
         sig1:{ name:'Operations (demo)', ts:dISO(1) }, sig2:null, sentTs:null,
-        lines:[ { catId:'cat-sat-a2', qty:250, unitCost:0.55 }, { catId:'cat-ctn-l', qty:100, unitCost:1.45 } ] }
+        lines:[ { catId:'cat-apn-pwo', qty:500, unitCost:17.80 }, { catId:'cat-apn-rtd', qty:300, unitCost:21.60 } ] }
     ]);
   }
   if(DB.get('goLive', null) === null){
@@ -2388,28 +2425,34 @@ function adminSubmit(){
   if(cb) cb();
 }
 
-/* ————— demand math (sales data → usage) ————— */
+/* ————— demand math (sales data → sell-through per SKU) ————— */
 function dailyOrders30(){
   const n = shippedBetween(daysBack(29).getTime(), Date.now() + 1).length;
   return n / 30;
 }
-function catCalc(item, dOrders){
-  const dailyUse = (item.usePerOrder || 0) * dOrders;
+function soldPerDay(){
+  const map = {};
+  shippedBetween(daysBack(29).getTime(), Date.now() + 1).forEach(o => o.items.forEach(i => { if(i.sku) map[i.sku] = (map[i.sku] || 0) + (i.qty || 1); }));
+  Object.keys(map).forEach(k => map[k] = map[k] / 30);
+  return map;
+}
+function catCalc(item, sold){
+  const dailyUse = sold[item.sku] || 0;
   const cover = dailyUse > 0 ? item.stock / dailyUse : Infinity;
-  const flagged = isFinite(cover) && cover < (item.leadDays || 7) + 14;
+  const flagged = isFinite(cover) && cover < (item.leadDays || 21) + 14;
   let suggested = 0;
   if(flagged){
-    const need = Math.max(0, 60 * dailyUse - item.stock);
+    const need = Math.max(0, 90 * dailyUse - item.stock);   /* manufacturing runs target ~90 days of cover */
     const pack = item.pack || 1;
     suggested = Math.max(item.moq || pack, Math.ceil(need / pack) * pack);
   }
   return { dailyUse, cover, flagged, suggested };
 }
-function coverPill(c){
-  if(!isFinite(c)) return '<span class="pill dim">no usage</span>';
-  const d = Math.round(c);
-  return c < 14 ? '<span class="pill bad">' + d + 'd cover</span>'
-       : c < 28 ? '<span class="pill warn">' + d + 'd cover</span>'
+function coverPill(c, lead){
+  if(!isFinite(c)) return '<span class="pill dim">no sales yet</span>';
+  const d = Math.round(c), L = lead || 21;
+  return c < L ? '<span class="pill bad">' + d + 'd cover</span>'
+       : c < L + 14 ? '<span class="pill warn">' + d + 'd cover</span>'
        : '<span class="pill ok">' + d + 'd cover</span>';
 }
 
@@ -2535,10 +2578,10 @@ function renderCatalog(){
   const v = $('#view-catalog');
   const items = colV2.catalog();
   const reqs = colV2.requests();
-  const dOrders = dailyOrders30();
+  const sold = soldPerDay();
   v.innerHTML =
   '<div class="view-head"><div class="vh-title"><h1>Fullstack Catalog<em>.</em></h1>' +
-  '<p class="vh-sub">The internal FS catalog — packaging and consumables supplied by Eagle AU — with live usage from sales data, plus new product requests.</p></div>' +
+  '<p class="vh-sub">Every SKU and product name manufactured by Eagle AU — with live sell-through from the sales data — and new product requests pushed to Eagle.</p></div>' +
   '<div class="vh-actions"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
   '<input id="catSearch" type="text" placeholder="Search catalog…" value="' + esc(catQ) + '"></div>' +
   '<button class="btn ghost" data-act="cat-additem">+ Add item</button>' +
@@ -2558,23 +2601,23 @@ function renderCatalog(){
       '<button class="tbtn" data-req-del="' + r.id + '" style="color:var(--bad)">✕</button></div></div>'
   ).join('') + '</div>' : '') +
 
-  '<div class="panel"><div class="panel-head"><span class="panel-title">Catalog</span><span class="panel-meta">' +
-  'usage from last-30d sales · ' + (Math.round(dOrders * 10) / 10) + ' orders/day</span></div>' +
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Product catalog</span><span class="panel-meta">' +
+  items.length + ' SKUs · sell-through from last-30d sales</span></div>' +
   '<div class="doc-table-wrap"><table class="rows" id="catTable">' +
-  '<tr><th>SKU</th><th>Item</th><th class="num">Unit cost</th><th class="num">Pack / MOQ</th><th class="num">Lead</th><th class="num">Stock</th><th class="num">Use /order</th><th>Cover</th></tr>' +
+  '<tr><th>SKU</th><th>Product</th><th class="num">Unit cost</th><th class="num">Carton / MOQ</th><th class="num">Lead</th><th class="num">Stock</th><th class="num">Sold /day</th><th>Cover</th></tr>' +
   items.map(it => {
-    const cc = catCalc(it, dOrders);
-    return '<tr data-search="' + esc((it.sku + ' ' + it.name + ' ' + it.kind).toLowerCase()) + '">' +
+    const cc = catCalc(it, sold);
+    return '<tr data-search="' + esc((it.sku + ' ' + it.name + ' ' + (it.brand || '') + ' ' + it.kind).toLowerCase()) + '">' +
     '<td style="font-family:var(--mono);font-size:11.5px;color:var(--faint);white-space:nowrap">' + esc(it.sku) + '</td>' +
-    '<td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(lbl(CAT_KINDS, it.kind)) + (it.spec ? ' · ' + esc(it.spec) : '') + '</span></td>' +
+    '<td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(it.brand || 'Fullstack') + ' · ' + esc(lbl(CAT_KINDS, it.kind)) + (it.spec ? ' · ' + esc(it.spec) : '') + '</span></td>' +
     '<td class="num">' + money2(it.unitCost) + '</td>' +
     '<td class="num">' + nf(it.pack) + ' / ' + nf(it.moq) + '</td>' +
     '<td class="num">' + (it.leadDays || 0) + 'd</td>' +
     '<td class="num"><input class="num-in" type="number" min="0" step="1" value="' + (it.stock || 0) + '" data-cat-stock="' + it.id + '"></td>' +
-    '<td class="num"><input class="num-in small" type="number" min="0" step="0.01" value="' + (it.usePerOrder || 0) + '" data-cat-use="' + it.id + '"></td>' +
-    '<td>' + coverPill(cc.cover) + (cc.flagged ? ' <span class="sug-flag pill acc" style="border:0">reorder ' + nf(cc.suggested) + '</span>' : '') + '</td></tr>';
+    '<td class="num">' + (cc.dailyUse ? cc.dailyUse.toFixed(1) : '—') + '</td>' +
+    '<td>' + coverPill(cc.cover, it.leadDays) + (cc.flagged ? ' <span class="sug-flag pill acc" style="border:0">reorder ' + nf(cc.suggested) + '</span>' : '') + '</td></tr>';
   }).join('') + '</table></div>' +
-  '<p class="set-note" style="margin-top:12px">Use /order is each item’s average consumption per outbound order — cover days = stock ÷ (use × current orders/day). Items are flagged when cover drops under lead time + 14 days; the PO tab turns the flags into a purchase order.</p>' +
+  '<p class="set-note" style="margin-top:12px">Sold /day is each SKU’s real sell-through from the last 30 days of orders — cover days = stock ÷ sold per day. Products are flagged when cover drops under Eagle’s lead time + 14 days; the PO tab turns the flags into a purchase order sized to ~90 days of cover (rounded to cartons, never under MOQ).</p>' +
   '</div>';
   filterCat();
 }
@@ -2584,26 +2627,27 @@ function filterCat(){
 }
 function catDrawerForm(){
   $('#catDrawerBody').innerHTML =
-  '<div class="f-row2"><div><label class="f-lab">SKU <span>*</span></label><input class="f-in" id="cf-sku" placeholder="FS-…"></div>' +
+  '<div class="f-row2"><div><label class="f-lab">SKU <span>*</span></label><input class="f-in" id="cf-sku" placeholder="e.g. APN-PWO-TROP-300"></div>' +
   '<div><label class="f-lab">Kind</label><select class="sel f-in" id="cf-kind">' + CAT_KINDS.map(k => '<option value="' + k[0] + '">' + k[1] + '</option>').join('') + '</select></div></div>' +
-  '<div><label class="f-lab">Name <span>*</span></label><input class="f-in" id="cf-name" placeholder="e.g. Poly satchel A1 — 600×650"></div>' +
-  '<div><label class="f-lab">Spec</label><input class="f-in" id="cf-spec" placeholder="Material, print, flute…"></div>' +
+  '<div><label class="f-lab">Product name <span>*</span></label><input class="f-in" id="cf-name" placeholder="e.g. Pre-Workout — Tropical Punch 300 g"></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Brand / client</label><input class="f-in" id="cf-brand" placeholder="e.g. Alpine Peak Nutrition"></div>' +
+  '<div><label class="f-lab">Spec</label><input class="f-in" id="cf-spec" placeholder="Size, flavour, format…"></div></div>' +
   '<div class="f-row2"><div><label class="f-lab">Unit cost $</label><input class="f-in" id="cf-cost" type="number" min="0" step="0.01" value="0"></div>' +
-  '<div><label class="f-lab">Lead time (days)</label><input class="f-in" id="cf-lead" type="number" min="0" step="1" value="7"></div></div>' +
-  '<div class="f-row2"><div><label class="f-lab">Pack size</label><input class="f-in" id="cf-pack" type="number" min="1" step="1" value="100"></div>' +
+  '<div><label class="f-lab">Eagle lead time (days)</label><input class="f-in" id="cf-lead" type="number" min="0" step="1" value="28"></div></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Carton qty</label><input class="f-in" id="cf-pack" type="number" min="1" step="1" value="12"></div>' +
   '<div><label class="f-lab">MOQ</label><input class="f-in" id="cf-moq" type="number" min="0" step="1" value="500"></div></div>' +
-  '<div class="f-row2"><div><label class="f-lab">Stock on hand</label><input class="f-in" id="cf-stock" type="number" min="0" step="1" value="0"></div>' +
-  '<div><label class="f-lab">Use per order</label><input class="f-in" id="cf-use" type="number" min="0" step="0.01" value="0"></div></div>';
+  '<div><label class="f-lab">Stock on hand</label><input class="f-in" id="cf-stock" type="number" min="0" step="1" value="0"></div>' +
+  '<p class="set-note">Sell-through is automatic — once orders ship with this SKU, sold/day and cover fill themselves from the sales data.</p>';
 }
 function saveCatFromDrawer(){
   const sku = $('#cf-sku').value.trim(), name = $('#cf-name').value.trim();
-  if(!sku || !name){ toast('SKU and name are required'); return; }
+  if(!sku || !name){ toast('SKU and product name are required'); return; }
   const items = colV2.catalog();
-  items.push({ id: uid(), sku, name, kind: $('#cf-kind').value, spec: $('#cf-spec').value.trim(),
+  items.push({ id: uid(), sku, name, brand: $('#cf-brand').value.trim(), kind: $('#cf-kind').value, spec: $('#cf-spec').value.trim(),
     unitCost: +$('#cf-cost').value || 0, pack: +$('#cf-pack').value || 1, moq: +$('#cf-moq').value || 0,
-    leadDays: +$('#cf-lead').value || 7, stock: +$('#cf-stock').value || 0, usePerOrder: +$('#cf-use').value || 0, status: 'active' });
+    leadDays: +$('#cf-lead').value || 28, stock: +$('#cf-stock').value || 0, status: 'active' });
   DB.set('catalog', items);
-  closeOverlays(); renderCatalog(); toast('Catalog item added');
+  closeOverlays(); renderCatalog(); toast('Product added to catalog');
 }
 function reqDrawerForm(){
   $('#reqDrawerBody').innerHTML =
@@ -2676,29 +2720,29 @@ function createDraftPO(lines, note){
 function renderPO(param){
   const v = $('#view-po');
   if(param){ renderPoDetail(v, param); return; }
-  const dOrders = dailyOrders30();
+  const sold = soldPerDay();
   const items = colV2.catalog();
-  const sugg = items.map(it => ({ it, cc: catCalc(it, dOrders) })).filter(x => x.cc.flagged);
+  const sugg = items.map(it => ({ it, cc: catCalc(it, sold) })).filter(x => x.cc.flagged);
   const pos = colV2.pos();
   v.innerHTML =
   '<div class="view-head"><div class="vh-title"><h1>Fullstack PO<em>.</em></h1>' +
-  '<p class="vh-sub">What to order from Eagle AU, driven by the sales data — admin-only, and every PO needs a second signature before it can be sent.</p></div>' +
+  '<p class="vh-sub">What to reorder from Eagle AU — our manufacturing partner — driven by the sales data coming in. Admin-only, and every PO needs a second signature before it can be sent.</p></div>' +
   '<div class="vh-actions">' + lockChip() + '<button class="btn" data-act="po-new">+ New purchase order</button></div></div>' +
 
   '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><span class="panel-title">Reorder suggestions</span>' +
-  '<span class="panel-meta">from last-30d sales · ' + (Math.round(dOrders * 10) / 10) + ' orders/day · flags at &lt; lead + 14d cover</span></div>' +
+  '<span class="panel-meta">sell-through from last-30d sales · flags at &lt; lead + 14d cover</span></div>' +
   (sugg.length ?
   '<div class="doc-table-wrap"><table class="rows">' +
-  '<tr><th></th><th>Item</th><th class="num">Stock</th><th class="num">Use /day</th><th>Cover</th><th class="num">Lead</th><th class="num">Suggested qty</th></tr>' +
+  '<tr><th></th><th>Product</th><th class="num">Stock</th><th class="num">Sold /day</th><th>Cover</th><th class="num">Lead</th><th class="num">Suggested qty</th></tr>' +
   sugg.map(x =>
     '<tr><td><label class="chk" style="padding:6px 8px;border:0;background:none"><input type="checkbox" checked data-sug="' + x.it.id + '" data-qty="' + x.cc.suggested + '"></label></td>' +
-    '<td><span class="cell-main">' + esc(x.it.name) + '</span><span class="cell-sub">' + esc(x.it.sku) + ' · ' + money2(x.it.unitCost) + '/unit</span></td>' +
+    '<td><span class="cell-main">' + esc(x.it.name) + '</span><span class="cell-sub">' + esc(x.it.sku) + ' · ' + esc(x.it.brand || 'Fullstack') + ' · ' + money2(x.it.unitCost) + '/unit</span></td>' +
     '<td class="num">' + nf(x.it.stock) + '</td><td class="num">' + x.cc.dailyUse.toFixed(1) + '</td>' +
-    '<td>' + coverPill(x.cc.cover) + '</td><td class="num">' + x.it.leadDays + 'd</td>' +
+    '<td>' + coverPill(x.cc.cover, x.it.leadDays) + '</td><td class="num">' + x.it.leadDays + 'd</td>' +
     '<td class="num" style="color:var(--accent);font-weight:700">' + nf(x.cc.suggested) + '</td></tr>'
   ).join('') + '</table></div>' +
   '<div style="margin-top:14px"><button class="btn small" data-act="po-from-sug">Create PO from ticked items →</button></div>'
-  : '<p style="color:var(--faint);font-size:13px;padding:6px 0">Nothing needs reordering right now — every item has healthy cover for its lead time.</p>') +
+  : '<p style="color:var(--faint);font-size:13px;padding:6px 0">Nothing needs reordering right now — every product has healthy cover for Eagle’s lead time.</p>') +
   '</div>' +
 
   '<div class="panel"><div class="panel-head"><span class="panel-title">Purchase orders</span><span class="panel-meta">' + pos.length + ' total</span></div>' +
@@ -2737,7 +2781,7 @@ function renderPoDetail(v, id){
   '<tr><th>Item</th><th class="num">Qty</th><th class="num">Unit ex GST</th><th class="num">Line total</th>' + (draft && isAdmin() ? '<th></th>' : '') + '</tr>' +
   po.lines.map((l, i) => {
     const it = catById(l.catId) || { name: '(removed item)', sku: '—', pack: 1 };
-    return '<tr><td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(it.sku) + ' · pack of ' + nf(it.pack) + '</span></td>' +
+    return '<tr><td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(it.sku) + ' · carton of ' + nf(it.pack) + '</span></td>' +
     '<td class="num">' + (draft && isAdmin() ? '<input class="num-in" type="number" min="0" step="' + (it.pack || 1) + '" value="' + l.qty + '" data-po-qty="' + po.id + ':' + i + '">' : nf(l.qty)) + '</td>' +
     '<td class="num">' + (draft && isAdmin() ? '<input class="num-in small" type="number" min="0" step="0.01" value="' + l.unitCost + '" data-po-cost="' + po.id + ':' + i + '">' : money2(l.unitCost)) + '</td>' +
     '<td class="num po-line-total">' + money2(l.qty * l.unitCost) + '</td>' +
@@ -2906,6 +2950,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const r = colV2.requests().find(x => x.id === t.dataset.reqTocat);
       if(r){ catDrawerForm(); openOverlay('#catDrawer');
         $('#cf-name').value = r.name; $('#cf-kind').value = r.kind || 'other'; $('#cf-spec').value = r.spec || '';
+        $('#cf-brand').value = r.forClient || '';
         $('#cf-sku').focus(); }
     }
     else if(t.dataset.reqDel){
@@ -2915,8 +2960,6 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#view-catalog').addEventListener('change', e => {
     const st = e.target.closest('[data-cat-stock]');
     if(st){ const it = catById(st.dataset.catStock); if(it){ it.stock = Math.max(0, +st.value || 0); saveCat(); renderCatalog(); } return; }
-    const us = e.target.closest('[data-cat-use]');
-    if(us){ const it = catById(us.dataset.catUse); if(it){ it.usePerOrder = Math.max(0, +us.value || 0); saveCat(); renderCatalog(); } return; }
     const rs = e.target.closest('[data-req-status]');
     if(rs){ const r = colV2.requests().find(x => x.id === rs.dataset.reqStatus); if(r){ r.status = rs.value; saveReq(); updateCounts(); renderCatalog(); } }
   });
@@ -3131,7 +3174,7 @@ function renderTeam(){
     const lastAdmin = u.role === 'admin' && admins <= 1;
     return '<div class="car-card team-card">' +
     '<div class="car-top"><span class="u-avatar big">' + esc(initials(u.name)) + '</span>' +
-    '<div style="min-width:0"><h3 style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' + esc(u.name) + (isCur ? '<span class="team-you">You · this device</span>' : '') + '</h3>' +
+    '<div style="min-width:0"><h3 style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' + esc(u.name) + (isCur ? '<span class="team-you">You · this device</span>' : '') + (u.pw ? '<span class="chip" style="font-size:8px;padding:2px 8px">🔒 password</span>' : '') + '</h3>' +
     '<div class="car-sub" style="text-transform:none;letter-spacing:0">' + esc(u.email || 'no email') + '</div></div>' +
     (u.role === 'admin' ? '<span class="pill acc role-pill">Admin</span>' : '<span class="pill dim role-pill">Member</span>') + '</div>' +
     '<div><div class="cf-k" style="margin-bottom:7px">Tabs this user can see</div><div class="tab-toggles">' +
@@ -3143,6 +3186,7 @@ function renderTeam(){
     '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">' +
     (isCur ? '' : '<button class="btn ghost small" data-uswitch="' + u.id + '">Switch to this user</button>') +
     (canEdit ? '<select class="sel" data-urole="' + u.id + '"' + (lastAdmin ? ' disabled title="The last admin cannot be demoted"' : '') + '><option value="member"' + (u.role === 'member' ? ' selected' : '') + '>Member</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option></select>' : '') +
+    (canEdit ? '<button class="btn ghost small" data-usetpw="' + u.id + '">' + (u.pw ? 'Reset password' : 'Set password') + '</button>' : '') +
     '<span class="spacer" style="flex:1"></span>' +
     (canEdit && !isCur && !lastAdmin ? '<button class="iconbtn" data-udel="' + u.id + '">Delete</button>' : '') +
     '</div></div>';
@@ -3199,20 +3243,10 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTabAccess();
   if($('#countTeam')) $('#countTeam').textContent = '';
 
-  $('#userSel').addEventListener('change', e => {
-    const s = col.settings();
-    s.currentUserId = e.target.value;
-    DB.set('settings', s);
-    const u = currentUser();
-    fillUserSwitcher();
-    applyTabAccess();
-    toast('Now browsing as ' + (u ? u.name : '—'));
-    const name = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/')[0];
-    if(!tabAllowed(name)) location.hash = '#/dashboard'; else route();
-  });
+  $('#userSel').addEventListener('change', e => { switchUser(e.target.value); });
 
   $('#view-team').addEventListener('click', e => {
-    const t = e.target.closest('[data-act],[data-uswitch],[data-udel]');
+    const t = e.target.closest('[data-act],[data-uswitch],[data-udel],[data-usetpw]');
     if(!t) return;
     if(t.dataset.act === 'team-add'){
       const name = $('#tmName').value.trim();
@@ -3223,14 +3257,15 @@ document.addEventListener('DOMContentLoaded', () => {
       saveUsers(); fillUserSwitcher(); renderTeam();
       toast(name + ' added to the team');
     }
-    else if(t.dataset.uswitch){
-      const s = col.settings();
-      s.currentUserId = t.dataset.uswitch;
-      DB.set('settings', s);
-      fillUserSwitcher(); applyTabAccess();
-      const u = currentUser();
-      toast('Now browsing as ' + (u ? u.name : '—'));
-      if(!tabAllowed('team')) location.hash = '#/dashboard'; else route();
+    else if(t.dataset.uswitch){ switchUser(t.dataset.uswitch); }
+    else if(t.dataset.usetpw){
+      const u = colUsers().find(x => x.id === t.dataset.usetpw);
+      if(!u) return;
+      const pw = prompt('New password for ' + u.name + ' — leave empty to remove the password:');
+      if(pw === null) return;
+      if(!pw){ delete u.pw; saveUsers(); renderTeam(); toast('Password removed'); return; }
+      if(pw.length < 8){ toast('Use at least 8 characters'); return; }
+      pwHash(u.id, pw).then(h => { u.pw = h; saveUsers(); renderTeam(); toast('Password set for ' + u.name); });
     }
     else if(t.dataset.udel){
       const u = colUsers().find(x => x.id === t.dataset.udel);
@@ -3262,6 +3297,102 @@ document.addEventListener('DOMContentLoaded', () => {
       saveUsers(); applyTabAccess(); renderTeam();
     }
   });
+});
+</script>
+<script>
+'use strict';
+/* ================================================================== *
+ *  v4 — login (password-protected users) + Jai admin account         *
+ * ================================================================== */
+async function sha256Hex(str){
+  if(window.crypto && crypto.subtle){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  return 'plain:' + str;   /* non-secure-context fallback — https hosting gives real hashing */
+}
+function pwHash(userId, password){ return sha256Hex('fsdb·' + userId + '·' + password); }
+
+function seedV4(){
+  const users = colUsers();
+  if(users.length && !users.some(u => u.id === 'u-jai')){
+    const all = {}; TABS.forEach(t => all[t[0]] = true);
+    users.unshift({ id:'u-jai', name:'Jai Napper', email:'jai.napper@fullstackfs.com.au', role:'admin',
+      tabs: Object.assign({}, all), added: new Date().toISOString(),
+      pw: '67dddb93b65bc8a3be6671626bbb073944659b210d30c2d6487748e99f3b0738' });
+    saveUsers();
+    const s = col.settings();
+    if(!s.currentUserId || s.currentUserId === 'u-admin'){ s.currentUserId = 'u-jai'; DB.set('settings', s); }
+  }
+}
+
+function authedId(){ try{ return sessionStorage.getItem('fsdb.auth'); }catch(e){ return null; } }
+function setAuthed(id){ try{ sessionStorage.setItem('fsdb.auth', id); }catch(e){} }
+function commitUser(u){
+  const s = col.settings();
+  s.currentUserId = u.id;
+  DB.set('settings', s);
+  setAuthed(u.id);
+  if(u.role === 'admin' && u.pw) adminUser = { name: u.name };   /* password login unlocks PO admin */
+  fillUserSwitcher();
+  applyTabAccess();
+  $('#lockScreen').classList.remove('on');
+  const name = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/')[0];
+  if(!tabAllowed(name)) location.hash = '#/dashboard'; else route();
+}
+function lockSelUser(){ return colUsers().find(u => u.id === $('#lockUser').value); }
+function lockSync(){
+  const u = lockSelUser();
+  $('#lockPwWrap').style.display = u && u.pw ? '' : 'none';
+  $('#lockPw').value = '';
+  $('#lockMsg').className = 'conn-msg';
+}
+function showLock(preselectId){
+  const sel = $('#lockUser');
+  sel.innerHTML = '';
+  colUsers().forEach(u => {
+    const o = document.createElement('option');
+    o.value = u.id;
+    o.textContent = u.name + (u.pw ? ' · 🔒' : '');
+    if(u.id === preselectId) o.selected = true;
+    sel.appendChild(o);
+  });
+  lockSync();
+  $('#lockScreen').classList.add('on');
+  setTimeout(() => { const u = lockSelUser(); ((u && u.pw) ? $('#lockPw') : $('#lockGo')).focus(); }, 80);
+}
+async function lockSubmit(){
+  const u = lockSelUser();
+  if(!u){ $('#lockScreen').classList.remove('on'); return; }
+  if(u.pw){
+    const h = await pwHash(u.id, $('#lockPw').value);
+    if(h !== u.pw){
+      const m = $('#lockMsg'); m.textContent = 'Wrong password.'; m.className = 'conn-msg err';
+      $('#lockPw').select();
+      return;
+    }
+  }
+  commitUser(u);
+  toast('G’day, ' + u.name.split(' ')[0]);
+}
+function switchUser(id){
+  const u = colUsers().find(x => x.id === id);
+  if(!u) return;
+  if(u.pw && authedId() !== u.id){ fillUserSwitcher(); showLock(u.id); return; }
+  commitUser(u);
+  toast('Now browsing as ' + u.name);
+}
+
+seedV4();
+
+document.addEventListener('DOMContentLoaded', () => {
+  fillUserSwitcher();
+  const cur = currentUser();
+  if(cur && cur.pw && authedId() !== cur.id) showLock(cur.id);
+  else if(cur && cur.pw && cur.role === 'admin' && authedId() === cur.id && !adminUser) adminUser = { name: cur.name };
+  $('#lockUser').addEventListener('change', lockSync);
+  $('#lockGo').addEventListener('click', lockSubmit);
+  $('#lockPw').addEventListener('keydown', e => { if(e.key === 'Enter') lockSubmit(); });
 });
 </script>
 </body>

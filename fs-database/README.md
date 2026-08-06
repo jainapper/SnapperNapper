@@ -4,6 +4,10 @@ The internal ops database for **Fullstack Fulfillment** (fullstackfs.com.au), in
 same Night Freight brand as the website. One static page, zero dependencies, works
 anywhere — open `index.html` or drop this folder on any static host.
 
+**Live build:** https://fs-database.vercel.app — deployed from this branch via a
+Vercel build step that clones the repo (redeploy after pushing changes; it is not
+auto-linked to git yet).
+
 ```
 fs-database/
 ├── index.html      the whole app (styles + views + logic)
@@ -26,9 +30,9 @@ you're ready to run it for real.
 | **Client Documents** | The shared library — NDAs, agreements, guarantee docs, rate cards, and carrier freight-charge explainers. Categorised, searchable, taggable to a client, downloadable, and shareable (opens a pre-written email; attach the downloaded file). |
 | **Carriers** | A card per carrier — Australia Post, DHL Express, NZ Post, SEKO, Parcel Right — with account #, rep, phone, email, portal link, tracking-URL template, attached agreement / rate card / surcharge explainer, and notes. Starshipit and Extensiv sit below as platforms. |
 | **Client Go Live** | The default pre-launch gate, per client. Three checks pull **automatically from onboarding** (questionnaire complete, KYC complete, all agreements signed) and eight ops checks are ticked by hand (stock received, SKUs in Extensiv, Starshipit connected, test order dispatched, shipping rules, billing, returns, date confirmed) — each with a note and done-date. The **Mark client LIVE** button only appears when every box is ticked, and clicking it promotes the client onto the dashboard as Live. |
-| **Fullstack Catalog** | The internal FS catalog — packaging and consumables supplied by Eagle AU — with SKU, spec, unit cost, pack/MOQ, lead time, stock on hand (edit inline) and **live usage from sales data** (use-per-order × current orders/day → days of cover, flagged when cover drops under lead time + 14 days). Also holds **new product requests to Eagle AU**: drafted, submitted, then tracked Quoted → Approved → added to the catalog. |
+| **Fullstack Catalog** | The internal FS **product** catalog — every SKU and product name manufactured by **Eagle AU**, with brand, unit cost, carton/MOQ, Eagle's lead time and stock on hand (edit inline). Sell-through is automatic: sold/day comes straight from the last 30 days of orders, cover days = stock ÷ sold/day, and products are flagged when cover drops under lead time + 14 days. Also holds **new product requests pushed to Eagle AU**: drafted, submitted, tracked Quoted → Approved → added to the catalog. |
 | **Fullstack PO** | What to order from Eagle AU, driven by the sales data: a reorder-suggestions table turns the catalog flags into a purchase order in one click. **Admin-only** — every PO action sits behind the admin PIN — and every PO needs a **second signature from a different person** before it can be sent. Flow: Draft → Awaiting 2nd signature → Approved → Sent (pre-written email + downloadable PO document, GST totals included). |
-| **Team** | Add users (admin or member) and toggle **exactly which tabs each person sees**. Everyone picks themselves in the sidebar switcher and their menu shows only their tabs; direct links to hidden tabs bounce back to the dashboard. Dashboard is always on, admins always keep Team, the last admin can't be demoted or deleted. This is a device-level switcher (not a login) — it keeps screens tidy and fingers out of admin areas; real per-person logins arrive with the backend phase, and the PO admin PIN stays as the hard gate meanwhile. |
+| **Team** | Add users (admin or member) and toggle **exactly which tabs each person sees**. Everyone picks themselves in the sidebar switcher and their menu shows only their tabs; direct links to hidden tabs bounce back to the dashboard. Dashboard is always on, admins always keep Team, the last admin can't be demoted or deleted. Users can carry a **password** (Set/Reset on their Team card): the app opens on a login screen when the current user is password-protected, and a password login on an admin account also unlocks the PO controls. Passwords are stored as salted SHA-256 hashes in the browser — never in this repo. |
 
 ## Where the data lives
 
@@ -87,6 +91,17 @@ internally and opens a pre-written email to the contact set in
 *Settings → Eagle AU* (the PO document also downloads so it can be attached).
 Once their process is known — an inbox, a portal, an API — only the send step
 needs re-pointing; every request and PO is already structured data.
+
+## Logins — what's real and what isn't
+
+Password-protected accounts (like the seeded admin) get a proper login screen, and
+their passwords are stored **only as salted SHA-256 hashes** — the plaintext never
+appears in this repository or the app code. Honest caveat, same family as the PIN:
+this is a static site with no server, so the gate runs in the browser. It reliably
+keeps teammates and casual visitors in their lanes, but a technical person reading
+the public code could work around it — and the demo users are open by design so the
+link can be shared. Treat the login as workflow control, keep genuinely sensitive
+data out until the backend phase, and rotate the password when real auth lands.
 
 ## Admin PIN & the two-signature rule
 
