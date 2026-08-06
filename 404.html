@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Page not found — VC Limited</title>
+  <title>Page not found — FYBRE</title>
   <meta name="robots" content="noindex">
   <link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/styles.css">
@@ -15,39 +15,32 @@
       justify-items: center;
       text-align: center;
       gap: 1.1rem;
-      background: var(--black);
+      background: var(--carbon);
+      background-image: var(--grid-dark);
       color: var(--text-inv);
       padding: 2rem;
     }
-    .nf-mark {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 4rem;
-      line-height: 1;
-      letter-spacing: -0.03em;
-    }
-    .nf-mark span {
-      display: inline-block;
-      width: 0.16em; height: 0.16em;
-      background: var(--orange);
-      margin-left: 0.08em;
-    }
+    .nf-glyph { width: 56px; height: auto; color: var(--volt); }
     .nf-code {
       font-family: var(--font-mono);
+      font-weight: 700;
       font-size: 0.8rem;
       letter-spacing: 0.16em;
-      color: var(--orange-soft);
+      color: var(--volt);
     }
-    .nf p { color: var(--muted-inv); max-width: 26em; }
+    .nf h1 { font-size: clamp(2rem, 6vw, 3.4rem); }
+    .nf p { color: var(--muted-inv); max-width: 28em; }
+    .nf .btn { margin-top: 0.6rem; }
   </style>
 </head>
 <body>
   <main class="nf">
-    <div class="nf-mark" aria-hidden="true">VC<span></span></div>
+    <svg class="nf-glyph" viewBox="0 0 120 171" aria-hidden="true"><path d="M34 11 Q34 0 45 0 H115 Q119.2 0.2 116.8 3.3 L95.1 22.9 Q86 32 73 32 H34 Z M11 32 H34 V45 Q34 52 29.1 56.9 L2.4 83.6 Q-1.35 86.35 0 81.8 V43 Q0 32 11 32 Z M34 77 Q34 66 45 66 H115 Q119.2 66.2 116.8 69.3 L95.1 88.9 Q86 98 73 98 H34 Z M11 102 H34 V130 Q34 137 29.1 141.9 L2.4 168.6 Q-1.35 171.35 0 166.8 V113 Q0 102 11 102 Z" fill="currentColor"/></svg>
     <p class="nf-code">404 — NOT FOUND</p>
-    <h1>This route doesn't exist.</h1>
-    <p>The page you're looking for has moved or never shipped. Let's reroute you.</p>
-    <a class="btn btn-orange" href="/">Back to vcltd.co</a>
+    <h1>Nothing grows here.</h1>
+    <p>The page you're after has moved, or never launched. Head back and
+    rejoin the system.</p>
+    <a class="btn btn-volt" href="/">Back to fybrelab.com</a>
   </main>
 </body>
 </html>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260" role="img" aria-label="FYBRE Bold — performance shampoo pump bottle">
+<defs>
+<linearGradient id="wbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F2F2EE"/><stop offset="1" stop-color="#D9D9D2"/></linearGradient>
+<linearGradient id="kbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#28282D"/><stop offset="0.5" stop-color="#0E0E10"/><stop offset="1" stop-color="#050506"/></linearGradient>
+<linearGradient id="voltg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F1F3E2"/><stop offset="0.5" stop-color="#E0EC8C"/><stop offset="1" stop-color="#E5FA46"/></linearGradient>
+<filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<ellipse cx="100" cy="246" rx="56" ry="8" fill="#000" opacity="0.4" filter="url(#soft)"/>
+<path d="M92 28 h34 q6 0 6 6 v6 q0 4 -4 4 h-17 v-4 h13 v-6 h-32 Z" fill="url(#kbody)"/>
+<rect x="92" y="28" width="15" height="24" rx="3" fill="url(#kbody)"/>
+<rect x="96" y="52" width="8" height="12" fill="#141416"/>
+<rect x="82" y="64" width="36" height="16" rx="3" fill="url(#kbody)"/>
+<path d="M56 96 q0 -14 16 -14 h56 q16 0 16 14 v126 q0 14 -16 14 h-56 q-16 0 -16 -14 Z" fill="url(#wbody)"/>
+<rect x="64" y="94" width="7" height="136" rx="3.5" fill="#FFF" opacity="0.85"/>
+<g transform="translate(78 118) scale(0.3743)"><path d="M34 11 Q34 0 45 0 H115 Q119.2 0.2 116.8 3.3 L95.1 22.9 Q86 32 73 32 H34 Z M11 32 H34 V45 Q34 52 29.1 56.9 L2.4 83.6 Q-1.35 86.35 0 81.8 V43 Q0 32 11 32 Z M34 77 Q34 66 45 66 H115 Q119.2 66.2 116.8 69.3 L95.1 88.9 Q86 98 73 98 H34 Z M11 102 H34 V130 Q34 137 29.1 141.9 L2.4 168.6 Q-1.35 171.35 0 166.8 V113 Q0 102 11 102 Z" fill="#0A0A0B"/></g>
+<rect x="78" y="196" width="44" height="3" fill="#0A0A0B" opacity="0.85"/>
+<rect x="78" y="206" width="30" height="2" fill="#0A0A0B" opacity="0.4"/>
+<rect x="78" y="216" width="12" height="4" fill="#D8F231" stroke="#0A0A0B" stroke-width="0.5"/>
+</svg>
