@@ -1202,8 +1202,18 @@ function seed(){
  * ================================================================== */
 async function ssFetch(path, apiKey){
   const ss = col.settings().ss;
-  const base = (ss.proxy || (location.protocol.indexOf('http') === 0 ? location.origin + '/api/ss' : 'https://api.starshipit.com')).replace(/\/$/, '');
-  const res = await fetch(base + path, { headers: {
+  const builtin = !ss.proxy && location.protocol.indexOf('http') === 0;
+  let url;
+  if(builtin){
+    /* built-in Vercel proxy takes the upstream path as ?p= (fixed function path) */
+    const qIdx = path.indexOf('?');
+    const p = qIdx >= 0 ? path.slice(0, qIdx) : path;
+    const rest = qIdx >= 0 ? '&' + path.slice(qIdx + 1) : '';
+    url = location.origin + '/api/ss?p=' + encodeURIComponent(p) + rest;
+  } else {
+    url = (ss.proxy || 'https://api.starshipit.com').replace(/\/$/, '') + path;
+  }
+  const res = await fetch(url, { headers: {
     'Content-Type': 'application/json',
     'StarShipIT-Api-Key': apiKey || '',
     'Ocp-Apim-Subscription-Key': ss.subKey || ''
@@ -1263,6 +1273,7 @@ async function ssConnect(){
   s.ss.proxy = $('#ssProxy').value.trim();
   DB.set('settings', s);
   readAccountRows();
+  if(!col.settings().ss.subKey){ msg.textContent = 'Paste the subscription key first — it sits on the same Starshipit → Settings → API page as the API key.'; msg.classList.add('err'); return; }
   const accounts = col.settings().ss.accounts.filter(a => a.apiKey);
   if(!accounts.length){ msg.textContent = 'Add at least one child-account API key first.'; msg.classList.add('err'); return; }
   $('#ssConnect').textContent = 'Connecting…';
@@ -1274,7 +1285,7 @@ async function ssConnect(){
       try{ unshipped = await ssFetch('/api/orders/unshipped?limit=250&page=1', a.apiKey); }catch(e){}
       (shipped.orders || []).forEach(o => all.push(mapSsOrder(o, true, a.label)));
       (unshipped.orders || []).forEach(o => all.push(mapSsOrder(o, false, a.label)));
-    }catch(err){ errs.push(a.label + ' — ' + err.message); }
+    }catch(err){ errs.push(a.label + ' — ' + err.message + (/HTTP (401|403|404)/.test(err.message) ? ' (usually a wrong or missing subscription key / API key)' : '')); }
   }
   const okCount = accounts.length - errs.length;
   const s2 = col.settings();

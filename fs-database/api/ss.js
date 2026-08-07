@@ -1,13 +1,19 @@
 // Same-origin proxy to the Starshipit API.
 // Browsers cannot call api.starshipit.com directly (no CORS headers), so the
-// app talks to /api/ss/... on its own origin and this function forwards the
-// request, passing the per-account API key and subscription key through.
+// app calls /api/ss?p=/api/orders/shipped&... and this function forwards it,
+// passing the per-account API key and subscription key headers through.
+// (A fixed path is used because multi-segment catch-alls are not routed for
+// plain Vercel functions.)
 module.exports = async (req, res) => {
-  const segs = [].concat(req.query.path || []);
   const q = Object.assign({}, req.query);
-  delete q.path;
+  const p = String(q.p || '');
+  delete q.p;
+  if (p.indexOf('/api/') !== 0) {
+    res.status(400).json({ error: 'bad path' });
+    return;
+  }
   const qs = new URLSearchParams(q).toString();
-  const url = 'https://api.starshipit.com/' + segs.join('/') + (qs ? '?' + qs : '');
+  const url = 'https://api.starshipit.com' + p + (qs ? '?' + qs : '');
   try {
     const r = await fetch(url, {
       headers: {
