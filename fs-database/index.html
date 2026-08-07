@@ -706,8 +706,10 @@ table.rows td.num{font-size:12px}
       <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
         <button class="btn small" id="ssConnect">Connect &amp; sync all accounts</button>
         <button class="btn ghost small" id="ssDisconnect">Use demo data</button>
+        <button class="btn ghost small" id="ssDiag">Diagnose</button>
       </div>
       <div class="conn-msg" id="ssMsg"></div>
+      <pre id="ssDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:10px;padding:11px 13px;margin-top:10px;font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--dim);max-height:300px;overflow:auto"></pre>
       <p class="set-note">Every Starshipit child account has its own API key (Settings → API inside that account) and the whole login shares one subscription key. Each synced order is tagged with its child account as the client. Keys live only in this browser; on fs-database.vercel.app the built-in proxy makes the connection work with no extra setup.</p>
     </div>
 
@@ -1302,14 +1304,33 @@ async function ssPages(path, apiKey, maxPages){
   }
   return out;
 }
+/* Starshipit exposes single orders under different paths depending on plan/version,
+   so the first successful shape is detected once and reused for the whole sync. */
+const SS_DETAIL_PATHS = [
+  id => '/api/orders?order_id=' + encodeURIComponent(id),
+  id => '/api/orders/' + encodeURIComponent(id),
+  id => '/api/orders/details?order_id=' + encodeURIComponent(id),
+  id => '/api/orders/shipped?order_id=' + encodeURIComponent(id)
+];
+let ssDetailPath = null;
+function ssUnwrapOrder(r){
+  if(!r) return null;
+  const o = r.order || r.Order || r.data || r;
+  if(Array.isArray(o)) return o[0] || null;
+  if(Array.isArray(o.orders)) return o.orders[0] || null;
+  return o;
+}
 async function ssDetail(orderId, apiKey){
-  try{
-    const r = await ssFetch('/api/orders?order_id=' + encodeURIComponent(orderId), apiKey);
-    return r.order || r.Order || r;
-  }catch(e){
-    const r = await ssFetch('/api/orders/' + encodeURIComponent(orderId), apiKey);
-    return r.order || r.Order || r;
+  if(ssDetailPath) return ssUnwrapOrder(await ssFetch(ssDetailPath(orderId), apiKey));
+  let lastErr;
+  for(const p of SS_DETAIL_PATHS){
+    try{
+      const r = await ssFetch(p(orderId), apiKey);
+      const o = ssUnwrapOrder(r);
+      if(o && (o.order_id != null || o.order_number != null || ssItems(o).length)){ ssDetailPath = p; return o; }
+    }catch(e){ lastErr = e; }
   }
+  throw lastErr || new Error('no detail endpoint');
 }
 async function ssConnect(){
   const msg = $('#ssMsg');
@@ -1336,6 +1357,18 @@ async function ssConnect(){
       try{
         const unshipped = await ssPages('/api/orders/unshipped', a.apiKey, 2);
         unshipped.forEach(o => all.push(mapSsOrder(o, false, a.label, a.id)));
+      }catch(e){}
+      /* some plans expose delivered orders (with delivery dates) on their own endpoint */
+      try{
+        const delivered = await ssPages('/api/orders/delivered', a.apiKey, 4);
+        delivered.forEach(o => {
+          const m = mapSsOrder(o, true, a.label, a.id);
+          m.status = 'delivered';
+          if(!m.deliveredTs) m.deliveredTs = m.date;
+          const existing = all.find(x => x.id === m.id);
+          if(existing){ existing.status = 'delivered'; existing.deliveredTs = m.deliveredTs || existing.deliveredTs; if(!existing.items.length) existing.items = m.items; }
+          else all.push(m);
+        });
       }catch(e){}
     }catch(err){
       errs.push(a.label + ' — ' + err.message + (/HTTP (401|403|404)/.test(err.message) ? ' (check this account’s API key and the subscription key)' : ''));
@@ -1395,6 +1428,79 @@ async function ssConnect(){
     renderSsStatus();
   }
   btn.textContent = 'Connect & sync all accounts';
+}
+/* Reports what Starshipit actually returns — field names only, never values —
+   so a mapping gap can be seen instead of guessed at. */
+function ssKeys(o, depth){
+  if(o == null) return 'null';
+  if(Array.isArray(o)) return o.length ? '[' + o.length + ' × ' + ssKeys(o[0], depth) + ']' : '[]';
+  if(typeof o !== 'object') return typeof o;
+  const ks = Object.keys(o);
+  if(!depth) return '{' + ks.length + ' fields}';
+  return '{ ' + ks.map(k => {
+    const v = o[k];
+    if(v && typeof v === 'object') return k + ': ' + ssKeys(v, depth - 1);
+    return k;
+  }).join(', ') + ' }';
+}
+async function ssDiagnose(){
+  const out = $('#ssDiagOut');
+  const btn = $('#ssDiag');
+  out.style.display = 'block';
+  out.textContent = 'Running…';
+  readAccountRows();
+  const s = col.settings();
+  s.ss.subKey = $('#ssSubKey').value.trim();
+  s.ss.proxy = $('#ssProxy').value.trim();
+  DB.set('settings', s);
+  const acct = col.settings().ss.accounts.filter(a => a.apiKey)[0];
+  if(!col.settings().ss.subKey || !acct){ out.textContent = 'Add the subscription key and at least one account API key first.'; return; }
+  btn.textContent = 'Diagnosing…';
+  const L = [];
+  L.push('Account tested: ' + acct.label);
+  L.push('Route: ' + (col.settings().ss.proxy || (location.origin + '/api/ss')));
+  let sample = null;
+  for(const path of ['/api/orders/shipped?limit=5&page=1', '/api/orders/unshipped?limit=5&page=1', '/api/orders/delivered?limit=5&page=1']){
+    try{
+      const r = await ssFetch(path, acct.apiKey);
+      const list = r.orders || r.Orders || [];
+      L.push('');
+      L.push('GET ' + path.split('?')[0] + ' → OK, ' + list.length + ' orders');
+      if(list.length){
+        if(!sample) sample = list[0];
+        L.push('  fields: ' + ssKeys(list[0], 1));
+        L.push('  line items on list: ' + (ssItems(list[0]).length ? ssItems(list[0]).length + ' found' : 'NONE'));
+      }
+    }catch(e){
+      L.push('');
+      L.push('GET ' + path.split('?')[0] + ' → ' + e.message);
+    }
+  }
+  if(sample && sample.order_id != null){
+    L.push('');
+    L.push('Single-order lookup for order_id ' + sample.order_id + ':');
+    let found = false;
+    for(const p of SS_DETAIL_PATHS){
+      const path = p(sample.order_id);
+      try{
+        const r = await ssFetch(path, acct.apiKey);
+        const o = ssUnwrapOrder(r);
+        const items = ssItems(o || {});
+        L.push('  ' + path.split('?')[0] + ' → OK · items: ' + (items.length ? items.length : 'NONE') +
+               ' · delivery date: ' + (ssDelivered(o || {}) ? 'yes' : 'no'));
+        if(o && !found){
+          found = true;
+          L.push('  detail fields: ' + ssKeys(o, 1));
+          const rawItems = o.items || o.order_items || o.products || o.lines || o.line_items;
+          if(Array.isArray(rawItems) && rawItems.length) L.push('  item fields: ' + ssKeys(rawItems[0], 1));
+        }
+      }catch(e){ L.push('  ' + path.split('?')[0] + ' → ' + e.message); }
+    }
+  }
+  L.push('');
+  L.push('Field names only — no customer data is shown. Screenshot this if anything still reads NONE.');
+  out.textContent = L.join('\n');
+  btn.textContent = 'Diagnose';
 }
 function renderSsStatus(){
   const ss = col.settings().ss;
@@ -2439,6 +2545,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#btnReseed').addEventListener('click', resetDemo);
   $('#btnWipe').addEventListener('click', wipeAll);
   $('#ssConnect').addEventListener('click', ssConnect);
+  $('#ssDiag').addEventListener('click', ssDiagnose);
   $('#ssDisconnect').addEventListener('click', () => {
     const s = col.settings(); s.ss.connected = false; DB.set('settings', s);
     renderSsStatus(); route(); toast('Using demo data');
