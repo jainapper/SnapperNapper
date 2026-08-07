@@ -708,6 +708,7 @@ table.rows td.num{font-size:12px}
         <button class="btn ghost small" id="ssDisconnect">Use demo data</button>
         <button class="btn ghost small" id="ssDiag">Diagnose</button>
       </div>
+      <label class="chk" style="margin-top:10px"><input type="checkbox" id="ssAuto" checked><span>Auto-sync every 60 seconds — tops up new orders and fills gaps in the background</span></label>
       <div class="conn-msg" id="ssMsg"></div>
       <pre id="ssDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.03);border:1px solid var(--stroke);border-radius:10px;padding:11px 13px;margin-top:10px;font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--dim);max-height:300px;overflow:auto"></pre>
       <p class="set-note">Every Starshipit child account has its own API key (Settings → API inside that account) and the whole login shares one subscription key. Each synced order is tagged with its child account as the client. Keys live only in this browser; on fs-database.vercel.app the built-in proxy makes the connection work with no extra setup.</p>
@@ -1329,11 +1330,13 @@ async function ssPages(path, apiKey, maxPages){
 }
 /* Starshipit exposes single orders under different paths depending on plan/version,
    so the first successful shape is detected once and reused for the whole sync. */
+/* '/api/orders/shipped?order_id=' is deliberately NOT a candidate: it ignores the
+   filter and returns the whole list, whose first row looks like a valid "detail"
+   response while carrying no line items. */
 const SS_DETAIL_PATHS = [
   id => '/api/orders?order_id=' + encodeURIComponent(id),
   id => '/api/orders/' + encodeURIComponent(id),
-  id => '/api/orders/details?order_id=' + encodeURIComponent(id),
-  id => '/api/orders/shipped?order_id=' + encodeURIComponent(id)
+  id => '/api/orders/details?order_id=' + encodeURIComponent(id)
 ];
 let ssDetailPath = null;
 const SS_TRACK_PATHS = [
@@ -1373,13 +1376,13 @@ async function ssRetry(fn, onLimited){
   }
 }
 async function ssDetailRetry(orderId, apiKey, onLimited){
-  for(let attempt = 0; attempt < 4; attempt++){
+  for(let attempt = 0; attempt < 6; attempt++){
     try{ return await ssDetail(orderId, apiKey); }
     catch(e){
       const limited = /HTTP (429|503)/.test(e.message);
       if(limited && onLimited) onLimited();
-      if(attempt === 3 || !limited) throw e;
-      await ssSleep(700 * (attempt + 1) * (attempt + 1));
+      if(attempt === 5 || !limited) throw e;
+      await ssSleep(800 * (attempt + 1) * (attempt + 1));
     }
   }
 }
@@ -1390,47 +1393,72 @@ function ssUnwrapOrder(r){
   if(Array.isArray(o.orders)) return o.orders[0] || null;
   return o;
 }
+/* A response only counts as this order's detail if it comes back with the same
+   order_id — otherwise a list endpoint's first row gets mistaken for it. */
+function ssIsSameOrder(o, orderId){
+  return !!o && o.order_id != null && String(o.order_id) === String(orderId);
+}
 async function ssDetail(orderId, apiKey){
-  if(ssDetailPath) return ssUnwrapOrder(await ssFetch(ssDetailPath(orderId), apiKey));
+  if(ssDetailPath){
+    const o = ssUnwrapOrder(await ssFetch(ssDetailPath(orderId), apiKey));
+    if(!ssIsSameOrder(o, orderId)) throw new Error('detail mismatch');
+    return o;
+  }
   let lastErr;
   for(const p of SS_DETAIL_PATHS){
     try{
       const r = await ssFetch(p(orderId), apiKey);
       const o = ssUnwrapOrder(r);
-      if(o && (o.order_id != null || o.order_number != null || ssItems(o).length)){ ssDetailPath = p; return o; }
+      if(ssIsSameOrder(o, orderId)){ ssDetailPath = p; return o; }
     }catch(e){ lastErr = e; }
   }
-  throw lastErr || new Error('no detail endpoint');
+  throw lastErr || new Error('no working single-order endpoint');
 }
-async function ssConnect(){
+let ssSyncing = false;
+/* auto = the 60-second background tick: fewer pages and a small enrichment
+   budget, so it stays fresh without hammering a rate-limited API. */
+async function ssConnect(auto){
+  if(ssSyncing) return;
+  const quiet = auto === true;
   const msg = $('#ssMsg');
   const btn = $('#ssConnect');
-  msg.className = 'conn-msg';
-  const s = col.settings();
-  s.ss.subKey = $('#ssSubKey').value.trim();
-  s.ss.proxy = $('#ssProxy').value.trim();
-  DB.set('settings', s);
-  readAccountRows();
-  if(!col.settings().ss.subKey){ msg.textContent = 'Paste the subscription key first — it sits on the same Starshipit → Settings → API page as the API key.'; msg.classList.add('err'); return; }
+  if(!quiet){
+    msg.className = 'conn-msg';
+    const s = col.settings();
+    s.ss.subKey = $('#ssSubKey').value.trim();
+    s.ss.proxy = $('#ssProxy').value.trim();
+    DB.set('settings', s);
+    readAccountRows();
+    if(!col.settings().ss.subKey){ msg.textContent = 'Paste the subscription key first — it sits on the same Starshipit → Settings → API page as the API key.'; msg.classList.add('err'); return; }
+  } else if(!col.settings().ss.subKey){ return; }
   const accounts = col.settings().ss.accounts.filter(a => a.apiKey);
-  if(!accounts.length){ msg.textContent = 'Add at least one child-account API key first.'; msg.classList.add('err'); return; }
+  if(!accounts.length){
+    if(!quiet){ msg.textContent = 'Add at least one child-account API key first.'; msg.classList.add('err'); }
+    return;
+  }
+  const LIST_PAGES = quiet ? 1 : 4;
+  const setBtn = t => { if(!quiet) btn.textContent = t; };
+  ssSyncing = true;
+  if(quiet) renderSsStatus(true);
+  const before = ssSignature();
+  try{
 
   const all = [], errs = [];
   const keyById = {};
   let done = 0;
   for(const a of accounts){
     keyById[a.id] = a.apiKey;
-    btn.textContent = 'Syncing ' + (++done) + '/' + accounts.length + '…';
+    setBtn('Syncing ' + (++done) + '/' + accounts.length + '…');
     try{
-      const shipped = await ssPages('/api/orders/shipped', a.apiKey, 4);
+      const shipped = await ssPages('/api/orders/shipped', a.apiKey, LIST_PAGES);
       shipped.forEach(o => all.push(mapSsOrder(o, true, a.label, a.id)));
       try{
-        const unshipped = await ssPages('/api/orders/unshipped', a.apiKey, 2);
+        const unshipped = await ssPages('/api/orders/unshipped', a.apiKey, quiet ? 1 : 2);
         unshipped.forEach(o => all.push(mapSsOrder(o, false, a.label, a.id)));
       }catch(e){}
       /* some plans expose delivered orders (with delivery dates) on their own endpoint */
       try{
-        const delivered = await ssPages('/api/orders/delivered', a.apiKey, 4);
+        const delivered = await ssPages('/api/orders/delivered', a.apiKey, LIST_PAGES);
         delivered.forEach(o => {
           const m = mapSsOrder(o, true, a.label, a.id);
           m.status = 'delivered';
@@ -1458,23 +1486,25 @@ async function ssConnect(){
 
   /* Only orders inside the dashboard's longest window need detail, newest first. */
   const cutoff = Date.now() - 95 * 86400e3;
-  const DEEP_CAP = 800;
+  const DEEP_CAP = quiet ? 40 : 800;
   const needs = all
     .filter(o => o.ssId && new Date(o.date).getTime() >= cutoff &&
                  (!o.items.length || (!o.deliveredTs && o.status === 'transit')))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   const deep = needs.slice(0, DEEP_CAP);
-  let filled = 0, deepFailed = 0, limitedHits = 0;
+  let filled = 0, deepFailed = 0, limitedHits = 0, noItemShape = '';
   const CONC = 4;                       /* gentle on the API — bursts were being throttled */
-  for(let i = 0; i < deep.length; i += CONC){
-    btn.textContent = 'Loading products ' + Math.min(i + CONC, deep.length) + '/' + deep.length + '…';
-    await Promise.all(deep.slice(i, i + CONC).map(async o => {
+  const DCONC = 2;                      /* the single-order endpoint throttles hardest */
+  for(let i = 0; i < deep.length; i += DCONC){
+    setBtn('Loading products ' + Math.min(i + DCONC, deep.length) + '/' + deep.length + '…');
+    await Promise.all(deep.slice(i, i + DCONC).map(async o => {
       const hadItems = o.items.length > 0;
       try{
         const det = await ssDetailRetry(o.ssId, keyById[o.acctId], () => { limitedHits++; });
         if(!det) return;
         const items = ssItems(det);
         if(items.length){ o.items = items; if(!hadItems) filled++; }
+        else if(!noItemShape) noItemShape = Object.keys(det).slice(0, 14).join(', ');
         const dts = ssDelivered(det);
         if(dts){ o.deliveredTs = dts; o.status = 'delivered'; }
         else if(o.status !== 'unshipped' && ssIsDelivered(det)) o.status = 'delivered';
@@ -1492,10 +1522,10 @@ async function ssConnect(){
     .filter(o => o.tracking && !o.deliveredTs && o.status === 'transit' &&
                  new Date(o.date).getTime() >= cutoff)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 800);
+    .slice(0, quiet ? 40 : 800);
   let trackHits = 0, trackFailed = 0;
   for(let i = 0; i < needTrack.length; i += CONC){
-    btn.textContent = 'Checking deliveries ' + Math.min(i + CONC, needTrack.length) + '/' + needTrack.length + '…';
+    setBtn('Checking deliveries ' + Math.min(i + CONC, needTrack.length) + '/' + needTrack.length + '…');
     await Promise.all(needTrack.slice(i, i + CONC).map(async o => {
       try{
         const tr = await ssRetry(() => ssTrack(o.tracking, keyById[o.acctId]), () => { limitedHits++; });
@@ -1527,23 +1557,64 @@ async function ssConnect(){
     if(trackHits) bits.push(nf(trackHits) + ' delivery dates from tracking');
     if(trackFailed && !trackHits) bits.push('tracking lookups unavailable (' + nf(trackFailed) + ' tried)');
     if(deepFailed) bits.push(nf(deepFailed) + ' detail lookups failed');
+    if(quiet){
+      renderSsStatus();
+      if(ssSignature() !== before && !ssUserBusy()) route();
+      return;
+    }
     msg.textContent = 'Connected — ' + bits.join(' · ') + '.' + (errs.length ? ' Failed: ' + errs.join(' · ') : '');
     if(stillMissing){
       msg.textContent += ' ' + nf(stillMissing) + ' recent orders still need their products — run Sync now again to continue; each pass keeps what it has already fetched.';
     }
     if(limitedHits) msg.textContent += ' Starshipit rate-limited part of this run, so it was slowed down automatically.';
     msg.classList.add(errs.length || stillMissing ? 'err' : 'ok');
-    if(!withItems && all.length) msg.textContent += ' No line items came back for any order — run Diagnose to see whether your plan exposes them.';
+    if(noItemShape && !filled){
+      msg.textContent += ' Order detail returned no recognisable line-item field. It contained: ' + noItemShape + ' — send me that list and I will map it exactly.';
+    } else if(!withItems && all.length){
+      msg.textContent += ' No line items came back for any order — run Diagnose to see whether your plan exposes them.';
+    }
     toast('Starshipit synced — ' + nf(all.length) + ' orders');
     renderSsStatus(); route();
-  } else {
+  } else if(!quiet){
     s2.ss.connected = false;
     DB.set('settings', s2);
     msg.textContent = 'Could not reach Starshipit for any account — ' + errs.join(' · ') + '.';
     msg.classList.add('err');
     renderSsStatus();
   }
-  btn.textContent = 'Connect & sync all accounts';
+  setBtn('Connect & sync all accounts');
+
+  } finally {
+    ssSyncing = false;
+    renderSsStatus();
+  }
+}
+/* cheap change signature so a background tick only re-renders when something moved */
+function ssSignature(){
+  const o = col.ssOrders();
+  let items = 0, delivered = 0;
+  o.forEach(x => { if(x.items && x.items.length) items++; if(x.deliveredTs) delivered++; });
+  return o.length + ':' + items + ':' + delivered;
+}
+/* never yank the page out from under someone mid-edit */
+function ssUserBusy(){
+  const a = document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return true;
+  return $('#settingsModal').classList.contains('on') || $('#lockScreen').classList.contains('on');
+}
+/* ————— 60-second auto sync ————— */
+let ssAutoTimer = null;
+function ssAutoEnabled(){ const ss = col.settings().ss; return ss.auto !== false; }
+function ssAutoTick(){
+  if(!ssAutoEnabled() || ssSyncing) return;
+  if(document.hidden) return;                         /* don't poll a background tab */
+  if($('#lockScreen').classList.contains('on')) return;
+  if(!col.settings().ss.connected) return;            /* only once a manual connect has succeeded */
+  ssConnect(true).catch(() => {});
+}
+function ssAutoStart(){
+  if(ssAutoTimer) clearInterval(ssAutoTimer);
+  ssAutoTimer = setInterval(ssAutoTick, 60000);
 }
 /* Reports what Starshipit actually returns — field names only, never values —
    so a mapping gap can be seen instead of guessed at. */
@@ -1632,10 +1703,10 @@ async function ssDiagnose(){
   out.textContent = L.join('\n');
   btn.textContent = 'Diagnose';
 }
-function renderSsStatus(){
+function renderSsStatus(syncing){
   const ss = col.settings().ss;
   $('#ssDot').className = 'ss-dot' + (ss.connected ? ' live' : '');
-  $('#ssLab').textContent = ss.connected ? 'Connected' : (col.shipments().length ? 'Demo data' : 'Not connected');
+  $('#ssLab').textContent = syncing ? 'Syncing…' : ss.connected ? 'Connected' : (col.shipments().length ? 'Demo data' : 'Not connected');
 }
 
 /* ================================================================== *
@@ -2676,6 +2747,14 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#btnWipe').addEventListener('click', wipeAll);
   $('#ssConnect').addEventListener('click', ssConnect);
   $('#ssDiag').addEventListener('click', ssDiagnose);
+  $('#ssAuto').addEventListener('change', e => {
+    const st = col.settings();
+    st.ss.auto = e.target.checked;
+    DB.set('settings', st);
+    toast(e.target.checked ? 'Auto-sync on — every 60 seconds' : 'Auto-sync off');
+  });
+  ssAutoStart();
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) ssAutoTick(); });
   $('#ssDisconnect').addEventListener('click', () => {
     const s = col.settings(); s.ss.connected = false; DB.set('settings', s);
     renderSsStatus(); route(); toast('Using demo data');
@@ -2698,7 +2777,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!t) return;
     if(t.dataset.range){ const s = col.settings(); s.range = +t.dataset.range; DB.set('settings', s); renderDashboard(); }
     else if(t.dataset.act === 'open-settings') openSettings();
-    else if(t.dataset.act === 'ss-sync') openSettings();
+    else if(t.dataset.act === 'ss-sync'){ openSettings(); ssConnect(); }
     else if(t.dataset.act === 'twin'){ const c = t.dataset.chart; dashMode[c] = dashMode[c] === 'table' ? '' : 'table'; renderDashboard(); }
     else if(t.dataset.shipstatus != null){
       dashShipStatus = t.dataset.shipstatus;
@@ -3653,6 +3732,7 @@ function openSettings(){
   const s = col.settings();
   $('#ssSubKey').value = s.ss.subKey || '';
   $('#ssProxy').value = s.ss.proxy || '';
+  $('#ssAuto').checked = s.ss.auto !== false;
   fillSsAccounts();
   const eg = s.eagle || {};
   $('#egContact').value = eg.contact || '';
