@@ -25,14 +25,14 @@ you're ready to run it for real.
 | Tab | What it does |
 |---|---|
 | **Dashboard** | Orders shipped, products sold, SKU counts, active clients and open orders — with per-day chart, carrier mix, units by client, top SKUs, and a live shipments feed where every tracking number links to the carrier's tracking page. **Transit times** show collection → delivered per order: average door-to-door days, a distribution histogram, per-carrier averages, and a door-to-door stamp on every delivered order in the feed (filter chips: Delivered / In transit / Packed / Awaiting). Filter everything by 7 / 14 / 30 / 90 days. Runs on demo data until Starshipit is connected. |
-| **New Client Leads** | Website "Get a Quote" inquiries, laid out as readable cards with the same fields as the site form (integrations, volume, SKUs, needs, timeline). Pipeline: New → Contacted → Quoted → Won / Lost, plus notes, search, and one-click **Convert to onboarding**. |
-| **New Client Onboarding** | One record per new client: the **website questionnaire** (same sections and questions as fullstackfs.com.au/#/onboarding, each with its title), a **KYC checklist** (ASIC extract, director ID, ABN check, proof of address, bank/DDR, insurance, DG declaration) with an upload slot per item, and the four **agreements** (Services Agreement, NDA, Performance Guarantee, Rate Card) tracked Not sent → Sent → Signed and attached from the library or uploaded signed. Progress bar rolls all three up. |
-| **Client Documents** | The shared library — NDAs, agreements, guarantee docs, rate cards, and carrier freight-charge explainers. Categorised, searchable, taggable to a client, downloadable, and shareable (opens a pre-written email; attach the downloaded file). |
-| **Carriers** | A card per carrier — Australia Post, DHL Express, NZ Post, SEKO, Parcel Right — with account #, rep, phone, email, portal link, tracking-URL template, attached agreement / rate card / surcharge explainer, and notes. Starshipit and Extensiv sit below as platforms. |
+| **New Client Leads** | A **summary table** up top (name, company, volume, timeline, received, status), then the inquiries as readable cards with the same fields as the site form. Pipeline: New → Contacted → Quoted → Won / Lost, plus notes, search, and one-click **Convert to onboarding**. |
+| **New Client Onboarding** | One record per new client: the **website questionnaire** (same sections and questions as fullstackfs.com.au/#/onboarding, each with its title), a **KYC checklist** (ASIC extract, director ID, ABN check, proof of address, bank/DDR, insurance, DG declaration) with an upload slot per item, and the four **agreements** (Services Agreement, NDA, Performance Guarantee, Rate Card) tracked Not sent → Sent → Signed and attached from the library or uploaded signed. Progress bar rolls all three up. Questions can be **tailored per client** — add new points, rename or remove any of them (hover a row for the ✎ / ✕ tools). |
+| **Client Documents** | The shared library — NDAs, agreements, guarantee docs, rate cards, and carrier freight-charge explainers. Adding one is two fields: **pick the type, upload the file** (the title comes from the file name). Searchable, downloadable, shareable. |
+| **Carriers** | A card per carrier — Australia Post, DHL Express, NZ Post, SEKO, Parcel Right — with account #, rep, phone, email, portal link, tracking-URL template, attached agreement / rate card / surcharge explainer with an **expiry date** each (countdown pills warn at 30 days and flag expired), and a clear **notes** box for corrections. Starshipit and Extensiv sit below as platforms. |
 | **Client Go Live** | The default pre-launch gate, per client. Three checks pull **automatically from onboarding** (questionnaire complete, KYC complete, all agreements signed) and eight ops checks are ticked by hand (stock received, SKUs in Extensiv, Starshipit connected, test order dispatched, shipping rules, billing, returns, date confirmed) — each with a note and done-date. The **Mark client LIVE** button only appears when every box is ticked, and clicking it promotes the client onto the dashboard as Live. |
-| **Fullstack Catalog** | The internal FS **product** catalog — every SKU and product name manufactured by **Eagle AU**, with brand, unit cost, carton/MOQ, Eagle's lead time and stock on hand (edit inline). Sell-through is automatic: sold/day comes straight from the last 30 days of orders, cover days = stock ÷ sold/day, and products are flagged when cover drops under lead time + 14 days. Also holds **new product requests pushed to Eagle AU**: drafted, submitted, tracked Quoted → Approved → added to the catalog. |
-| **Fullstack PO** | What to order from Eagle AU, driven by the sales data: a reorder-suggestions table turns the catalog flags into a purchase order in one click. **Admin-only** — every PO action sits behind the admin PIN — and every PO needs a **second signature from a different person** before it can be sent. Flow: Draft → Awaiting 2nd signature → Approved → Sent (pre-written email + downloadable PO document, GST totals included). |
-| **Team** | Add users (admin or member) and toggle **exactly which tabs each person sees**. Everyone picks themselves in the sidebar switcher and their menu shows only their tabs; direct links to hidden tabs bounce back to the dashboard. Dashboard is always on, admins always keep Team, the last admin can't be demoted or deleted. Users can carry a **password** (Set/Reset on their Team card): the app opens on a login screen when the current user is password-protected, and a password login on an admin account also unlocks the PO controls. Passwords are stored as salted SHA-256 hashes in the browser — never in this repo. |
+| **Fullstack Catalog** | Simple on purpose: the **Eagle AU catalog PDF** lives up top, and below it the product list — name, SKU, **type (gummy / capsule / powder)**, flavour, mold or capsule size, and each product's **label template** (upload slot per product). **+ Add new product** asks exactly those fields. Every product added here appears in the Fullstack PO dropdown. |
+| **Fullstack PO** | Orders to Eagle AU built straight from the catalog: pick products from the **dropdown**, set the **amount required** and the **required-by date** — name and SKU come along automatically. Still admin-only with the **two-signature rule** before Send (pre-written email + downloadable PO document). |
+| **Team** | Deliberately simple: add a user with **full name, mobile and email**, then a **toggle zone** for every tab — with **All / None** one-tap buttons. Each person picks themselves in the sidebar and sees only their tabs. Optional per-user passwords (Set/Reset on the card) stored as salted hashes only. |
 
 ## Where the data lives
 
@@ -45,14 +45,20 @@ That also means data is **per browser, per device**. To move or share it:
 files; **Import backup** restores it elsewhere. Export regularly — clearing
 browser data clears the database.
 
-## Connecting Starshipit (live dashboard)
+## Connecting Starshipit (live dashboard, all child accounts)
 
-1. Starshipit → *Settings → API* — copy the **API key** and **subscription key**.
-2. FS Database → *Settings → Starshipit API* — paste both, **Connect & sync**.
+The Starshipit web login (app2.starshipit.com) can't be read directly — the
+supported route is their API, and **every child account has its own API key**:
 
-One catch: the Starshipit API is built for server-to-server use, so browsers
-usually block direct calls (CORS). The fix is a tiny proxy that forwards requests
-and adds the CORS header — free on Cloudflare Workers:
+1. In Starshipit, open each child account → *Settings → API* — copy that
+   account's **API key** (the **subscription key** is shared across the login).
+2. FS Database → *Settings → Starshipit API* — paste the subscription key, add a
+   row per child account (name + API key), **Connect & sync all accounts**.
+
+Every synced order is tagged with its child account as the client, so the
+dashboard splits by client automatically. On the live Vercel link the built-in
+`/api/ss` proxy handles the browser-side CORS problem with zero setup; anywhere
+else, set a proxy URL (a 20-line Cloudflare Worker does it):
 
 ```js
 // Cloudflare Worker — deploy at workers.cloudflare.com, then paste its URL
@@ -77,48 +83,8 @@ const cors = () => ({
 });
 ```
 
-Once connected, the dashboard reads shipped + unshipped orders from the account,
-uses each order's own tracking link, and matches orders to clients by SKU prefix
-(e.g. `APN-…` → Alpine Peak Nutrition). Keys are stored only in the browser.
-If you'd rather lock the proxy down, hard-code the keys in the Worker and keep
-its URL private instead of passing keys through.
-
-## Eagle AU
-
-Product requests and purchase orders go to Eagle AU. **Where these should land on
-Eagle's side is still being confirmed** — so for now the app logs everything
-internally and opens a pre-written email to the contact set in
-*Settings → Eagle AU* (the PO document also downloads so it can be attached).
-Once their process is known — an inbox, a portal, an API — only the send step
-needs re-pointing; every request and PO is already structured data.
-
-## Logins — what's real and what isn't
-
-Password-protected accounts (like the seeded admin) get a proper login screen, and
-their passwords are stored **only as salted SHA-256 hashes** — the plaintext never
-appears in this repository or the app code. Honest caveat, same family as the PIN:
-this is a static site with no server, so the gate runs in the browser. It reliably
-keeps teammates and casual visitors in their lanes, but a technical person reading
-the public code could work around it — and the demo users are open by design so the
-link can be shared. Treat the login as workflow control, keep genuinely sensitive
-data out until the backend phase, and rotate the password when real auth lands.
-
-## Admin PIN & the two-signature rule
-
-Creating, countersigning and sending POs is gated behind a shared **admin PIN** —
-first unlock on the PO tab sets it (change or lock it in Settings). Every PO must
-be signed by the person who prepared it and **countersigned by a different
-person** (different name, same PIN) before Send unlocks. Honest caveat: this is a
-client-side workflow control that keeps day-to-day fingers off the order button —
-it is not real security or a legally robust audit trail. When the app grows a
-backend, this is the first thing to upgrade to real accounts.
-
-## On phones
-
-The whole app is responsive, and it installs like a native app: open it on a
-phone → browser menu → **Add to Home Screen**. It launches full-screen in the
-Night Freight theme with its own icon. (For iPhones the app must be served over
-HTTPS — any of the hosts below do that out of the box.)
+Keys are stored only in the browser. If you'd rather lock a proxy down,
+hard-code the keys server-side and keep its URL private.
 
 ## Wiring the website forms in
 

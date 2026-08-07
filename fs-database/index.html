@@ -393,6 +393,13 @@ table.rows td .sel.mini{padding:6px 26px 6px 10px;font-size:11.5px}
 .lock-sub{color:var(--dim);font-size:13px;margin-top:-8px}
 .lock-note{font-size:11px;color:var(--faint);line-height:1.55}
 
+/* ————— tailored rows ————— */
+.qa-tools{display:inline-flex;gap:1px;margin-left:7px;vertical-align:middle;opacity:0;transition:opacity .15s}
+.qa:hover .qa-tools,.kyc-row:hover .qa-tools{opacity:1}
+.qa-tools .iconbtn{padding:1px 4px;font-size:10px;color:var(--faint)}
+.qa-tools .iconbtn:hover{color:var(--text)}
+@media(hover:none){.qa-tools{opacity:.6}}
+
 /* ————— v5 · slimline pass — same brand, lighter build ————— */
 body{font-size:13.8px}
 .app{grid-template-columns:214px 1fr}
@@ -604,7 +611,7 @@ table.rows td.num{font-size:12px}
         <button id="btnSettings">Settings</button>
         <button id="btnExport">Export</button>
       </div>
-      <div class="side-ver">FS Database · v4</div>
+      <div class="side-ver">FS Database · v6</div>
     </div>
   </aside>
 
@@ -691,16 +698,17 @@ table.rows td.num{font-size:12px}
     <div class="set-sec">
       <div class="set-cap">Starshipit API</div>
       <div style="display:flex;flex-direction:column;gap:11px">
-        <div><label class="f-lab" for="ssApiKey">API key</label><input class="f-in" id="ssApiKey" type="password" autocomplete="off" placeholder="Starshipit → Settings → API"></div>
-        <div><label class="f-lab" for="ssSubKey">Subscription key</label><input class="f-in" id="ssSubKey" type="password" autocomplete="off" placeholder="Ocp-Apim-Subscription-Key"></div>
-        <div><label class="f-lab" for="ssProxy">Proxy base URL — optional</label><input class="f-in" id="ssProxy" type="text" autocomplete="off" placeholder="https://your-worker.example.workers.dev"></div>
+        <div><label class="f-lab" for="ssSubKey">Subscription key — one for everything</label><input class="f-in" id="ssSubKey" type="password" autocomplete="off" placeholder="Ocp-Apim-Subscription-Key"></div>
+        <div><label class="f-lab">Child accounts — one API key each</label><div id="ssAccounts" style="display:flex;flex-direction:column;gap:8px"></div>
+        <button class="btn ghost small" id="ssAddAcct" style="align-self:flex-start;margin-top:7px">+ Add child account</button></div>
+        <div><label class="f-lab" for="ssProxy">Proxy base URL — optional</label><input class="f-in" id="ssProxy" type="text" autocomplete="off" placeholder="leave empty on the live link — proxy is built in"></div>
       </div>
       <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-        <button class="btn small" id="ssConnect">Connect &amp; sync</button>
+        <button class="btn small" id="ssConnect">Connect &amp; sync all accounts</button>
         <button class="btn ghost small" id="ssDisconnect">Use demo data</button>
       </div>
       <div class="conn-msg" id="ssMsg"></div>
-      <p class="set-note">Keys are stored only in this browser. Direct calls to the Starshipit API are usually blocked by browsers (CORS) — the README ships a 20-line Cloudflare Worker proxy that makes the live connection work. Until then the dashboard runs on demo data.</p>
+      <p class="set-note">Every Starshipit child account has its own API key (Settings → API inside that account) and the whole login shares one subscription key. Each synced order is tagged with its child account as the client. Keys live only in this browser; on fs-database.vercel.app the built-in proxy makes the connection work with no extra setup.</p>
     </div>
 
     <div class="set-sec">
@@ -1192,18 +1200,18 @@ function seed(){
  *  Direct browser calls are normally blocked by CORS — a tiny proxy  *
  *  (see README) makes the live connection work. Demo data otherwise. *
  * ================================================================== */
-async function ssFetch(path){
+async function ssFetch(path, apiKey){
   const ss = col.settings().ss;
-  const base = (ss.proxy || 'https://api.starshipit.com').replace(/\/$/, '');
+  const base = (ss.proxy || (location.protocol.indexOf('http') === 0 ? location.origin + '/api/ss' : 'https://api.starshipit.com')).replace(/\/$/, '');
   const res = await fetch(base + path, { headers: {
     'Content-Type': 'application/json',
-    'StarShipIT-Api-Key': ss.apiKey,
-    'Ocp-Apim-Subscription-Key': ss.subKey
+    'StarShipIT-Api-Key': apiKey || '',
+    'Ocp-Apim-Subscription-Key': ss.subKey || ''
   }});
   if(!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
-function mapSsOrder(o, shipped){
+function mapSsOrder(o, shipped, accountLabel){
   const items = (o.items || o.order_items || []).map(i => ({ sku: i.sku || '', qty: i.quantity || 1 }));
   const skuPrefix = items[0] && String(items[0].sku).split('-')[0];
   const client = col.clients().find(c => c.skus.some(s => s.sku.indexOf(skuPrefix + '-') === 0));
@@ -1213,7 +1221,7 @@ function mapSsOrder(o, shipped){
     id: 'ss-' + (o.order_id || o.order_number || uid()),
     orderNo: String(o.order_number || o.name || o.order_id || '—'),
     clientId: client ? client.id : '',
-    clientName: client ? client.name : (o.marketplace || 'Starshipit'),
+    clientName: accountLabel || (client ? client.name : (o.marketplace || 'Starshipit')),
     carrier,
     carrierLabel: o.carrier_name || o.carrier || '',
     dest: o.destination ? [o.destination.city, o.destination.state].filter(Boolean).join(' ') : '',
@@ -1226,42 +1234,67 @@ function mapSsOrder(o, shipped){
     value: o.declared_value || o.total_price || null
   };
 }
+function ssAcctRow(a){
+  return '<div style="display:flex;gap:7px" data-acct-row="' + a.id + '">' +
+  '<input class="f-in" style="flex:0 0 132px" placeholder="Account name" value="' + esc(a.label || '') + '" data-acct-label>' +
+  '<input class="f-in" type="password" autocomplete="off" placeholder="API key" value="' + esc(a.apiKey || '') + '" data-acct-key>' +
+  '<button class="x" data-acct-del="' + a.id + '" title="Remove">✕</button></div>';
+}
+function fillSsAccounts(){
+  const s = col.settings();
+  if(!s.ss.accounts.length) s.ss.accounts.push({ id: uid(), label: '', apiKey: '' });
+  DB.set('settings', s);
+  $('#ssAccounts').innerHTML = s.ss.accounts.map(ssAcctRow).join('');
+}
+function readAccountRows(){
+  const s = col.settings();
+  s.ss.accounts = $$('#ssAccounts [data-acct-row]').map(row => ({
+    id: row.dataset.acctRow,
+    label: row.querySelector('[data-acct-label]').value.trim() || 'Account',
+    apiKey: row.querySelector('[data-acct-key]').value.trim()
+  }));
+  DB.set('settings', s);
+}
 async function ssConnect(){
   const msg = $('#ssMsg');
   msg.className = 'conn-msg';
   const s = col.settings();
-  s.ss.apiKey = $('#ssApiKey').value.trim();
   s.ss.subKey = $('#ssSubKey').value.trim();
-  s.ss.proxy  = $('#ssProxy').value.trim();
+  s.ss.proxy = $('#ssProxy').value.trim();
   DB.set('settings', s);
-  if(!s.ss.apiKey){ msg.textContent = 'Enter your Starshipit API key first.'; msg.classList.add('err'); return; }
+  readAccountRows();
+  const accounts = col.settings().ss.accounts.filter(a => a.apiKey);
+  if(!accounts.length){ msg.textContent = 'Add at least one child-account API key first.'; msg.classList.add('err'); return; }
   $('#ssConnect').textContent = 'Connecting…';
-  try{
-    const shipped = await ssFetch('/api/orders/shipped?limit=250&page=1');
-    let unshipped = { orders: [] };
-    try{ unshipped = await ssFetch('/api/orders/unshipped?limit=250&page=1'); }catch(e){}
-    const orders = (shipped.orders || []).map(o => mapSsOrder(o, true))
-      .concat((unshipped.orders || []).map(o => mapSsOrder(o, false)));
-    DB.set('ssOrders', orders);
-    s.ss.connected = true;
-    s.ss.lastSync = new Date().toISOString();
-    DB.set('settings', s);
-    msg.textContent = 'Connected — ' + orders.length + ' orders synced from Starshipit.';
-    msg.classList.add('ok');
+  const all = [], errs = [];
+  for(const a of accounts){
+    try{
+      const shipped = await ssFetch('/api/orders/shipped?limit=250&page=1', a.apiKey);
+      let unshipped = { orders: [] };
+      try{ unshipped = await ssFetch('/api/orders/unshipped?limit=250&page=1', a.apiKey); }catch(e){}
+      (shipped.orders || []).forEach(o => all.push(mapSsOrder(o, true, a.label)));
+      (unshipped.orders || []).forEach(o => all.push(mapSsOrder(o, false, a.label)));
+    }catch(err){ errs.push(a.label + ' — ' + err.message); }
+  }
+  const okCount = accounts.length - errs.length;
+  const s2 = col.settings();
+  if(okCount > 0){
+    DB.set('ssOrders', all);
+    s2.ss.connected = true;
+    s2.ss.lastSync = new Date().toISOString();
+    DB.set('settings', s2);
+    msg.textContent = 'Connected — ' + all.length + ' orders synced from ' + okCount + ' of ' + accounts.length + ' child account' + (accounts.length === 1 ? '' : 's') + (errs.length ? '. Failed: ' + errs.join(' · ') : '.');
+    msg.classList.add(errs.length ? 'err' : 'ok');
     toast('Starshipit connected');
     renderSsStatus(); route();
-  }catch(err){
-    s.ss.connected = false; DB.set('settings', s);
-    msg.innerHTML = '';
-    const b = document.createElement('b'); b.textContent = 'Could not reach the Starshipit API. ';
-    msg.appendChild(b);
-    msg.appendChild(document.createTextNode(err.message === 'Failed to fetch'
-      ? 'This is almost always the browser blocking the call (CORS) — the Starshipit API is built for server-side use. Deploy the 20-line proxy in the README, paste its URL above, and connect again. Running on demo data meanwhile.'
-      : 'The API answered “' + err.message + '” — check both keys. Running on demo data meanwhile.'));
+  } else {
+    s2.ss.connected = false;
+    DB.set('settings', s2);
+    msg.textContent = 'Could not reach Starshipit for any account — ' + errs.join(' · ') + '. Check the subscription key and each account\u2019s API key (Starshipit → Settings → API on every child account). On the live fs-database.vercel.app link the built-in proxy handles the browser side. Running on demo data meanwhile.';
     msg.classList.add('err');
     renderSsStatus();
   }
-  $('#ssConnect').textContent = 'Connect & sync';
+  $('#ssConnect').textContent = 'Connect & sync all accounts';
 }
 function renderSsStatus(){
   const ss = col.settings().ss;
@@ -1669,6 +1702,11 @@ function filterShipFeed(){
  *  New Client Leads                                                  *
  * ================================================================== */
 let leadFilter = 'open', leadQ = '';
+function leadPill(st){
+  const m = { new: ['acc','New'], contacted: ['info','Contacted'], quoted: ['warn','Quoted'], won: ['ok','Won'], lost: ['dim','Lost'] };
+  const p = m[st] || ['dim', st];
+  return '<span class="pill ' + p[0] + '">' + p[1] + '</span>';
+}
 function renderLeads(){
   const v = $('#view-leads');
   const leads = col.leads();
@@ -1680,6 +1718,17 @@ function renderLeads(){
   '<div class="vh-actions"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
   '<input id="leadSearch" type="text" placeholder="Search leads…" value="' + esc(leadQ) + '"></div>' +
   '<button class="btn" data-act="add-lead">+ Add lead</button></div></div>' +
+  '<div class="panel" style="margin-bottom:12px"><div class="panel-head"><span class="panel-title">Summary</span><span class="panel-meta">' + leads.length + ' inquiries</span></div>' +
+  '<div class="doc-table-wrap"><table class="rows">' +
+  '<tr><th>Name</th><th>Company</th><th>Volume /mo</th><th>Timeline</th><th>Received</th><th>Status</th></tr>' +
+  leads.map(l =>
+    '<tr><td><span class="cell-main">' + esc(l.first + ' ' + l.last) + '</span></td>' +
+    '<td style="color:var(--dim);font-size:12.5px">' + esc(l.company) + '</td>' +
+    '<td style="color:var(--dim);font-size:12px;white-space:nowrap">' + esc(lbl(VOLUMES, l.volume)) + '</td>' +
+    '<td style="color:var(--dim);font-size:12px;white-space:nowrap">' + esc(lbl(TIMELINES, l.timeline)) + '</td>' +
+    '<td style="font-family:var(--mono);font-size:10.5px;color:var(--faint);white-space:nowrap">' + esc(timeAgo(l.ts)) + '</td>' +
+    '<td>' + leadPill(l.status) + '</td></tr>'
+  ).join('') + '</table></div></div>' +
   '<div class="pipe-row">' +
     '<button class="pipe-chip ' + (leadFilter === 'open' ? 'on' : '') + '" data-filter="open">Open <b>' + counts.open + '</b></button>' +
     LEAD_STATUSES.map(s => '<button class="pipe-chip ' + (leadFilter === s[0] ? 'on' : '') + '" data-filter="' + s[0] + '">' + s[1] + ' <b>' + counts[s[0]] + '</b></button>').join('') +
@@ -1792,15 +1841,20 @@ function convertLead(id){
 const OB_STATUSES = [['in_progress','In progress'],['awaiting_client','Awaiting client'],['complete','Complete']];
 const OB_SECTIONS = ['Company Information','Company Contacts','Billing','Your Products','Shipping','Tech Setup'];
 function obCounts(ob){
-  const q = QUESTIONNAIRE.reduce((n, item) => n + (item.type === 'file'
+  const removed = ob.removedQs || [];
+  const custom = ob.customQs || [];
+  const stdQs = QUESTIONNAIRE.filter(item => removed.indexOf(item.key) < 0);
+  const q = stdQs.reduce((n, item) => n + (item.type === 'file'
     ? (ob.files && ob.files[item.key] ? 1 : 0)
-    : (ob.answers && String(ob.answers[item.key] || '').trim() ? 1 : 0)), 0);
+    : (ob.answers && String(ob.answers[item.key] || '').trim() ? 1 : 0)), 0)
+    + custom.reduce((n, c) => n + (String(c.value || '').trim() ? 1 : 0), 0);
+  const qTotal = stdQs.length + custom.length;
   const dgApplies = ob.answers && ob.answers.dangerous_goods === 'Yes';
   const kycItems = KYC_ITEMS.filter(k => !k.dgOnly || dgApplies);
   const kyc = kycItems.reduce((n, k) => n + (ob.kyc && ob.kyc[k.key] && ob.kyc[k.key].done ? 1 : 0), 0);
   const signed = AGREEMENTS.reduce((n, a) => n + (ob.agreements && ob.agreements[a.key] && ob.agreements[a.key].status === 'signed' ? 1 : 0), 0);
-  const pct = Math.round(q / QUESTIONNAIRE.length * 50 + (kycItems.length ? kyc / kycItems.length * 30 : 30) + signed / AGREEMENTS.length * 20);
-  return { q, qTotal: QUESTIONNAIRE.length, kyc, kycTotal: kycItems.length, signed, agrTotal: AGREEMENTS.length, pct: Math.min(100, pct) };
+  const pct = Math.round((qTotal ? q / qTotal : 1) * 50 + (kycItems.length ? kyc / kycItems.length * 30 : 30) + signed / AGREEMENTS.length * 20);
+  return { q, qTotal, kyc, kycTotal: kycItems.length, signed, agrTotal: AGREEMENTS.length, pct: Math.min(100, pct) };
 }
 function obStatusPill(s){
   return s === 'complete' ? '<span class="pill ok">Complete</span>'
@@ -1853,7 +1907,8 @@ function renderObDetail(v, id){
   '<div class="panel ob-sec-panel"><div class="panel-head"><span class="panel-title">Website questionnaire</span><span class="panel-meta">same questions as fullstackfs.com.au/#/onboarding</span></div>' +
   OB_SECTIONS.map(sec =>
     '<div class="sec-cap">' + esc(sec) + '</div>' +
-    QUESTIONNAIRE.filter(q => q.sec === sec).map(q => {
+    QUESTIONNAIRE.filter(q => q.sec === sec && (ob.removedQs || []).indexOf(q.key) < 0).map(q => {
+      const label = (ob.renamedQs || {})[q.key] || q.q;
       const val = (ob.answers && ob.answers[q.key]) || '';
       let control;
       if(q.type === 'yesno'){
@@ -1867,9 +1922,19 @@ function renderObDetail(v, id){
         const t = q.type === 'tel' ? 'tel' : q.type === 'email' ? 'email' : q.type === 'number' ? 'number' : q.type === 'date' ? 'date' : 'text';
         control = '<input type="' + t + '" value="' + esc(val) + '" data-q="' + ob.id + ':' + q.key + '">';
       }
-      return '<div class="qa"><div class="qa-q">' + esc(q.q) + (q.req ? ' <span class="req">*</span>' : '') + '</div><div class="qa-a">' + control + '</div></div>';
+      return '<div class="qa"><div class="qa-q">' + esc(label) + (q.req ? ' <span class="req">*</span>' : '') +
+        '<span class="qa-tools"><button class="iconbtn" data-q-edit="' + ob.id + ':' + q.key + '" title="Rename">✎</button><button class="iconbtn" data-q-del="' + ob.id + ':' + q.key + '" title="Remove for this client">✕</button></span>' +
+        '</div><div class="qa-a">' + control + '</div></div>';
     }).join('')
-  ).join('') + '</div>' +
+  ).join('') +
+  ((ob.customQs || []).length ? '<div class="sec-cap">Client specific</div>' +
+    ob.customQs.map(c =>
+      '<div class="qa"><div class="qa-q">' + esc(c.label) +
+      '<span class="qa-tools"><button class="iconbtn" data-cq-edit="' + ob.id + ':' + c.id + '" title="Rename">✎</button><button class="iconbtn" data-cq-del="' + ob.id + ':' + c.id + '" title="Remove">✕</button></span>' +
+      '</div><div class="qa-a"><input type="text" value="' + esc(c.value || '') + '" data-cq="' + ob.id + ':' + c.id + '"></div></div>'
+    ).join('') : '') +
+  '<div style="margin-top:12px"><button class="fbtn" data-act="ob-addq" data-id="' + ob.id + '">＋ Add a question for this client</button></div>' +
+  '</div>' +
 
   '<div class="panel"><div class="panel-head"><span class="panel-title">KYC checklist</span><span class="panel-meta">' + c.kyc + ' of ' + c.kycTotal + ' complete</span></div>' +
   KYC_ITEMS.map(k => {
@@ -1955,26 +2020,21 @@ let pendingDocFile = null;
 function docDrawerForm(){
   pendingDocFile = null;
   $('#docDrawerBody').innerHTML =
-  '<div><label class="f-lab">Title <span>*</span></label><input class="f-in" id="df-title" placeholder="e.g. Glow Wellness — Signed NDA"></div>' +
-  '<div class="f-row2"><div><label class="f-lab">Category</label><select class="sel f-in" id="df-cat">' + DOC_CATS.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join('') + '</select></div>' +
-  '<div><label class="f-lab">Client</label><select class="sel f-in" id="df-client"><option value="">General / master</option>' + col.clients().map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('') + '</select></div></div>' +
-  '<div><label class="f-lab">Notes</label><input class="f-in" id="df-notes" placeholder="Optional"></div>' +
-  '<div><label class="f-lab">File <span>*</span></label><div class="fileslot"><button class="fbtn" id="df-file">⇧ Choose file…</button><span id="df-filename" style="font-family:var(--mono);font-size:11.5px;color:var(--ok)"></span></div></div>';
-  $('#df-file').addEventListener('click', () => askFile(async file => {
+  '<div><label class="f-lab">Document type</label><select class="sel f-in" id="df-cat">' + DOC_CATS.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join('') + '</select></div>' +
+  '<div><label class="f-lab">Upload your document</label><div class="fileslot"><button class="fbtn" id="df-file">⇧ Choose file…</button><span id="df-filename" style="font-family:var(--mono);font-size:11px;color:var(--ok)"></span></div></div>' +
+  '<p class="set-note">Pick the type, upload the file, done — the title comes from the file name.</p>';
+  $('#df-file').addEventListener('click', () => askFile(file => {
     pendingDocFile = file;
     $('#df-filename').textContent = file.name + ' · ' + fmtSize(file.size);
-    if(!$('#df-title').value) $('#df-title').value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
   }, ''));
 }
 async function saveDocFromDrawer(){
-  const title = $('#df-title').value.trim();
-  if(!title){ toast('Give the document a title'); return; }
   if(!pendingDocFile){ toast('Choose a file first'); return; }
   if(pendingDocFile.size > 15 * 1048576){ toast('Keep files under 15 MB'); return; }
   const ref = await fput(pendingDocFile);
+  const title = pendingDocFile.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || pendingDocFile.name;
   const docs = col.docs();
-  docs.unshift({ id: uid(), title, category: $('#df-cat').value, clientId: $('#df-client').value,
-    notes: $('#df-notes').value.trim(), ts: new Date().toISOString(), name: ref.name, size: ref.size, fid: ref.fid });
+  docs.unshift({ id: uid(), title, category: $('#df-cat').value, clientId: '', notes: '', ts: new Date().toISOString(), name: ref.name, size: ref.size, fid: ref.fid });
   DB.set('docs', docs);
   closeOverlays(); updateCounts(); renderDocs();
   toast('Document added');
@@ -1990,6 +2050,13 @@ function mailDoc(id){
 /* ================================================================== *
  *  Carriers                                                          *
  * ================================================================== */
+function expPill(dateStr){
+  if(!dateStr) return '';
+  const days = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400e3);
+  if(days < 0) return '<span class="pill bad">expired</span>';
+  if(days <= 30) return '<span class="pill warn">' + days + 'd left</span>';
+  return '<span class="pill ok">' + days + 'd left</span>';
+}
 function renderCarriers(){
   const v = $('#view-carriers');
   const cars = col.carriers();
@@ -2022,10 +2089,13 @@ function renderCarriers(){
       [['agreement','Carrier agreement'],['ratecard','Rate card'],['surcharges','Freight charges / surcharges']].map(pair => {
         const ref = c[pair[0]];
         const path = 'car:' + c.id + ':' + pair[0];
+        const exp = (c.expiry || {})[pair[0]] || '';
         return '<div class="car-attach-row"><span class="lab">' + pair[1] + '</span>' +
-          (ref ? fileChip(ref, path) : uploadBtn(path, 'Attach')) + '</div>';
+          (ref ? fileChip(ref, path) : uploadBtn(path, 'Attach')) +
+          '<label class="chip" style="gap:6px">Expires <input type="date" value="' + esc(exp) + '" data-car-exp="' + c.id + ':' + pair[0] + '" style="background:none;border:0;color:var(--text);font-family:var(--mono);font-size:10px;outline:none;color-scheme:dark;width:112px"></label>' +
+          expPill(exp) + '</div>';
       }).join('') + '</div>') +
-    '<div class="car-notes"><textarea data-car-notes="' + c.id + '" rows="2" placeholder="Surcharges, cutoffs, quirks…">' + esc(c.notes || '') + '</textarea></div>' +
+    '<div class="car-notes"><div class="cf-k" style="margin-bottom:4px">Notes — corrections, surcharges, quirks</div><textarea data-car-notes="' + c.id + '" rows="2" placeholder="Add a note…">' + esc(c.notes || '') + '</textarea></div>' +
     '</div>';
   };
   v.innerHTML =
@@ -2051,6 +2121,13 @@ function resolveRef(path){
   if(p[0] === 'car'){
     const c = carById(p[1]);
     return c && { get: () => c[p[2]], set(ref){ c[p[2]] = ref; }, del(){ delete c[p[2]]; }, save: saveCarriers };
+  }
+  if(p[0] === 'cat'){
+    const it = catById(p[1]);
+    return it && { get: () => it.labelTpl, set(ref){ it.labelTpl = ref; }, del(){ it.labelTpl = null; }, save: saveCat };
+  }
+  if(p[0] === 'catpdf'){
+    return { get: () => DB.get('catalogPdf', null), set(ref){ DB.set('catalogPdf', ref); }, del(){ DB.set('catalogPdf', null); }, save(){} };
   }
   if(p[0] === 'ob'){
     const ob = obById(p[1]);
@@ -2203,7 +2280,6 @@ function closeOverlays(){
 }
 function openSettings(){
   const s = col.settings();
-  $('#ssApiKey').value = s.ss.apiKey || '';
   $('#ssSubKey').value = s.ss.subKey || '';
   $('#ssProxy').value = s.ss.proxy || '';
   $('#ssMsg').className = 'conn-msg';
@@ -2290,7 +2366,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#view-onboarding').addEventListener('click', e => {
     const open = e.target.closest('[data-open-ob]');
     if(open && !e.target.closest('a,button,select,input,textarea')){ location.hash = '#/onboarding/' + open.dataset.openOb; return; }
-    const t = e.target.closest('[data-act],[data-yn],[data-kyc],[data-up],[data-dl],[data-rm],[data-agr-unlink]');
+    const t = e.target.closest('[data-act],[data-yn],[data-kyc],[data-up],[data-dl],[data-rm],[data-agr-unlink],[data-q-edit],[data-q-del],[data-cq-edit],[data-cq-del]');
     if(!t) return;
     if(t.dataset.act === 'ob-back'){ location.hash = '#/onboarding'; }
     else if(t.dataset.act === 'ob-add'){
@@ -2302,6 +2378,47 @@ document.addEventListener('DOMContentLoaded', () => {
       obs.unshift(ob); DB.set('onboarding', obs);
       updateCounts(); location.hash = '#/onboarding/' + ob.id;
     }
+    else if(t.dataset.act === 'ob-addq'){
+      const ob = obById(t.dataset.id);
+      if(!ob) return;
+      const label = prompt('New question for ' + ob.clientName + ':');
+      if(!label || !label.trim()) return;
+      ob.customQs = ob.customQs || [];
+      ob.customQs.push({ id: uid(), label: label.trim(), value: '' });
+      saveOb(); route();
+    }
+    else if(t.dataset.qEdit){
+      const p = t.dataset.qEdit.split(':'); const ob = obById(p[0]);
+      const q = QUESTIONNAIRE.find(x => x.key === p[1]);
+      if(!ob || !q) return;
+      const label = prompt('Edit question:', (ob.renamedQs || {})[p[1]] || q.q);
+      if(label === null || !label.trim()) return;
+      ob.renamedQs = ob.renamedQs || {}; ob.renamedQs[p[1]] = label.trim();
+      saveOb(); route();
+    }
+    else if(t.dataset.qDel){
+      const p = t.dataset.qDel.split(':'); const ob = obById(p[0]);
+      if(ob && confirm('Remove this question for this client?')){
+        ob.removedQs = ob.removedQs || [];
+        if(ob.removedQs.indexOf(p[1]) < 0) ob.removedQs.push(p[1]);
+        saveOb(); route();
+      }
+    }
+    else if(t.dataset.cqEdit){
+      const p = t.dataset.cqEdit.split(':'); const ob = obById(p[0]);
+      const c = ob && (ob.customQs || []).find(x => x.id === p[1]);
+      if(!c) return;
+      const label = prompt('Edit question:', c.label);
+      if(label === null || !label.trim()) return;
+      c.label = label.trim(); saveOb(); route();
+    }
+    else if(t.dataset.cqDel){
+      const p = t.dataset.cqDel.split(':'); const ob = obById(p[0]);
+      if(ob && confirm('Remove this question?')){
+        ob.customQs = (ob.customQs || []).filter(x => x.id !== p[1]);
+        saveOb(); route();
+      }
+    }
     else if(t.dataset.yn){ const p = t.dataset.yn.split(':'); const ob = obById(p[0]); if(ob){ ob.answers = ob.answers || {}; ob.answers[p[1]] = ob.answers[p[1]] === p[2] ? '' : p[2]; saveOb(); route(); } }
     else if(t.dataset.kyc){ const p = t.dataset.kyc.split(':'); const ob = obById(p[0]); if(ob){ ob.kyc = ob.kyc || {}; const cur = ob.kyc[p[1]] || {}; cur.done = cur.done ? 0 : 1; cur.date = cur.done ? new Date().toISOString() : cur.date; ob.kyc[p[1]] = cur; saveOb(); route(); } }
     else if(t.dataset.up) askFile(file => handleUpload(t.dataset.up, file));
@@ -2310,6 +2427,8 @@ document.addEventListener('DOMContentLoaded', () => {
     else if(t.dataset.agrUnlink){ const p = t.dataset.agrUnlink.split(':'); const ob = obById(p[0]); if(ob && ob.agreements[p[1]]){ delete ob.agreements[p[1]].docId; saveOb(); route(); } }
   });
   $('#view-onboarding').addEventListener('change', e => {
+    const cq = e.target.closest('[data-cq]');
+    if(cq){ const p = cq.dataset.cq.split(':'); const ob = obById(p[0]); const c = ob && (ob.customQs || []).find(x => x.id === p[1]); if(c){ c.value = cq.value; saveOb(); } return; }
     const q = e.target.closest('[data-q]');
     if(q){ const p = q.dataset.q.split(':'); const ob = obById(p[0]); if(ob){ ob.answers = ob.answers || {}; ob.answers[p[1]] = q.value; saveOb();
       if(p[1] === 'dangerous_goods' || p[1] === 'active_skus') route(); } return; }
@@ -2363,6 +2482,8 @@ document.addEventListener('DOMContentLoaded', () => {
     else if(t.dataset.rm){ if(confirm('Remove this file?')) handleRemove(t.dataset.rm); }
   });
   $('#view-carriers').addEventListener('input', debounce(e => {
+    const ex = e.target.closest('[data-car-exp]');
+    if(ex){ const p = ex.dataset.carExp.split(':'); const c = carById(p[0]); if(c){ c.expiry = c.expiry || {}; c.expiry[p[1]] = ex.value; saveCarriers(); renderCarriers(); } return; }
     const f = e.target.closest('[data-car]');
     if(f){ const p = f.dataset.car.split(':'); const c = carById(p[0]); if(c){ c[p[1]] = f.value; saveCarriers(); } return; }
     const ta = e.target.closest('[data-car-notes]');
@@ -2382,6 +2503,7 @@ const colV2 = {
   goLive:   () => DB.get('goLive', [])
 };
 const CAT_KINDS = [['powder','Powder'],['rtd','RTD / Drinks'],['capsules','Capsules & Gummies'],['sachets','Sachets'],['accessory','Accessories'],['apparel','Apparel'],['other','Other']];
+const CAT_TYPES = [['gummy','Gummy'],['capsule','Capsule'],['powder','Powder']];
 const REQ_STATES = [['draft','Draft'],['submitted','Submitted'],['quoted','Quoted'],['approved','Approved'],['declined','Declined']];
 const GL_DEFAULT = [
   { key:'stock',   name:'First stock received & put away', hint:'Booked into Extensiv, quantities verified against the ASN' },
@@ -2397,56 +2519,28 @@ function money2(n){ return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toL
 
 function seedV2(){
   const dISO = d => new Date(Date.now() - d * 86400e3).toISOString();
-  /* products manufactured by Eagle AU — the FS catalog mirrors live client SKUs
-     so sell-through comes straight from the sales data; migrate any old-format data */
+  /* the FS catalog — products manufactured by Eagle AU; migrate any older-format data */
   const catCur = DB.get('catalog', null);
-  const migrate = Array.isArray(catCur) && catCur.some(c => c && 'usePerOrder' in c);
+  const migrate = Array.isArray(catCur) && catCur.some(c => c && ('usePerOrder' in c || 'unitCost' in c));
   if(catCur === null || migrate){
     DB.set('catalog', [
-      { id:'cat-apn-wpi-choc', sku:'APN-WPI-CHOC-1KG', name:'Whey Protein Isolate — Chocolate 1 kg', brand:'Alpine Peak Nutrition', kind:'powder', unitCost:24.50, pack:6,  moq:500,  leadDays:28, stock:2140, status:'active' },
-      { id:'cat-apn-wpi-van',  sku:'APN-WPI-VAN-1KG',  name:'Whey Protein Isolate — Vanilla 1 kg',   brand:'Alpine Peak Nutrition', kind:'powder', unitCost:24.50, pack:6,  moq:500,  leadDays:28, stock:1876, status:'active' },
-      { id:'cat-apn-cre',      sku:'APN-CRE-MONO-500', name:'Creatine Monohydrate 500 g',            brand:'Alpine Peak Nutrition', kind:'powder', unitCost:14.20, pack:12, moq:500,  leadDays:28, stock:940,  status:'active' },
-      { id:'cat-apn-pwo',      sku:'APN-PWO-BERRY-300',name:'Pre-Workout — Wild Berry 300 g',        brand:'Alpine Peak Nutrition', kind:'powder', unitCost:17.80, pack:12, moq:500,  leadDays:28, stock:132,  status:'active' },
-      { id:'cat-apn-rtd',      sku:'APN-RTD-CHOC-12PK',name:'RTD Protein Shake — Choc 12-pack',      brand:'Alpine Peak Nutrition', kind:'rtd',    unitCost:21.60, pack:4,  moq:300,  leadDays:30, stock:64,   status:'active' },
-      { id:'cat-apn-shaker',   sku:'APN-SHAKER-700',   name:'Shaker 700 ml',                          brand:'Alpine Peak Nutrition', kind:'accessory', unitCost:3.80, pack:24, moq:1000, leadDays:35, stock:3320, status:'active' },
-      { id:'cat-if-pre',       sku:'IF-PRE-MANGO-400', name:'Pre-Workout — Mango 400 g',             brand:'Iron Fuel Supplements', kind:'powder', unitCost:19.40, pack:12, moq:500,  leadDays:28, stock:890,  status:'active' },
-      { id:'cat-if-bcaa',      sku:'IF-BCAA-COLA-300', name:'BCAA Recovery — Cola 300 g',            brand:'Iron Fuel Supplements', kind:'powder', unitCost:15.30, pack:12, moq:500,  leadDays:28, stock:70,   status:'active' },
-      { id:'cat-if-crtn',      sku:'IF-CRTN-1KG',      name:'Creatine Monohydrate 1 kg',             brand:'Iron Fuel Supplements', kind:'powder', unitCost:22.90, pack:6,  moq:400,  leadDays:28, stock:610,  status:'active' },
-      { id:'cat-if-shkr',      sku:'IF-SHKR-600',      name:'Iron Fuel Shaker 600 ml',               brand:'Iron Fuel Supplements', kind:'accessory', unitCost:3.40, pack:24, moq:1000, leadDays:35, stock:1500, status:'active' },
-      { id:'cat-if-tee',       sku:'IF-TEE-BLK-L',     name:'Training Tee — Black L',                brand:'Iron Fuel Supplements', kind:'apparel', unitCost:12.80, pack:20, moq:200,  leadDays:40, stock:300,  status:'active' },
-      { id:'cat-gw-coll',      sku:'GW-COLL-300',      name:'Collagen Peptides 300 g',               brand:'Glow Wellness Co',      kind:'powder', unitCost:18.20, pack:12, moq:500,  leadDays:25, stock:300,  status:'active' },
-      { id:'cat-gw-greens',    sku:'GW-GREENS-250',    name:'Daily Greens Blend 250 g',              brand:'Glow Wellness Co',      kind:'powder', unitCost:23.40, pack:12, moq:500,  leadDays:25, stock:640,  status:'active' },
-      { id:'cat-gw-sleep',     sku:'GW-SLEEP-60',      name:'Sleep Gummies 60 ct',                   brand:'Glow Wellness Co',      kind:'capsules', unitCost:11.60, pack:24, moq:1000, leadDays:25, stock:90,   status:'active' },
-      { id:'cat-gw-hydr',      sku:'GW-HYDR-20',       name:'Hydration Sticks 20-pack',              brand:'Glow Wellness Co',      kind:'sachets', unitCost:9.80,  pack:20, moq:800,  leadDays:25, stock:720,  status:'active' },
-      { id:'cat-gw-bottle',    sku:'GW-BOTTLE-750',    name:'Glass Bottle 750 ml',                   brand:'Glow Wellness Co',      kind:'accessory', unitCost:7.40, pack:12, moq:500,  leadDays:35, stock:510,  status:'active' },
-      { id:'cat-psl-noo',      sku:'PSL-NOO-60',       name:'Nootropic Focus Caps 60 ct',            brand:'Peak State Labs',       kind:'capsules', unitCost:16.40, pack:24, moq:500,  leadDays:21, stock:480,  status:'active' },
-      { id:'cat-psl-elec',     sku:'PSL-ELEC-LEM-500', name:'Electrolytes — Lemon 500 g',            brand:'Peak State Labs',       kind:'powder', unitCost:12.60, pack:12, moq:500,  leadDays:21, stock:520,  status:'active' },
-      { id:'cat-psl-mag',      sku:'PSL-MAG-120',      name:'Magnesium Night Caps 120 ct',           brand:'Peak State Labs',       kind:'capsules', unitCost:10.90, pack:24, moq:500,  leadDays:21, stock:610,  status:'active' },
-      { id:'cat-psl-omega',    sku:'PSL-OMEGA-90',     name:'Omega-3 Softgels 90 ct',                brand:'Peak State Labs',       kind:'capsules', unitCost:9.70,  pack:24, moq:500,  leadDays:21, stock:400,  status:'active' },
-      { id:'cat-kkv-multi',    sku:'KKV-MULTI-90',     name:'Kids Multi Gummies 90 ct',              brand:'Koala Kids Vitamins',   kind:'capsules', unitCost:9.40,  pack:24, moq:1000, leadDays:25, stock:400,  status:'active' },
-      { id:'cat-kkv-vitc',     sku:'KKV-VITC-60',      name:'Vitamin C Chews 60 ct',                 brand:'Koala Kids Vitamins',   kind:'capsules', unitCost:6.80,  pack:24, moq:1000, leadDays:25, stock:350,  status:'active' },
-      { id:'cat-kkv-probio',   sku:'KKV-PROBIO-30',    name:'Kids Probiotic Sachets 30-pack',        brand:'Koala Kids Vitamins',   kind:'sachets', unitCost:12.20, pack:20, moq:800,  leadDays:25, stock:280,  status:'active' }
-    ]);
-  }
-  if(DB.get('requests', null) === null || migrate){
-    DB.set('requests', [
-      { id:'req-apn-trop', ts:dISO(6), name:'Pre-Workout — Tropical Punch 300 g (new flavour)', kind:'powder',
-        spec:'Line extension of APN-PWO — same base formula, tropical flavour system, 300 g tub', targetCost:'$17.50 @ 1k units',
-        qty:'1,000 units', forClient:'Alpine Peak Nutrition', status:'quoted', submittedTs:dISO(6),
-        notes:'Eagle quoted $18.10 @ 1k / $16.90 @ 2.5k — flavour sample approved by client.' },
-      { id:'req-kkv-iron', ts:dISO(1), name:'Kids Iron + Vitamin C Gummies 60 ct', kind:'capsules',
-        spec:'New SKU — iron bisglycinate + vitamin C, berry flavour, 60 ct jar, child-safe lid', targetCost:'~$8.20', qty:'1,500 units',
-        forClient:'Koala Kids Vitamins', status:'draft', notes:'' }
+      { id:'cat-kkv-multi', sku:'KKV-MULTI-90',      name:'Kids Multi Gummies 90 ct',              type:'gummy',   flavor:'Mixed berry',  size:'3 g bear mold',   labelTpl:null },
+      { id:'cat-gw-sleep',  sku:'GW-SLEEP-60',       name:'Sleep Gummies 60 ct',                   type:'gummy',   flavor:'Blackcurrant', size:'2.5 g drop mold', labelTpl:null },
+      { id:'cat-apn-wpi',   sku:'APN-WPI-CHOC-1KG',  name:'Whey Protein Isolate — Chocolate 1 kg', type:'powder',  flavor:'Chocolate',    size:'—',               labelTpl:null },
+      { id:'cat-apn-pwo',   sku:'APN-PWO-BERRY-300', name:'Pre-Workout — Wild Berry 300 g',        type:'powder',  flavor:'Wild berry',   size:'—',               labelTpl:null },
+      { id:'cat-psl-noo',   sku:'PSL-NOO-60',        name:'Nootropic Focus Caps 60 ct',            type:'capsule', flavor:'Unflavoured',  size:'Size 0 vegan',    labelTpl:null },
+      { id:'cat-psl-mag',   sku:'PSL-MAG-120',       name:'Magnesium Night Caps 120 ct',           type:'capsule', flavor:'Unflavoured',  size:'Size 00',         labelTpl:null }
     ]);
   }
   if(DB.get('pos', null) === null || migrate){
+    const rq = d => new Date(Date.now() + d * 86400e3).toISOString().slice(0, 10);
     DB.set('pos', [
-      { id:'po-42', number:'PO-2026-0042', status:'sent', created:dISO(32), notes:'Winter restock — Eagle AU production run',
+      { id:'po-42', number:'PO-2026-0042', status:'sent', created:dISO(32), requiredBy:rq(10), notes:'Production run — gummies restock',
         sig1:{ name:'Operations (demo)', ts:dISO(32) }, sig2:{ name:'Director (demo)', ts:dISO(31) }, sentTs:dISO(31),
-        lines:[ { catId:'cat-apn-wpi-choc', qty:500, unitCost:24.50 }, { catId:'cat-apn-cre', qty:500, unitCost:14.20 }, { catId:'cat-gw-coll', qty:500, unitCost:18.20 } ] },
-      { id:'po-47', number:'PO-2026-0047', status:'pending', created:dISO(1), notes:'APN low-stock cover — needs countersign',
+        lines:[ { catId:'cat-kkv-multi', qty:5000 }, { catId:'cat-gw-sleep', qty:3000 } ] },
+      { id:'po-47', number:'PO-2026-0047', status:'pending', created:dISO(1), requiredBy:rq(21), notes:'Pre-workout run — needs countersign',
         sig1:{ name:'Operations (demo)', ts:dISO(1) }, sig2:null, sentTs:null,
-        lines:[ { catId:'cat-apn-pwo', qty:500, unitCost:17.80 }, { catId:'cat-apn-rtd', qty:300, unitCost:21.60 } ] }
+        lines:[ { catId:'cat-apn-pwo', qty:1000 } ] }
     ]);
   }
   if(DB.get('goLive', null) === null){
@@ -2463,6 +2557,12 @@ function seedV2(){
   const s = col.settings();
   s.eagle = s.eagle || { contact:'', email:'', phone:'' };
   if(!('adminPin' in s)) s.adminPin = '';
+  s.ss = s.ss || { subKey:'', proxy:'', connected:false, lastSync:null };
+  if(!Array.isArray(s.ss.accounts)) s.ss.accounts = [];
+  if(s.ss.apiKey){
+    if(!s.ss.accounts.length) s.ss.accounts.push({ id: uid(), label: 'Main account', apiKey: s.ss.apiKey });
+    delete s.ss.apiKey;
+  }
   DB.set('settings', s);
 }
 
@@ -2586,10 +2686,14 @@ function glAuto(gl){
 function glProgress(gl){
   const auto = glAuto(gl);
   const autoRows = auto ? auto.rows : [];
-  const opsDone = GL_DEFAULT.filter(i => gl.items[i.key] && gl.items[i.key].done).length;
+  const removed = gl.removed || [];
+  const custom = gl.custom || [];
+  const std = GL_DEFAULT.filter(i => removed.indexOf(i.key) < 0);
+  const opsDone = std.filter(i => gl.items[i.key] && gl.items[i.key].done).length + custom.filter(c => c.done).length;
+  const opsTotal = std.length + custom.length;
   const done = opsDone + autoRows.filter(r => r.done).length;
-  const total = GL_DEFAULT.length + autoRows.length;
-  return { done, total, opsDone, ready: done >= total, pct: Math.round(done / total * 100) };
+  const total = opsTotal + autoRows.length;
+  return { done, total, opsDone, opsTotal, ready: total > 0 && done >= total, pct: total ? Math.round(done / total * 100) : 0 };
 }
 function renderGoLive(param){
   const v = $('#view-golive');
@@ -2644,16 +2748,31 @@ function renderGlDetail(v, id){
     '<div class="kyc-name">' + esc(r.name) + '<small>' + esc(r.detail) + '</small></div><span class="auto-chip">auto</span></div>'
   ).join('') + '</div>' : '') +
 
-  '<div class="panel"><div class="panel-head"><span class="panel-title">Launch checklist</span><span class="panel-meta">' + p.opsDone + ' of ' + GL_DEFAULT.length + ' done</span></div>' +
-  GL_DEFAULT.map(item => {
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Launch checklist</span><span class="panel-meta">' + p.opsDone + ' of ' + p.opsTotal + ' done</span></div>' +
+  GL_DEFAULT.filter(i => (gl.removed || []).indexOf(i.key) < 0).map(item => {
     const st = gl.items[item.key] || {};
+    const label = (gl.renamed || {})[item.key] || item.name;
     return '<div class="kyc-row' + (st.done ? ' done' : '') + '">' +
-    '<button class="kbox' + (st.done ? ' done' : '') + '" data-gl="' + gl.id + ':' + item.key + '"' + (live ? ' disabled' : '') + ' aria-label="Toggle ' + esc(item.name) + '">✓</button>' +
-    '<div class="kyc-name">' + esc(item.name) + '<small>' + esc(item.hint) + '</small></div>' +
+    '<button class="kbox' + (st.done ? ' done' : '') + '" data-gl="' + gl.id + ':' + item.key + '"' + (live ? ' disabled' : '') + ' aria-label="Toggle ' + esc(label) + '">✓</button>' +
+    '<div class="kyc-name">' + esc(label) +
+      '<span class="qa-tools"><button class="iconbtn" data-gl-edit="' + gl.id + ':' + item.key + '" title="Rename">✎</button><button class="iconbtn" data-gl-del="' + gl.id + ':' + item.key + '" title="Remove for this client">✕</button></span>' +
+      '<small>' + esc(item.hint) + '</small></div>' +
     '<input class="note-in" data-gl-note="' + gl.id + ':' + item.key + '" placeholder="Note…" value="' + esc(st.note || '') + '">' +
     (st.done && st.date ? '<span class="ship-when">done ' + esc(fmtD(st.date)) + '</span>' : '') +
     '</div>';
-  }).join('') + '</div>' +
+  }).join('') +
+  (gl.custom || []).map(c =>
+    '<div class="kyc-row' + (c.done ? ' done' : '') + '">' +
+    '<button class="kbox' + (c.done ? ' done' : '') + '" data-glc="' + gl.id + ':' + c.id + '"' + (live ? ' disabled' : '') + '>✓</button>' +
+    '<div class="kyc-name">' + esc(c.name) +
+      '<span class="qa-tools"><button class="iconbtn" data-glc-edit="' + gl.id + ':' + c.id + '" title="Rename">✎</button><button class="iconbtn" data-glc-del="' + gl.id + ':' + c.id + '" title="Remove">✕</button></span>' +
+      '<small>client specific</small></div>' +
+    '<input class="note-in" data-glc-note="' + gl.id + ':' + c.id + '" placeholder="Note…" value="' + esc(c.note || '') + '">' +
+    (c.done && c.date ? '<span class="ship-when">done ' + esc(fmtD(c.date)) + '</span>' : '') +
+    '</div>'
+  ).join('') +
+  '<div style="margin-top:12px"><button class="fbtn" data-act="gl-additem" data-id="' + gl.id + '">＋ Add a check for this client</button></div>' +
+  '</div>' +
   '</div>';
 }
 function glMarkLive(id){
@@ -2688,47 +2807,33 @@ function eagleEmailSet(){ const e = col.settings().eagle; return e && e.email; }
 function renderCatalog(){
   const v = $('#view-catalog');
   const items = colV2.catalog();
-  const reqs = colV2.requests();
-  const sold = soldPerDay();
+  const pdf = DB.get('catalogPdf', null);
   v.innerHTML =
   '<div class="view-head"><div class="vh-title"><h1>Fullstack Catalog<em>.</em></h1>' +
-  '<p class="vh-sub">Every SKU and product name manufactured by Eagle AU — with live sell-through from the sales data — and new product requests pushed to Eagle.</p></div>' +
+  '<p class="vh-sub">The products Eagle AU manufactures for Fullstack — with the catalog PDF and each product’s label template.</p></div>' +
   '<div class="vh-actions"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
-  '<input id="catSearch" type="text" placeholder="Search catalog…" value="' + esc(catQ) + '"></div>' +
-  '<button class="btn ghost" data-act="cat-additem">+ Add item</button>' +
-  '<button class="btn" data-act="cat-request">Request new product →</button></div></div>' +
+  '<input id="catSearch" type="text" placeholder="Search products…" value="' + esc(catQ) + '"></div>' +
+  '<button class="btn" data-act="cat-additem">+ Add new product</button></div></div>' +
 
-  (reqs.length ?
-  '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><span class="panel-title">Product requests → Eagle AU</span>' +
-  '<span class="panel-meta">' + (eagleEmailSet() ? 'sending to ' + esc(col.settings().eagle.email) : 'set the Eagle AU contact in Settings') + '</span></div>' +
-  reqs.map(r =>
-    '<div class="req-row"><div><span class="cell-main">' + esc(r.name) + '</span>' +
-    '<span class="cell-sub">' + esc(r.spec || '') + (r.forClient ? ' · for ' + esc(r.forClient) : '') + (r.qty ? ' · ' + esc(r.qty) : '') + (r.targetCost ? ' · target ' + esc(r.targetCost) : '') + '</span>' +
-    (r.notes ? '<span class="cell-sub" style="color:var(--dim)">' + esc(r.notes) + '</span>' : '') + '</div>' +
-    '<select class="sel mini" data-req-status="' + r.id + '">' + REQ_STATES.map(s => '<option value="' + s[0] + '"' + (r.status === s[0] ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select>' +
-    '<div class="rowbtns">' +
-      (r.status === 'draft' ? '<button class="tbtn" data-req-submit="' + r.id + '">✉ Submit to Eagle AU</button>' : '') +
-      (r.status === 'approved' ? '<button class="tbtn" data-req-tocat="' + r.id + '">＋ Add to catalog</button>' : '') +
-      '<button class="tbtn" data-req-del="' + r.id + '" style="color:var(--bad)">✕</button></div></div>'
-  ).join('') + '</div>' : '') +
+  '<div class="panel" style="margin-bottom:12px"><div class="panel-head"><span class="panel-title">Eagle AU catalog PDF</span>' +
+  '<span class="panel-meta">the master product catalog</span></div>' +
+  '<div class="fileslot">' + (pdf ? fileChip(pdf, 'catpdf') : uploadBtn('catpdf', 'Upload catalog PDF')) + '</div></div>' +
 
-  '<div class="panel"><div class="panel-head"><span class="panel-title">Product catalog</span><span class="panel-meta">' +
-  items.length + ' SKUs · sell-through from last-30d sales</span></div>' +
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Products</span><span class="panel-meta">' + items.length + ' in catalog · new products appear in the Fullstack PO dropdown</span></div>' +
+  (items.length ?
   '<div class="doc-table-wrap"><table class="rows" id="catTable">' +
-  '<tr><th>SKU</th><th>Product</th><th class="num">Unit cost</th><th class="num">Carton / MOQ</th><th class="num">Lead</th><th class="num">Stock</th><th class="num">Sold /day</th><th>Cover</th></tr>' +
-  items.map(it => {
-    const cc = catCalc(it, sold);
-    return '<tr data-search="' + esc((it.sku + ' ' + it.name + ' ' + (it.brand || '') + ' ' + it.kind).toLowerCase()) + '">' +
-    '<td style="font-family:var(--mono);font-size:11.5px;color:var(--faint);white-space:nowrap">' + esc(it.sku) + '</td>' +
-    '<td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(it.brand || 'Fullstack') + ' · ' + esc(lbl(CAT_KINDS, it.kind)) + (it.spec ? ' · ' + esc(it.spec) : '') + '</span></td>' +
-    '<td class="num">' + money2(it.unitCost) + '</td>' +
-    '<td class="num">' + nf(it.pack) + ' / ' + nf(it.moq) + '</td>' +
-    '<td class="num">' + (it.leadDays || 0) + 'd</td>' +
-    '<td class="num"><input class="num-in" type="number" min="0" step="1" value="' + (it.stock || 0) + '" data-cat-stock="' + it.id + '"></td>' +
-    '<td class="num">' + (cc.dailyUse ? cc.dailyUse.toFixed(1) : '—') + '</td>' +
-    '<td>' + coverPill(cc.cover, it.leadDays) + (cc.flagged ? ' <span class="sug-flag pill acc" style="border:0">reorder ' + nf(cc.suggested) + '</span>' : '') + '</td></tr>';
-  }).join('') + '</table></div>' +
-  '<p class="set-note" style="margin-top:12px">Sold /day is each SKU’s real sell-through from the last 30 days of orders — cover days = stock ÷ sold per day. Products are flagged when cover drops under Eagle’s lead time + 14 days; the PO tab turns the flags into a purchase order sized to ~90 days of cover (rounded to cartons, never under MOQ).</p>' +
+  '<tr><th>Product</th><th>SKU</th><th>Type</th><th>Flavour</th><th>Mold / capsule size</th><th>Label template</th><th></th></tr>' +
+  items.map(it =>
+    '<tr data-search="' + esc((it.sku + ' ' + it.name + ' ' + (it.flavor || '') + ' ' + it.type).toLowerCase()) + '">' +
+    '<td><span class="cell-main">' + esc(it.name) + '</span></td>' +
+    '<td style="font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap">' + esc(it.sku) + '</td>' +
+    '<td><span class="chip">' + esc(lbl(CAT_TYPES, it.type)) + '</span></td>' +
+    '<td style="color:var(--dim);font-size:12px">' + esc(it.flavor || '—') + '</td>' +
+    '<td style="color:var(--dim);font-size:12px">' + esc(it.size || '—') + '</td>' +
+    '<td><div class="fileslot">' + (it.labelTpl ? fileChip(it.labelTpl, 'cat:' + it.id + ':labelTpl') : uploadBtn('cat:' + it.id + ':labelTpl', 'Upload')) + '</div></td>' +
+    '<td><button class="iconbtn" data-cat-del="' + it.id + '" title="Remove product">✕</button></td></tr>'
+  ).join('') + '</table></div>'
+  : '<div class="empty" style="border:0"><img src="assets/roo-white.png" alt=""><p>No products yet — add the first one and it will appear in the Fullstack PO dropdown.</p></div>') +
   '</div>';
   filterCat();
 }
@@ -2736,29 +2841,36 @@ function filterCat(){
   const q = catQ.trim().toLowerCase();
   $$('#catTable tr[data-search]').forEach(tr => { tr.style.display = !q || tr.dataset.search.indexOf(q) >= 0 ? '' : 'none'; });
 }
+let pendingLabelFile = null;
+function catSizeLabel(t){ return t === 'gummy' ? 'Gummy mold / size' : t === 'capsule' ? 'Capsule size' : 'Size — optional'; }
 function catDrawerForm(){
+  pendingLabelFile = null;
   $('#catDrawerBody').innerHTML =
-  '<div class="f-row2"><div><label class="f-lab">SKU <span>*</span></label><input class="f-in" id="cf-sku" placeholder="e.g. APN-PWO-TROP-300"></div>' +
-  '<div><label class="f-lab">Kind</label><select class="sel f-in" id="cf-kind">' + CAT_KINDS.map(k => '<option value="' + k[0] + '">' + k[1] + '</option>').join('') + '</select></div></div>' +
-  '<div><label class="f-lab">Product name <span>*</span></label><input class="f-in" id="cf-name" placeholder="e.g. Pre-Workout — Tropical Punch 300 g"></div>' +
-  '<div class="f-row2"><div><label class="f-lab">Brand / client</label><input class="f-in" id="cf-brand" placeholder="e.g. Alpine Peak Nutrition"></div>' +
-  '<div><label class="f-lab">Spec</label><input class="f-in" id="cf-spec" placeholder="Size, flavour, format…"></div></div>' +
-  '<div class="f-row2"><div><label class="f-lab">Unit cost $</label><input class="f-in" id="cf-cost" type="number" min="0" step="0.01" value="0"></div>' +
-  '<div><label class="f-lab">Eagle lead time (days)</label><input class="f-in" id="cf-lead" type="number" min="0" step="1" value="28"></div></div>' +
-  '<div class="f-row2"><div><label class="f-lab">Carton qty</label><input class="f-in" id="cf-pack" type="number" min="1" step="1" value="12"></div>' +
-  '<div><label class="f-lab">MOQ</label><input class="f-in" id="cf-moq" type="number" min="0" step="1" value="500"></div></div>' +
-  '<div><label class="f-lab">Stock on hand</label><input class="f-in" id="cf-stock" type="number" min="0" step="1" value="0"></div>' +
-  '<p class="set-note">Sell-through is automatic — once orders ship with this SKU, sold/day and cover fill themselves from the sales data.</p>';
+  '<div><label class="f-lab">Product name <span>*</span></label><input class="f-in" id="cf-name" placeholder="e.g. Kids Iron Gummies 60 ct"></div>' +
+  '<div class="f-row2"><div><label class="f-lab">SKU <span>*</span></label><input class="f-in" id="cf-sku" placeholder="e.g. KKV-IRON-60"></div>' +
+  '<div><label class="f-lab">Product type</label><select class="sel f-in" id="cf-type">' + CAT_TYPES.map(k => '<option value="' + k[0] + '">' + k[1] + '</option>').join('') + '</select></div></div>' +
+  '<div class="f-row2"><div><label class="f-lab">Flavour</label><input class="f-in" id="cf-flavor" placeholder="e.g. Mixed berry"></div>' +
+  '<div><label class="f-lab" id="cf-size-lab">' + catSizeLabel('gummy') + '</label><input class="f-in" id="cf-size" placeholder="e.g. 3 g bear mold"></div></div>' +
+  '<div><label class="f-lab">Label template</label><div class="fileslot"><button class="fbtn" id="cf-label">⇧ Upload label template…</button><span id="cf-labelname" style="font-family:var(--mono);font-size:11px;color:var(--ok)"></span></div></div>';
+  $('#cf-type').addEventListener('change', () => { $('#cf-size-lab').textContent = catSizeLabel($('#cf-type').value); });
+  $('#cf-label').addEventListener('click', () => askFile(file => {
+    pendingLabelFile = file;
+    $('#cf-labelname').textContent = file.name + ' · ' + fmtSize(file.size);
+  }));
 }
-function saveCatFromDrawer(){
-  const sku = $('#cf-sku').value.trim(), name = $('#cf-name').value.trim();
-  if(!sku || !name){ toast('SKU and product name are required'); return; }
+async function saveCatFromDrawer(){
+  const name = $('#cf-name').value.trim(), sku = $('#cf-sku').value.trim();
+  if(!name || !sku){ toast('Product name and SKU are required'); return; }
+  let labelTpl = null;
+  if(pendingLabelFile){
+    if(pendingLabelFile.size > 15 * 1048576){ toast('Keep the label template under 15 MB'); return; }
+    labelTpl = await fput(pendingLabelFile);
+  }
   const items = colV2.catalog();
-  items.push({ id: uid(), sku, name, brand: $('#cf-brand').value.trim(), kind: $('#cf-kind').value, spec: $('#cf-spec').value.trim(),
-    unitCost: +$('#cf-cost').value || 0, pack: +$('#cf-pack').value || 1, moq: +$('#cf-moq').value || 0,
-    leadDays: +$('#cf-lead').value || 28, stock: +$('#cf-stock').value || 0, status: 'active' });
+  items.push({ id: uid(), sku, name, type: $('#cf-type').value, flavor: $('#cf-flavor').value.trim(), size: $('#cf-size').value.trim(), labelTpl });
   DB.set('catalog', items);
-  closeOverlays(); renderCatalog(); toast('Product added to catalog');
+  closeOverlays(); renderCatalog();
+  toast(name + ' added — now available in Fullstack PO');
 }
 function reqDrawerForm(){
   $('#reqDrawerBody').innerHTML =
@@ -2831,38 +2943,20 @@ function createDraftPO(lines, note){
 function renderPO(param){
   const v = $('#view-po');
   if(param){ renderPoDetail(v, param); return; }
-  const sold = soldPerDay();
-  const items = colV2.catalog();
-  const sugg = items.map(it => ({ it, cc: catCalc(it, sold) })).filter(x => x.cc.flagged);
   const pos = colV2.pos();
   v.innerHTML =
   '<div class="view-head"><div class="vh-title"><h1>Fullstack PO<em>.</em></h1>' +
-  '<p class="vh-sub">What to reorder from Eagle AU — our manufacturing partner — driven by the sales data coming in. Admin-only, and every PO needs a second signature before it can be sent.</p></div>' +
+  '<p class="vh-sub">Orders to Eagle AU, built straight from the Fullstack Catalog — admin-only, and every PO needs a second signature before it can be sent.</p></div>' +
   '<div class="vh-actions">' + lockChip() + '<button class="btn" data-act="po-new">+ New purchase order</button></div></div>' +
-
-  '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><span class="panel-title">Reorder suggestions</span>' +
-  '<span class="panel-meta">sell-through from last-30d sales · flags at &lt; lead + 14d cover</span></div>' +
-  (sugg.length ?
-  '<div class="doc-table-wrap"><table class="rows">' +
-  '<tr><th></th><th>Product</th><th class="num">Stock</th><th class="num">Sold /day</th><th>Cover</th><th class="num">Lead</th><th class="num">Suggested qty</th></tr>' +
-  sugg.map(x =>
-    '<tr><td><label class="chk" style="padding:6px 8px;border:0;background:none"><input type="checkbox" checked data-sug="' + x.it.id + '" data-qty="' + x.cc.suggested + '"></label></td>' +
-    '<td><span class="cell-main">' + esc(x.it.name) + '</span><span class="cell-sub">' + esc(x.it.sku) + ' · ' + esc(x.it.brand || 'Fullstack') + ' · ' + money2(x.it.unitCost) + '/unit</span></td>' +
-    '<td class="num">' + nf(x.it.stock) + '</td><td class="num">' + x.cc.dailyUse.toFixed(1) + '</td>' +
-    '<td>' + coverPill(x.cc.cover, x.it.leadDays) + '</td><td class="num">' + x.it.leadDays + 'd</td>' +
-    '<td class="num" style="color:var(--accent);font-weight:700">' + nf(x.cc.suggested) + '</td></tr>'
-  ).join('') + '</table></div>' +
-  '<div style="margin-top:14px"><button class="btn small" data-act="po-from-sug">Create PO from ticked items →</button></div>'
-  : '<p style="color:var(--faint);font-size:13px;padding:6px 0">Nothing needs reordering right now — every product has healthy cover for Eagle’s lead time.</p>') +
-  '</div>' +
 
   '<div class="panel"><div class="panel-head"><span class="panel-title">Purchase orders</span><span class="panel-meta">' + pos.length + ' total</span></div>' +
   (pos.length ?
   '<div class="doc-table-wrap"><table class="rows">' +
-  '<tr><th>PO</th><th class="num">Lines</th><th class="num">Total ex GST</th><th>Status</th><th>Signatures</th><th></th></tr>' +
+  '<tr><th>PO</th><th class="num">Products</th><th>Required by</th><th>Status</th><th>Signatures</th><th></th></tr>' +
   pos.map(po =>
     '<tr><td><span class="cell-main">' + esc(po.number) + '</span><span class="cell-sub">' + esc(fmtDY(po.created)) + (po.notes ? ' · ' + esc(po.notes) : '') + '</span></td>' +
-    '<td class="num">' + po.lines.length + '</td><td class="num">' + money2(poTotal(po)) + '</td>' +
+    '<td class="num">' + po.lines.length + '</td>' +
+    '<td style="font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap">' + (po.requiredBy ? esc(fmtDY(po.requiredBy)) : '—') + '</td>' +
     '<td>' + poPill(po.status) + '</td>' +
     '<td style="font-family:var(--mono);font-size:10.5px;color:var(--faint)">' + (po.sig1 ? '① ' + esc(po.sig1.name) : '—') + (po.sig2 ? ' · ② ' + esc(po.sig2.name) : '') + '</td>' +
     '<td><div class="rowbtns"><button class="tbtn" data-open-po="' + po.id + '">Open →</button></div></td></tr>'
@@ -2874,33 +2968,32 @@ function renderPoDetail(v, id){
   const po = poById(id);
   if(!po){ location.hash = '#/po'; return; }
   const draft = po.status === 'draft';
-  const sub = poTotal(po), gst = sub * 0.1;
-  const eg = col.settings().eagle || {};
+  const canDate = po.status !== 'sent' && isAdmin();
   v.innerHTML =
   '<button class="ob-back" data-act="po-back">← All purchase orders</button>' +
   '<div class="ob-det-head"><div><h1 style="font-size:24px;font-weight:800">' + esc(po.number) + '<em style="font-style:normal;color:var(--accent)">.</em></h1>' +
-  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="chip">Supplier · Eagle AU' + (eg.contact ? ' — ' + esc(eg.contact) : '') + '</span>' +
-  '<span class="chip">Created ' + esc(fmtDY(po.created)) + '</span>' + poPill(po.status) + '</div></div>' +
+  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center"><span class="chip">Supplier · Eagle AU</span>' +
+  '<span class="chip">Created ' + esc(fmtDY(po.created)) + '</span>' +
+  '<label class="chip" style="gap:7px">Required by <input type="date" value="' + esc(po.requiredBy || '') + '" data-po-req="' + po.id + '"' + (canDate ? '' : ' disabled') + ' style="background:none;border:0;color:var(--text);font-family:var(--mono);font-size:10.5px;outline:none;color-scheme:dark"></label>' +
+  poPill(po.status) + '</div></div>' +
   '<div>' + lockChip() + '</div></div>' +
 
   '<div class="ob-sections">' +
-  '<div class="panel"><div class="panel-head"><span class="panel-title">Lines</span>' +
-  (draft && isAdmin() ? '<div class="p-tools"><select class="sel mini" id="poAddLine"><option value="">+ Add catalog item…</option>' +
-    colV2.catalog().filter(c => !po.lines.some(l => l.catId === c.id)).map(c => '<option value="' + c.id + '">' + esc(c.sku + ' — ' + c.name) + '</option>').join('') + '</select></div>' : '') +
+  '<div class="panel"><div class="panel-head"><span class="panel-title">Products</span>' +
+  (draft && isAdmin() ? '<div class="p-tools"><select class="sel mini" id="poAddLine"><option value="">+ Add product from catalog…</option>' +
+    colV2.catalog().filter(c => !po.lines.some(l => l.catId === c.id)).map(c => '<option value="' + c.id + '">' + esc(c.sku + ' — ' + c.name) + '</option>').join('') + '</select></div>' : '<span class="panel-meta">from the Fullstack Catalog</span>') +
   '</div>' +
+  (po.lines.length ?
   '<div class="doc-table-wrap"><table class="rows">' +
-  '<tr><th>Item</th><th class="num">Qty</th><th class="num">Unit ex GST</th><th class="num">Line total</th>' + (draft && isAdmin() ? '<th></th>' : '') + '</tr>' +
+  '<tr><th>Product name</th><th>SKU</th><th class="num">Amount required</th>' + (draft && isAdmin() ? '<th></th>' : '') + '</tr>' +
   po.lines.map((l, i) => {
-    const it = catById(l.catId) || { name: '(removed item)', sku: '—', pack: 1 };
-    return '<tr><td><span class="cell-main">' + esc(it.name) + '</span><span class="cell-sub">' + esc(it.sku) + ' · carton of ' + nf(it.pack) + '</span></td>' +
-    '<td class="num">' + (draft && isAdmin() ? '<input class="num-in" type="number" min="0" step="' + (it.pack || 1) + '" value="' + l.qty + '" data-po-qty="' + po.id + ':' + i + '">' : nf(l.qty)) + '</td>' +
-    '<td class="num">' + (draft && isAdmin() ? '<input class="num-in small" type="number" min="0" step="0.01" value="' + l.unitCost + '" data-po-cost="' + po.id + ':' + i + '">' : money2(l.unitCost)) + '</td>' +
-    '<td class="num po-line-total">' + money2(l.qty * l.unitCost) + '</td>' +
+    const it = catById(l.catId) || { name: '(removed product)', sku: '—', type: '', flavor: '' };
+    return '<tr><td><span class="cell-main">' + esc(it.name) + '</span>' + (it.flavor ? '<span class="cell-sub">' + esc(lbl(CAT_TYPES, it.type)) + ' · ' + esc(it.flavor) + '</span>' : '') + '</td>' +
+    '<td style="font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap">' + esc(it.sku) + '</td>' +
+    '<td class="num">' + (draft && isAdmin() ? '<input class="num-in" type="number" min="1" step="1" value="' + l.qty + '" data-po-qty="' + po.id + ':' + i + '">' : nf(l.qty)) + '</td>' +
     (draft && isAdmin() ? '<td><button class="iconbtn" data-po-rmline="' + po.id + ':' + i + '">✕</button></td>' : '') + '</tr>';
-  }).join('') + '</table></div>' +
-  '<div class="po-totals"><span><span class="t-lab">Subtotal ex GST</span><div class="t-val" style="font-size:15px">' + money2(sub) + '</div></span>' +
-  '<span><span class="t-lab">GST 10%</span><div class="t-val" style="font-size:15px">' + money2(gst) + '</div></span>' +
-  '<span><span class="t-lab">Total inc GST</span><div class="t-val">' + money2(sub + gst) + '</div></span></div>' +
+  }).join('') + '</table></div>'
+  : '<p style="color:var(--faint);font-size:13px;padding:6px 0">No products yet — add them from the catalog dropdown above.</p>') +
   '</div>' +
 
   '<div class="panel"><div class="panel-head"><span class="panel-title">Notes</span></div>' +
@@ -2925,25 +3018,21 @@ function renderPoDetail(v, id){
 }
 function poDocText(po){
   const eg = col.settings().eagle || {};
-  const sub = poTotal(po), gst = sub * 0.1;
   const L = [];
   L.push('FULLSTACK FULFILLMENT — PURCHASE ORDER');
   L.push('======================================');
-  L.push('PO number : ' + po.number);
-  L.push('Date      : ' + fmtDY(po.sig2 ? po.sig2.ts : po.created));
-  L.push('Supplier  : Eagle AU' + (eg.contact ? ' — ' + eg.contact : '') + (eg.email ? ' <' + eg.email + '>' : ''));
-  L.push('Deliver to: Fullstack Fulfillment — [warehouse address]');
-  L.push('Contact   : 07 2111 6366 · info@fullstackfs.com.au');
+  L.push('PO number  : ' + po.number);
+  L.push('Date       : ' + fmtDY(po.sig2 ? po.sig2.ts : po.created));
+  L.push('Supplier   : Eagle AU' + (eg.contact ? ' — ' + eg.contact : '') + (eg.email ? ' <' + eg.email + '>' : ''));
+  L.push('Required by: ' + (po.requiredBy ? fmtDY(po.requiredBy) : '—'));
+  L.push('Deliver to : Fullstack Fulfillment — [warehouse address]');
+  L.push('Contact    : 07 2111 6366 · info@fullstackfs.com.au');
   L.push('');
-  L.push('LINES');
+  L.push('PRODUCTS');
   po.lines.forEach(l => {
-    const it = catById(l.catId) || { sku: '—', name: '(removed item)' };
-    L.push('  ' + it.sku.padEnd(12) + ' ' + it.name.padEnd(38).slice(0, 38) + ' x ' + String(l.qty).padStart(6) + ' @ ' + money2(l.unitCost).padStart(8) + ' = ' + money2(l.qty * l.unitCost).padStart(10));
+    const it = catById(l.catId) || { sku: '—', name: '(removed product)' };
+    L.push('  ' + String(it.sku).padEnd(18) + ' ' + String(it.name).padEnd(46).slice(0, 46) + '  x ' + String(l.qty).padStart(7));
   });
-  L.push('');
-  L.push('Subtotal ex GST : ' + money2(sub));
-  L.push('GST 10%         : ' + money2(gst));
-  L.push('TOTAL inc GST   : ' + money2(sub + gst));
   if(po.notes) L.push('\nNotes: ' + po.notes);
   L.push('');
   L.push('Authorised   : ' + (po.sig1 ? po.sig1.name + ' — ' + fmtDY(po.sig1.ts) : '—'));
@@ -2973,10 +3062,9 @@ function updateCounts(){
   $('#countOb').textContent = obs || '';
   $('#countDocs').textContent = col.docs().length || '';
   const gl = colV2.goLive().filter(g => g.status !== 'live').length;
-  const reqs = colV2.requests().filter(r => ['draft','submitted','quoted'].indexOf(r.status) >= 0).length;
   const pend = colV2.pos().filter(p => p.status === 'pending' || p.status === 'approved').length;
   if($('#countGl')) $('#countGl').textContent = gl || '';
-  if($('#countCat')) $('#countCat').textContent = reqs || '';
+  if($('#countCat')) $('#countCat').textContent = '';
   if($('#countPo')) $('#countPo').textContent = pend || '';
 }
 /* demo reset — v2-aware override */
@@ -3015,7 +3103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#view-golive').addEventListener('click', e => {
     const open = e.target.closest('[data-open-gl]');
     if(open && !e.target.closest('a,button,select,input,textarea')){ location.hash = '#/golive/' + open.dataset.openGl; return; }
-    const t = e.target.closest('[data-act],[data-gl]');
+    const t = e.target.closest('[data-act],[data-gl],[data-glc],[data-gl-edit],[data-gl-del],[data-glc-edit],[data-glc-del]');
     if(!t) return;
     if(t.dataset.act === 'gl-back'){ location.hash = '#/golive'; }
     else if(t.dataset.act === 'gl-add'){
@@ -3030,6 +3118,52 @@ document.addEventListener('DOMContentLoaded', () => {
       location.hash = '#/golive/' + gl.id;
     }
     else if(t.dataset.act === 'gl-live') glMarkLive(t.dataset.id);
+    else if(t.dataset.act === 'gl-additem'){
+      const gl = glById(t.dataset.id);
+      if(!gl) return;
+      const name = prompt('New check for ' + gl.clientName + ':');
+      if(!name || !name.trim()) return;
+      gl.custom = gl.custom || [];
+      gl.custom.push({ id: uid(), name: name.trim(), done: 0, note: '' });
+      saveGl(); route();
+    }
+    else if(t.dataset.glEdit){
+      const p = t.dataset.glEdit.split(':'); const gl = glById(p[0]);
+      const item = GL_DEFAULT.find(x => x.key === p[1]);
+      if(!gl || !item) return;
+      const name = prompt('Edit check:', (gl.renamed || {})[p[1]] || item.name);
+      if(name === null || !name.trim()) return;
+      gl.renamed = gl.renamed || {}; gl.renamed[p[1]] = name.trim();
+      saveGl(); route();
+    }
+    else if(t.dataset.glDel){
+      const p = t.dataset.glDel.split(':'); const gl = glById(p[0]);
+      if(gl && confirm('Remove this check for this client?')){
+        gl.removed = gl.removed || [];
+        if(gl.removed.indexOf(p[1]) < 0) gl.removed.push(p[1]);
+        saveGl(); route();
+      }
+    }
+    else if(t.dataset.glcEdit){
+      const p = t.dataset.glcEdit.split(':'); const gl = glById(p[0]);
+      const c = gl && (gl.custom || []).find(x => x.id === p[1]);
+      if(!c) return;
+      const name = prompt('Edit check:', c.name);
+      if(name === null || !name.trim()) return;
+      c.name = name.trim(); saveGl(); route();
+    }
+    else if(t.dataset.glcDel){
+      const p = t.dataset.glcDel.split(':'); const gl = glById(p[0]);
+      if(gl && confirm('Remove this check?')){
+        gl.custom = (gl.custom || []).filter(x => x.id !== p[1]);
+        saveGl(); route();
+      }
+    }
+    else if(t.dataset.glc){
+      const p = t.dataset.glc.split(':'); const gl = glById(p[0]);
+      const c = gl && gl.status !== 'live' && (gl.custom || []).find(x => x.id === p[1]);
+      if(c){ c.done = c.done ? 0 : 1; if(c.done) c.date = new Date().toISOString(); saveGl(); route(); }
+    }
     else if(t.dataset.gl){
       const p = t.dataset.gl.split(':');
       const gl = glById(p[0]);
@@ -3047,32 +3181,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('#view-golive').addEventListener('input', debounce(e => {
     const n = e.target.closest('[data-gl-note]');
-    if(n){ const p = n.dataset.glNote.split(':'); const gl = glById(p[0]); if(gl){ gl.items[p[1]] = gl.items[p[1]] || {}; gl.items[p[1]].note = n.value; saveGl(); } }
+    if(n){ const p = n.dataset.glNote.split(':'); const gl = glById(p[0]); if(gl){ gl.items[p[1]] = gl.items[p[1]] || {}; gl.items[p[1]].note = n.value; saveGl(); } return; }
+    const cn = e.target.closest('[data-glc-note]');
+    if(cn){ const p = cn.dataset.glcNote.split(':'); const gl = glById(p[0]); const c = gl && (gl.custom || []).find(x => x.id === p[1]); if(c){ c.note = cn.value; saveGl(); } }
   }, 250));
 
   /* catalog */
   $('#view-catalog').addEventListener('click', e => {
-    const t = e.target.closest('[data-act],[data-req-submit],[data-req-del],[data-req-tocat]');
+    const t = e.target.closest('[data-act],[data-cat-del],[data-up],[data-dl],[data-rm]');
     if(!t) return;
     if(t.dataset.act === 'cat-additem'){ catDrawerForm(); openOverlay('#catDrawer'); }
-    else if(t.dataset.act === 'cat-request'){ reqDrawerForm(); openOverlay('#reqDrawer'); }
-    else if(t.dataset.reqSubmit) submitRequest(t.dataset.reqSubmit);
-    else if(t.dataset.reqTocat){
-      const r = colV2.requests().find(x => x.id === t.dataset.reqTocat);
-      if(r){ catDrawerForm(); openOverlay('#catDrawer');
-        $('#cf-name').value = r.name; $('#cf-kind').value = r.kind || 'other'; $('#cf-spec').value = r.spec || '';
-        $('#cf-brand').value = r.forClient || '';
-        $('#cf-sku').focus(); }
+    else if(t.dataset.catDel){
+      const it = catById(t.dataset.catDel);
+      if(it && confirm('Remove “' + it.name + '” from the catalog?')){
+        if(it.labelTpl && it.labelTpl.fid) fdel(it.labelTpl.fid);
+        DB.set('catalog', colV2.catalog().filter(x => x.id !== it.id));
+        renderCatalog();
+      }
     }
-    else if(t.dataset.reqDel){
-      if(confirm('Delete this product request?')){ DB.set('requests', colV2.requests().filter(x => x.id !== t.dataset.reqDel)); updateCounts(); renderCatalog(); }
-    }
-  });
-  $('#view-catalog').addEventListener('change', e => {
-    const st = e.target.closest('[data-cat-stock]');
-    if(st){ const it = catById(st.dataset.catStock); if(it){ it.stock = Math.max(0, +st.value || 0); saveCat(); renderCatalog(); } return; }
-    const rs = e.target.closest('[data-req-status]');
-    if(rs){ const r = colV2.requests().find(x => x.id === rs.dataset.reqStatus); if(r){ r.status = rs.value; saveReq(); updateCounts(); renderCatalog(); } }
+    else if(t.dataset.up) askFile(file => handleUpload(t.dataset.up, file));
+    else if(t.dataset.dl) handleDownload(t.dataset.dl);
+    else if(t.dataset.rm){ if(confirm('Remove this file?')) handleRemove(t.dataset.rm); }
   });
   $('#view-catalog').addEventListener('input', e => {
     if(e.target.id === 'catSearch'){ catQ = e.target.value; filterCat(); }
@@ -3086,19 +3215,12 @@ document.addEventListener('DOMContentLoaded', () => {
     else if(t.dataset.act === 'po-unlock') requireAdmin(() => {});
     else if(t.dataset.act === 'po-lock'){ adminUser = null; route(); toast('Admin locked'); }
     else if(t.dataset.act === 'po-new') requireAdmin(() => createDraftPO([], ''));
-    else if(t.dataset.act === 'po-from-sug') requireAdmin(() => {
-      const lines = $$('#view-po [data-sug]:checked').map(cb => {
-        const it = catById(cb.dataset.sug);
-        return it ? { catId: it.id, qty: +cb.dataset.qty || it.moq, unitCost: it.unitCost } : null;
-      }).filter(Boolean);
-      if(!lines.length){ toast('Tick at least one item'); return; }
-      createDraftPO(lines, 'Reorder — generated from sales-data suggestions');
-    });
     else if(t.dataset.openPo){ location.hash = '#/po/' + t.dataset.openPo; }
     else if(t.dataset.poSign1) requireAdmin(() => {
       const po = poById(t.dataset.poSign1);
       if(!po) return;
-      if(!po.lines.length || !poTotal(po)){ toast('Add at least one line first'); return; }
+      if(!po.lines.length || po.lines.some(l => !l.qty)){ toast('Add at least one product with an amount'); return; }
+      if(!po.requiredBy){ toast('Set the required-by date first'); return; }
       po.sig1 = { name: adminUser.name, ts: new Date().toISOString() };
       po.status = 'pending'; savePos(); updateCounts(); route();
       toast('Signed — waiting on a second signature');
@@ -3127,13 +3249,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const parts = location.hash.split('/');
       const po = poById(parts[2]);
       const it = catById(add.value);
-      if(po && it && po.status === 'draft'){ po.lines.push({ catId: it.id, qty: it.moq || it.pack || 1, unitCost: it.unitCost }); savePos(); route(); }
+      if(po && it && po.status === 'draft'){ po.lines.push({ catId: it.id, qty: 1 }); savePos(); route(); }
       return;
     }
     const q = e.target.closest('[data-po-qty]');
     if(q){ const p = q.dataset.poQty.split(':'); const po = poById(p[0]); if(po){ po.lines[+p[1]].qty = Math.max(0, +q.value || 0); savePos(); route(); } return; }
-    const c = e.target.closest('[data-po-cost]');
-    if(c){ const p = c.dataset.poCost.split(':'); const po = poById(p[0]); if(po){ po.lines[+p[1]].unitCost = Math.max(0, +c.value || 0); savePos(); route(); } }
+    const rq = e.target.closest('[data-po-req]');
+    if(rq){ const po = poById(rq.dataset.poReq); if(po && po.status !== 'sent'){ po.requiredBy = rq.value; savePos(); } }
   });
   $('#view-po').addEventListener('input', debounce(e => {
     const n = e.target.closest('[data-po-notes]');
@@ -3162,9 +3284,9 @@ document.addEventListener('DOMContentLoaded', () => {
 /* settings modal — fill Eagle fields too */
 function openSettings(){
   const s = col.settings();
-  $('#ssApiKey').value = s.ss.apiKey || '';
   $('#ssSubKey').value = s.ss.subKey || '';
   $('#ssProxy').value = s.ss.proxy || '';
+  fillSsAccounts();
   const eg = s.eagle || {};
   $('#egContact').value = eg.contact || '';
   $('#egEmail').value = eg.email || '';
@@ -3268,41 +3390,40 @@ function renderTeam(){
   const v = $('#view-team');
   const users = colUsers();
   const cur = currentUser();
-  const canEdit = cur && cur.role === 'admin';
+  const canEdit = !cur || tabAllowed('team');
   const admins = users.filter(u => u.role === 'admin').length;
   v.innerHTML =
   '<div class="view-head"><div class="vh-title"><h1>Team<em>.</em></h1>' +
-  '<p class="vh-sub">Who uses the FS Database — and exactly which tabs each person sees. Switch users from the sidebar; hidden tabs disappear from their menu.</p></div>' +
-  (canEdit ?
-  '<div class="vh-actions"><input class="f-in" id="tmName" placeholder="Name…" style="width:150px">' +
-  '<input class="f-in" id="tmEmail" type="email" placeholder="Email…" style="width:190px">' +
-  '<select class="sel f-in" id="tmRole" style="width:110px"><option value="member">Member</option><option value="admin">Admin</option></select>' +
-  '<button class="btn" data-act="team-add">+ Add user</button></div>' : '') +
-  '</div>' +
-  (canEdit ? '' : '<div class="gl-banner blocked" style="margin-bottom:14px"><b>Viewing as ' + esc(cur ? cur.name : '—') + ' (member)</b><span class="panel-meta">only admins can change team settings — switch users in the sidebar</span></div>') +
+  '<p class="vh-sub">Add a user, then flick the toggles for what they can see — All or None in one tap.</p></div>' +
+  '<div class="vh-actions"><input class="f-in" id="tmName" placeholder="Full name…" style="width:150px">' +
+  '<input class="f-in" id="tmMobile" type="tel" placeholder="Mobile…" style="width:128px">' +
+  '<input class="f-in" id="tmEmail" type="email" placeholder="Email…" style="width:185px">' +
+  '<button class="btn" data-act="team-add">+ Add user</button></div></div>' +
   '<div class="car-grid">' + users.map(u => {
     const isCur = cur && u.id === cur.id;
     const lastAdmin = u.role === 'admin' && admins <= 1;
     return '<div class="car-card team-card">' +
     '<div class="car-top"><span class="u-avatar big">' + esc(initials(u.name)) + '</span>' +
-    '<div style="min-width:0"><h3 style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' + esc(u.name) + (isCur ? '<span class="team-you">You · this device</span>' : '') + (u.pw ? '<span class="chip" style="font-size:8px;padding:2px 8px">🔒 password</span>' : '') + '</h3>' +
-    '<div class="car-sub" style="text-transform:none;letter-spacing:0">' + esc(u.email || 'no email') + '</div></div>' +
-    (u.role === 'admin' ? '<span class="pill acc role-pill">Admin</span>' : '<span class="pill dim role-pill">Member</span>') + '</div>' +
-    '<div><div class="cf-k" style="margin-bottom:7px">Tabs this user can see</div><div class="tab-toggles">' +
+    '<div style="min-width:0"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(u.name) +
+      (isCur ? '<span class="team-you">You · this device</span>' : '') +
+      (u.pw ? '<span class="chip" style="font-size:8px;padding:2px 8px">🔒</span>' : '') + '</h3>' +
+    '<div class="car-sub" style="text-transform:none;letter-spacing:0">' + esc(u.email || 'no email') + (u.mobile ? ' · ' + esc(u.mobile) : '') + '</div></div></div>' +
+    '<div><div class="cf-k" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">Tabs this user can see' +
+      (canEdit ? '<span style="margin-left:auto;display:inline-flex;gap:5px"><button class="tbtn" data-uall="' + u.id + '">All</button><button class="tbtn" data-unone="' + u.id + '">None</button></span>' : '') + '</div>' +
+    '<div class="tab-toggles">' +
     TABS.map(t => {
       const locked = t[0] === 'dashboard' || (t[0] === 'team' && u.role === 'admin');
       const on = locked ? true : !!(u.tabs && u.tabs[t[0]]);
-      return '<label class="chk"><input type="checkbox" data-utab="' + u.id + ':' + t[0] + '"' + (on ? ' checked' : '') + ((locked || !canEdit) ? ' disabled' : '') + '><span>' + esc(t[1]) + (t[0] === 'dashboard' ? ' — always on' : (t[0] === 'team' && u.role === 'admin') ? ' — admins always' : '') + '</span></label>';
+      return '<label class="chk"><input type="checkbox" data-utab="' + u.id + ':' + t[0] + '"' + (on ? ' checked' : '') + ((locked || !canEdit) ? ' disabled' : '') + '><span>' + esc(t[1]) + '</span></label>';
     }).join('') + '</div></div>' +
-    '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
     (isCur ? '' : '<button class="btn ghost small" data-uswitch="' + u.id + '">Switch to this user</button>') +
-    (canEdit ? '<select class="sel" data-urole="' + u.id + '"' + (lastAdmin ? ' disabled title="The last admin cannot be demoted"' : '') + '><option value="member"' + (u.role === 'member' ? ' selected' : '') + '>Member</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option></select>' : '') +
     (canEdit ? '<button class="btn ghost small" data-usetpw="' + u.id + '">' + (u.pw ? 'Reset password' : 'Set password') + '</button>' : '') +
     '<span class="spacer" style="flex:1"></span>' +
     (canEdit && !isCur && !lastAdmin ? '<button class="iconbtn" data-udel="' + u.id + '">Delete</button>' : '') +
     '</div></div>';
   }).join('') + '</div>' +
-  '<p class="set-note" style="margin-top:16px">This is a device-level switcher, not a login — each person picks themselves in the sidebar and the menu shows only their tabs. It keeps day-to-day screens tidy and fingers out of admin areas, but anyone at the machine can switch users. Real per-person logins arrive with the backend phase (and the PO admin PIN stays as the hard gate meanwhile).</p>';
+  '<p class="set-note" style="margin-top:14px">Each person picks themselves in the sidebar and their menu shows only their toggled-on tabs — Dashboard is always on. Passwords are optional; set one to protect an account.</p>';
 }
 
 /* ————— backup covers every collection (v3 override) ————— */
@@ -3357,16 +3478,26 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#userSel').addEventListener('change', e => { switchUser(e.target.value); });
 
   $('#view-team').addEventListener('click', e => {
-    const t = e.target.closest('[data-act],[data-uswitch],[data-udel],[data-usetpw]');
+    const t = e.target.closest('[data-act],[data-uswitch],[data-udel],[data-usetpw],[data-uall],[data-unone]');
     if(!t) return;
     if(t.dataset.act === 'team-add'){
       const name = $('#tmName').value.trim();
       if(!name){ toast('Type a name first'); return; }
       const users = colUsers();
-      const tabs = { dashboard:true, leads:true, onboarding:true, golive:true, documents:true, carriers:true, catalog:false, po:false, team:false };
-      users.push({ id: 'u-' + uid(), name, email: $('#tmEmail').value.trim(), role: $('#tmRole').value, tabs, added: new Date().toISOString() });
+      const tabs = {}; TABS.forEach(x => tabs[x[0]] = x[0] === 'dashboard');
+      users.push({ id: 'u-' + uid(), name, mobile: $('#tmMobile').value.trim(), email: $('#tmEmail').value.trim(), role: 'member', tabs, added: new Date().toISOString() });
       saveUsers(); fillUserSwitcher(); renderTeam();
-      toast(name + ' added to the team');
+      toast(name + ' added — now flick their tabs on');
+    }
+    else if(t.dataset.uall || t.dataset.unone){
+      if(!tabAllowed('team')) return;
+      const id = t.dataset.uall || t.dataset.unone;
+      const on = !!t.dataset.uall;
+      const u = colUsers().find(x => x.id === id);
+      if(!u) return;
+      u.tabs = u.tabs || {};
+      TABS.forEach(x => { u.tabs[x[0]] = x[0] === 'dashboard' ? true : (x[0] === 'team' && u.role === 'admin') ? true : on; });
+      saveUsers(); applyTabAccess(); renderTeam();
     }
     else if(t.dataset.uswitch){ switchUser(t.dataset.uswitch); }
     else if(t.dataset.usetpw){
@@ -3387,8 +3518,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   $('#view-team').addEventListener('change', e => {
-    const cur = currentUser();
-    if(!cur || cur.role !== 'admin') return;
+    if(!tabAllowed('team')) return;
     const tg = e.target.closest('[data-utab]');
     if(tg){
       const p = tg.dataset.utab.split(':');
@@ -3513,6 +3643,23 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#lockUser').addEventListener('change', lockSync);
   $('#lockGo').addEventListener('click', lockSubmit);
   $('#lockPw').addEventListener('keydown', e => { if(e.key === 'Enter') lockSubmit(); });
+  $('#ssAddAcct').addEventListener('click', () => {
+    readAccountRows();
+    const s = col.settings();
+    s.ss.accounts.push({ id: uid(), label: '', apiKey: '' });
+    DB.set('settings', s);
+    fillSsAccounts();
+  });
+  $('#ssAccounts').addEventListener('click', e => {
+    const d = e.target.closest('[data-acct-del]');
+    if(d){
+      readAccountRows();
+      const s = col.settings();
+      s.ss.accounts = s.ss.accounts.filter(a => a.id !== d.dataset.acctDel);
+      DB.set('settings', s);
+      fillSsAccounts();
+    }
+  });
 });
 </script>
 </body>
