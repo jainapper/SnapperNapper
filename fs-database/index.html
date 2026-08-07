@@ -1232,12 +1232,35 @@ function ssItems(o){
     qty: Number(i.quantity != null ? i.quantity : (i.qty != null ? i.qty : 1)) || 1
   })).filter(i => i.sku || i.name || i.qty);
 }
-function ssDelivered(o){
-  const d = o.delivery_date || o.delivered_date || o.date_delivered || o.actual_delivery_date ||
-            (o.tracking_status && o.tracking_status.delivered_date) || null;
-  if(!d) return null;
-  const t = new Date(d);
+function ssDate(v){
+  if(!v) return null;
+  const t = new Date(v);
   return isNaN(t.getTime()) ? null : t.toISOString();
+}
+/* Delivery timestamps live in several places depending on carrier and endpoint:
+   on the order, on a tracking summary, or only inside the tracking event list. */
+function ssDelivered(o){
+  if(!o) return null;
+  const direct = o.delivery_date || o.delivered_date || o.date_delivered || o.actual_delivery_date ||
+                 o.deliveredAt || o.delivered_at ||
+                 (o.tracking_status && (o.tracking_status.delivered_date || o.tracking_status.delivery_date));
+  const d = ssDate(direct);
+  if(d) return d;
+  const evs = o.events || o.tracking_events || o.trackingEvents || o.history ||
+              (o.tracking_status && o.tracking_status.events) ||
+              (o.tracking && o.tracking.events) || [];
+  if(Array.isArray(evs)){
+    /* last event that reads as delivered wins */
+    let best = null;
+    evs.forEach(e => {
+      const txt = String((e && (e.status || e.description || e.event || e.message || e.detail)) || '').toLowerCase();
+      if(txt.indexOf('deliver') < 0 || txt.indexOf('out for deliver') >= 0 || txt.indexOf('attempted') >= 0) return;
+      const when = ssDate(e.event_datetime || e.date || e.timestamp || e.occurred_at || e.datetime || e.event_date || e.time);
+      if(when && (!best || when > best)) best = when;
+    });
+    if(best) return best;
+  }
+  return null;
 }
 function ssIsDelivered(o){
   const st = String(o.status || o.tracking_status_text || o.shipment_status ||
@@ -1313,8 +1336,42 @@ const SS_DETAIL_PATHS = [
   id => '/api/orders/shipped?order_id=' + encodeURIComponent(id)
 ];
 let ssDetailPath = null;
+const SS_TRACK_PATHS = [
+  t => '/api/track?tracking_number=' + encodeURIComponent(t),
+  t => '/api/track/' + encodeURIComponent(t),
+  t => '/api/tracking?tracking_number=' + encodeURIComponent(t)
+];
+let ssTrackPath = null;
+function ssUnwrapTrack(r){
+  if(!r) return null;
+  const t = r.results || r.result || r.tracking || r.track || r.shipment || r.data || r;
+  return Array.isArray(t) ? (t[0] || null) : t;
+}
+async function ssTrack(tracking, apiKey){
+  if(ssTrackPath) return ssUnwrapTrack(await ssFetch(ssTrackPath(tracking), apiKey));
+  let lastErr;
+  for(const p of SS_TRACK_PATHS){
+    try{
+      const r = await ssFetch(p(tracking), apiKey);
+      const t = ssUnwrapTrack(r);
+      if(t && typeof t === 'object'){ ssTrackPath = p; return t; }
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('no tracking endpoint');
+}
 function ssSleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 /* Starshipit rate-limits bursts; back off and retry rather than losing the order. */
+async function ssRetry(fn, onLimited){
+  for(let attempt = 0; attempt < 4; attempt++){
+    try{ return await fn(); }
+    catch(e){
+      const limited = /HTTP (429|503)/.test(e.message);
+      if(limited && onLimited) onLimited();
+      if(attempt === 3 || !limited) throw e;
+      await ssSleep(700 * (attempt + 1) * (attempt + 1));
+    }
+  }
+}
 async function ssDetailRetry(orderId, apiKey, onLimited){
   for(let attempt = 0; attempt < 4; attempt++){
     try{ return await ssDetail(orderId, apiKey); }
@@ -1429,6 +1486,27 @@ async function ssConnect(){
     if(limitedHits) await ssSleep(250);   /* ease off once the API pushes back */
   }
 
+  /* Delivery dates often only exist on the tracking record, not the order, so
+     anything still shipped-but-undelivered gets a tracking lookup. */
+  const needTrack = all
+    .filter(o => o.tracking && !o.deliveredTs && o.status === 'transit' &&
+                 new Date(o.date).getTime() >= cutoff)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 800);
+  let trackHits = 0, trackFailed = 0;
+  for(let i = 0; i < needTrack.length; i += CONC){
+    btn.textContent = 'Checking deliveries ' + Math.min(i + CONC, needTrack.length) + '/' + needTrack.length + '…';
+    await Promise.all(needTrack.slice(i, i + CONC).map(async o => {
+      try{
+        const tr = await ssRetry(() => ssTrack(o.tracking, keyById[o.acctId]), () => { limitedHits++; });
+        const dts = ssDelivered(tr);
+        if(dts){ o.deliveredTs = dts; o.status = 'delivered'; trackHits++; }
+        else if(ssIsDelivered(tr)) o.status = 'delivered';
+      }catch(e){ trackFailed++; }
+    }));
+    if(limitedHits) await ssSleep(250);
+  }
+
   const okCount = accounts.length - errs.length;
   const s2 = col.settings();
   if(okCount > 0 || all.length){
@@ -1446,6 +1524,8 @@ async function ssConnect(){
       nf(delivered) + ' delivered with dates'
     ];
     if(filled) bits.push(nf(filled) + ' filled this sync');
+    if(trackHits) bits.push(nf(trackHits) + ' delivery dates from tracking');
+    if(trackFailed && !trackHits) bits.push('tracking lookups unavailable (' + nf(trackFailed) + ' tried)');
     if(deepFailed) bits.push(nf(deepFailed) + ' detail lookups failed');
     msg.textContent = 'Connected — ' + bits.join(' · ') + '.' + (errs.length ? ' Failed: ' + errs.join(' · ') : '');
     if(stillMissing){
@@ -1530,6 +1610,20 @@ async function ssDiagnose(){
           const rawItems = o.items || o.order_items || o.products || o.lines || o.line_items;
           if(Array.isArray(rawItems) && rawItems.length) L.push('  item fields: ' + ssKeys(rawItems[0], 1));
         }
+      }catch(e){ L.push('  ' + path.split('?')[0] + ' → ' + e.message); }
+    }
+  }
+  if(sample && (sample.tracking_number || sample.tracking_code)){
+    const tn = sample.tracking_number || sample.tracking_code;
+    L.push('');
+    L.push('Tracking lookup:');
+    for(const p of SS_TRACK_PATHS){
+      const path = p(tn);
+      try{
+        const r = await ssFetch(path, acct.apiKey);
+        const t = ssUnwrapTrack(r);
+        L.push('  ' + path.split('?')[0] + ' → OK · delivery date: ' + (ssDelivered(t) ? 'yes' : 'no'));
+        if(t) L.push('  tracking fields: ' + ssKeys(t, 1));
       }catch(e){ L.push('  ' + path.split('?')[0] + ' → ' + e.message); }
     }
   }
