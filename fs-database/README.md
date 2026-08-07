@@ -16,9 +16,12 @@ fs-database/
 └── README.md       this file
 ```
 
-It ships **seeded demo data** so every screen is alive on first open — demo records
-are marked, and *Settings → Reset demo data / Erase everything* clears them when
-you're ready to run it for real.
+**Beta mode:** the app starts **empty** — no demo clients, orders, leads, documents,
+products or POs. Only the real logins and the carrier reference cards are there.
+Existing browsers are cleaned automatically the first time they load this build
+(uploaded files that belong to carriers or the catalog PDF are kept; orphaned demo
+uploads are pruned). Want the sample dataset back to explore a screen? *Settings →
+**Load demo data*** — and *Erase everything* wipes the lot.
 
 ## The tabs
 
@@ -55,9 +58,16 @@ supported route is their API, and **every child account has its own API key**:
 2. FS Database → *Settings → Starshipit API* — paste the subscription key, add a
    row per child account (name + API key), **Connect & sync all accounts**.
 
+Both keys sit on the same Starshipit page — the **subscription key** is shared
+across the login, the **API key** is per child account. Connect refuses early with
+a plain message if the subscription key is blank (the most common cause of a 404
+or 403 from their API).
+
 Every synced order is tagged with its child account as the client, so the
 dashboard splits by client automatically. On the live Vercel link the built-in
-`/api/ss` proxy handles the browser-side CORS problem with zero setup; anywhere
+proxy (`api/ss.js`, called as `/api/ss?p=/api/orders/shipped`) handles the
+browser-side CORS problem with zero setup — note it is a *fixed* function path,
+because plain Vercel functions do not route multi-segment catch-alls. Anywhere
 else, set a proxy URL (a 20-line Cloudflare Worker does it):
 
 ```js
