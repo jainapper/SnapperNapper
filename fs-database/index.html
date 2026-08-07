@@ -737,7 +737,7 @@ table.rows td.num{font-size:12px}
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn ghost small" id="btnExport2">Export backup</button>
         <button class="btn ghost small" id="btnImport">Import backup</button>
-        <button class="btn ghost small" id="btnReseed">Reset demo data</button>
+        <button class="btn ghost small" id="btnReseed">Load demo data</button>
         <button class="btn danger small" id="btnWipe">Erase everything</button>
       </div>
       <div class="storage-bar"><i id="storageBar" style="width:2%"></i></div>
@@ -1310,7 +1310,7 @@ async function ssConnect(){
 function renderSsStatus(){
   const ss = col.settings().ss;
   $('#ssDot').className = 'ss-dot' + (ss.connected ? ' live' : '');
-  $('#ssLab').textContent = ss.connected ? 'Connected' : 'Demo data';
+  $('#ssLab').textContent = ss.connected ? 'Connected' : (col.shipments().length ? 'Demo data' : 'Not connected');
 }
 
 /* ================================================================== *
@@ -1596,9 +1596,10 @@ function renderDashboard(){
   const N = s.range || 30;
   const st = dashStats(N);
   const connected = s.ss.connected;
+  const hasData = st.cur.length > 0 || st.open.length > 0;
   v.innerHTML =
   '<div class="view-head"><div class="vh-title"><h1>Dashboard<em>.</em></h1>' +
-  '<p class="vh-sub">Orders, units and tracking across every client — powered by ' + (connected ? 'your Starshipit account' : 'demo data until Starshipit is connected') + '.</p></div>' +
+  '<p class="vh-sub">Orders, units and tracking across every client — ' + (connected ? 'powered by your Starshipit account' : (hasData ? 'powered by demo data until Starshipit is connected' : 'connect Starshipit in Settings to light it up')) + '.</p></div>' +
   '<div class="vh-actions"><div class="range-row">' +
     [7, 14, 30, 90].map(n => '<button data-range="' + n + '" class="' + (n === N ? 'on' : '') + '">' + n + 'd</button>').join('') +
   '</div></div></div>' +
@@ -1606,7 +1607,7 @@ function renderDashboard(){
   '<div class="conn-strip"><div class="conn-left">' +
     (connected
       ? '<span class="chip live">● Starshipit · live</span><span class="chip">Synced ' + esc(timeAgo(s.ss.lastSync)) + '</span><button class="tbtn" data-act="ss-sync">Sync now</button>'
-      : '<span class="chip demo">◈ Demo data</span><button class="tbtn" data-act="open-settings">Connect Starshipit →</button>') +
+      : (hasData ? '<span class="chip demo">◈ Demo data</span>' : '<span class="chip">No data yet</span>') + '<button class="tbtn" data-act="open-settings">Connect Starshipit →</button>') +
     '</div><span class="panel-meta">Fullstack Fulfillment · fullstackfs.com.au</span></div>' +
 
   '<div class="kpis">' +
@@ -3455,15 +3456,22 @@ async function exportBackup(){
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 async function resetDemo(){
-  if(!confirm('Reset to fresh demo data? Your added records are removed (settings are kept).')) return;
+  if(!confirm('Load the demo dataset? Current records are replaced (settings and logins are kept).')) return;
   const keep = col.settings();
+  const keepUsers = colUsers().filter(u => ['u-admin','u-ware','u-sales'].indexOf(u.id) < 0);
   Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
   DB.cache = {};
   DB.set('settings', keep);
   await idbOp('readwrite', st => st.clear()).catch(() => {});
-  seed(); seedV2(); seedV3();
+  seed(); seedV2(); seedV3(); seedV4();
+  const users = colUsers();
+  keepUsers.forEach(u => { if(!users.some(x => x.id === u.id)) users.push(u); });
+  DB.set('users', users);
+  const m = DB.get('meta', {}) || {};
+  m.demoMode = true; m.demoPurged = true;
+  DB.set('meta', m);
   fillUserSwitcher(); updateCounts(); route();
-  toast('Demo data reset');
+  toast('Demo data loaded');
 }
 async function wipeAll(){
   if(!confirm('Erase EVERYTHING — all records, uploads and settings?')) return;
@@ -3645,6 +3653,29 @@ function switchUser(id){
 }
 
 seedV4();
+/* beta — the app starts clean; the demo dataset is opt-in via Settings → Load demo data */
+function purgeDemo(){
+  const fresh = !localStorage.getItem('fsdb.meta');
+  const meta0 = DB.get('meta', {}) || {};
+  if(meta0.demoPurged || meta0.demoMode) return;
+  if(fresh) seed();   /* ensure the carrier reference cards exist */
+  ['clients','shipments','ssOrders','leads','onboarding','docs','goLive','catalog','pos','requests'].forEach(k => DB.set(k, []));
+  const demoIds = ['u-admin','u-ware','u-sales'];
+  DB.set('users', colUsers().filter(u => demoIds.indexOf(u.id) < 0));
+  const s = col.settings();
+  if(!s.currentUserId || demoIds.indexOf(s.currentUserId) >= 0){ s.currentUserId = 'u-jai'; DB.set('settings', s); }
+  const m = DB.get('meta', {}) || {};
+  m.demoPurged = true;
+  DB.set('meta', m);
+  try{
+    const keep = {};
+    const pdf = DB.get('catalogPdf', null);
+    if(pdf && pdf.fid) keep[pdf.fid] = 1;
+    col.carriers().forEach(c => ['agreement','ratecard','surcharges'].forEach(k => { if(c[k] && c[k].fid) keep[c[k].fid] = 1; }));
+    fall().then(files => (files || []).forEach(f => { if(!keep[f.id]) fdel(f.id); })).catch(() => {});
+  }catch(e){}
+}
+purgeDemo();
 
 document.addEventListener('DOMContentLoaded', () => {
   fillUserSwitcher();
