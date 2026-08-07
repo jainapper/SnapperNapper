@@ -1313,6 +1313,19 @@ const SS_DETAIL_PATHS = [
   id => '/api/orders/shipped?order_id=' + encodeURIComponent(id)
 ];
 let ssDetailPath = null;
+function ssSleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+/* Starshipit rate-limits bursts; back off and retry rather than losing the order. */
+async function ssDetailRetry(orderId, apiKey, onLimited){
+  for(let attempt = 0; attempt < 4; attempt++){
+    try{ return await ssDetail(orderId, apiKey); }
+    catch(e){
+      const limited = /HTTP (429|503)/.test(e.message);
+      if(limited && onLimited) onLimited();
+      if(attempt === 3 || !limited) throw e;
+      await ssSleep(700 * (attempt + 1) * (attempt + 1));
+    }
+  }
+}
 function ssUnwrapOrder(r){
   if(!r) return null;
   const o = r.order || r.Order || r.data || r;
@@ -1375,19 +1388,36 @@ async function ssConnect(){
     }
   }
 
-  /* fill in line items / delivery dates from the per-order detail endpoint */
-  const DEEP_CAP = 600;
-  const needs = all.filter(o => o.ssId && (!o.items.length || (!o.deliveredTs && o.status !== 'unshipped')));
+  /* Carry over anything earlier syncs already fetched so enrichment is cumulative
+     and a re-sync continues where the last one stopped instead of starting over. */
+  const prev = {};
+  col.ssOrders().forEach(o => { prev[o.id] = o; });
+  all.forEach(o => {
+    const p = prev[o.id];
+    if(!p) return;
+    if(!o.items.length && p.items && p.items.length) o.items = p.items;
+    if(!o.deliveredTs && p.deliveredTs){ o.deliveredTs = p.deliveredTs; if(o.status !== 'unshipped') o.status = 'delivered'; }
+  });
+
+  /* Only orders inside the dashboard's longest window need detail, newest first. */
+  const cutoff = Date.now() - 95 * 86400e3;
+  const DEEP_CAP = 800;
+  const needs = all
+    .filter(o => o.ssId && new Date(o.date).getTime() >= cutoff &&
+                 (!o.items.length || (!o.deliveredTs && o.status === 'transit')))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
   const deep = needs.slice(0, DEEP_CAP);
-  let filled = 0, deepFailed = 0;
-  for(let i = 0; i < deep.length; i += 8){
-    btn.textContent = 'Loading products ' + Math.min(i + 8, deep.length) + '/' + deep.length + '…';
-    await Promise.all(deep.slice(i, i + 8).map(async o => {
+  let filled = 0, deepFailed = 0, limitedHits = 0;
+  const CONC = 4;                       /* gentle on the API — bursts were being throttled */
+  for(let i = 0; i < deep.length; i += CONC){
+    btn.textContent = 'Loading products ' + Math.min(i + CONC, deep.length) + '/' + deep.length + '…';
+    await Promise.all(deep.slice(i, i + CONC).map(async o => {
+      const hadItems = o.items.length > 0;
       try{
-        const det = await ssDetail(o.ssId, keyById[o.acctId]);
+        const det = await ssDetailRetry(o.ssId, keyById[o.acctId], () => { limitedHits++; });
         if(!det) return;
         const items = ssItems(det);
-        if(items.length){ o.items = items; filled++; }
+        if(items.length){ o.items = items; if(!hadItems) filled++; }
         const dts = ssDelivered(det);
         if(dts){ o.deliveredTs = dts; o.status = 'delivered'; }
         else if(o.status !== 'unshipped' && ssIsDelivered(det)) o.status = 'delivered';
@@ -1396,6 +1426,7 @@ async function ssConnect(){
         if(!o.trackingUrl) o.trackingUrl = det.tracking_url || '';
       }catch(e){ deepFailed++; }
     }));
+    if(limitedHits) await ssSleep(250);   /* ease off once the API pushes back */
   }
 
   const okCount = accounts.length - errs.length;
@@ -1408,16 +1439,21 @@ async function ssConnect(){
     DB.set('settings', s2);
     const withItems = all.filter(o => o.items.length).length;
     const delivered = all.filter(o => o.deliveredTs).length;
+    const stillMissing = all.filter(o => o.ssId && !o.items.length && new Date(o.date).getTime() >= cutoff).length;
     const bits = [
       nf(all.length) + ' orders from ' + okCount + ' of ' + accounts.length + ' account' + (accounts.length === 1 ? '' : 's'),
       nf(withItems) + ' with products',
       nf(delivered) + ' delivered with dates'
     ];
-    if(needs.length > DEEP_CAP) bits.push('detail lookup capped at ' + nf(DEEP_CAP) + ' of ' + nf(needs.length));
+    if(filled) bits.push(nf(filled) + ' filled this sync');
     if(deepFailed) bits.push(nf(deepFailed) + ' detail lookups failed');
     msg.textContent = 'Connected — ' + bits.join(' · ') + '.' + (errs.length ? ' Failed: ' + errs.join(' · ') : '');
-    msg.classList.add(errs.length || (!withItems && all.length) ? 'err' : 'ok');
-    if(!withItems && all.length) msg.textContent += ' No line items came back for any order — if your Starshipit plan does not expose order items via the API, product and SKU figures will stay empty.';
+    if(stillMissing){
+      msg.textContent += ' ' + nf(stillMissing) + ' recent orders still need their products — run Sync now again to continue; each pass keeps what it has already fetched.';
+    }
+    if(limitedHits) msg.textContent += ' Starshipit rate-limited part of this run, so it was slowed down automatically.';
+    msg.classList.add(errs.length || stillMissing ? 'err' : 'ok');
+    if(!withItems && all.length) msg.textContent += ' No line items came back for any order — run Diagnose to see whether your plan exposes them.';
     toast('Starshipit synced — ' + nf(all.length) + ' orders');
     renderSsStatus(); route();
   } else {
