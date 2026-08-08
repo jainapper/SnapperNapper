@@ -797,6 +797,18 @@ function timeAgo(iso){
 function dayStart(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
 function daysBack(n){ const x = dayStart(new Date()); x.setDate(x.getDate() - n); return x; }
 function fmtSize(b){ if(b == null) return ''; if(b < 1024) return b + ' B'; if(b < 1048576) return (b/1024).toFixed(0) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; }
+/* A failed write is silent data loss on the next reload — never let it pass as a toast. */
+function storeWarn(key){
+  let el = document.getElementById('storeWarn');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'storeWarn';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:600;background:#4a1710;border-bottom:1px solid rgba(255,138,112,.5);color:#ffb3a1;font-size:12.5px;padding:9px 16px;text-align:center;font-family:var(--sans)';
+    document.body.appendChild(el);
+  }
+  el.textContent = 'Browser storage is full — the last change to “' + key + '” could not be saved and will be lost on reload. ' +
+    'Open Settings and use Export backup, then Erase everything, and sync again.';
+}
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2600); }
 function debounce(fn, ms){ let t; return function(){ clearTimeout(t); const a = arguments, self = this; t = setTimeout(() => fn.apply(self, a), ms); }; }
 
@@ -811,10 +823,19 @@ const DB = {
   },
   set(key, val){
     this.cache[key] = val;
-    try{ localStorage.setItem('fsdb.' + key, JSON.stringify(val)); }
-    catch(e){ toast('Storage full — export a backup, then remove old files'); }
-    return val;
-  }
+    try{
+      localStorage.setItem('fsdb.' + key, JSON.stringify(val));
+      this.failed = false;
+      return true;
+    }catch(e){
+      /* Browser storage is full. The value stays in memory for this session but
+         will NOT survive a reload — say so loudly rather than losing it quietly. */
+      this.failed = true;
+      storeWarn(key);
+      return false;
+    }
+  },
+  failed: false
 };
 const col = {
   clients:    () => DB.get('clients', []),
@@ -826,6 +847,21 @@ const col = {
   carriers:   () => DB.get('carriers', []),
   settings:   () => DB.get('settings', { range: 30, ss: { apiKey:'', subKey:'', proxy:'', connected:false, lastSync:null } })
 };
+/* Settings hold the Starshipit keys. If a bulk write has filled storage, free
+   space by trimming order history rather than letting the keys fail to save. */
+function saveSettings(sObj){
+  if(DB.set('settings', sObj)) return true;
+  for(let attempt = 0; attempt < 3; attempt++){
+    const orders = DB.get('ssOrders', []);
+    if(!orders.length) break;
+    const keep = orders.slice()
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, Math.floor(orders.length / 2));
+    DB.set('ssOrders', keep);
+    if(DB.set('settings', sObj)) return true;
+  }
+  return false;
+}
 function save(name){ DB.set(name, DB.cache[name] !== undefined ? DB.cache[name] : col[name]()); }
 
 /* ————— files (IndexedDB) ————— */
@@ -1308,13 +1344,20 @@ function fillSsAccounts(){
   $('#ssAccounts').innerHTML = s.ss.accounts.map(ssAcctRow).join('');
 }
 function readAccountRows(){
-  const s = col.settings();
-  s.ss.accounts = $$('#ssAccounts [data-acct-row]').map(row => ({
+  const rows = $$('#ssAccounts [data-acct-row]');
+  /* The settings form may not be rendered yet; reading it then would blank the
+     stored accounts — and with them the API keys. */
+  if(!rows.length) return;
+  const next = rows.map(row => ({
     id: row.dataset.acctRow,
     label: row.querySelector('[data-acct-label]').value.trim() || 'Account',
     apiKey: row.querySelector('[data-acct-key]').value.trim()
   }));
-  DB.set('settings', s);
+  const s = col.settings();
+  const had = (s.ss.accounts || []).filter(a => a.apiKey).length;
+  if(had && !next.filter(a => a.apiKey).length) return;   /* refuse to blank real keys */
+  s.ss.accounts = next;
+  saveSettings(s);
 }
 /* The list endpoints return order summaries; line items and delivery dates
    usually only appear on the per-order detail call, so we fill those in after. */
@@ -1540,11 +1583,18 @@ async function ssConnect(auto){
   const okCount = accounts.length - errs.length;
   const s2 = col.settings();
   if(okCount > 0 || all.length){
-    all.forEach(o => { delete o.acctId; });
-    DB.set('ssOrders', all);
+    /* Settings carry the API keys — write them before the bulk data, so a storage
+       problem can never cost the credentials. */
     s2.ss.connected = true;
     s2.ss.lastSync = new Date().toISOString();
-    DB.set('settings', s2);
+    saveSettings(s2);
+    all.forEach(o => { delete o.acctId; });
+    /* A sync that returns nothing must never wipe orders we already hold. */
+    if(all.length){
+      DB.set('ssOrders', ssTrim(all));
+    } else if(!col.ssOrders().length){
+      DB.set('ssOrders', []);
+    }
     const withItems = all.filter(o => o.items.length).length;
     const delivered = all.filter(o => o.deliveredTs).length;
     const stillMissing = all.filter(o => o.ssId && !o.items.length && new Date(o.date).getTime() >= cutoff).length;
@@ -1577,7 +1627,7 @@ async function ssConnect(auto){
     renderSsStatus(); route();
   } else if(!quiet){
     s2.ss.connected = false;
-    DB.set('settings', s2);
+    saveSettings(s2);
     msg.textContent = 'Could not reach Starshipit for any account — ' + errs.join(' · ') + '.';
     msg.classList.add('err');
     renderSsStatus();
@@ -1588,6 +1638,16 @@ async function ssConnect(auto){
     ssSyncing = false;
     renderSsStatus();
   }
+}
+/* Orders are the only collection that can grow without bound. Keep the window the
+   dashboard actually uses, newest first, so browser storage never fills. */
+const SS_KEEP_DAYS = 95, SS_KEEP_MAX = 4000;
+function ssTrim(list){
+  const cutoff = Date.now() - SS_KEEP_DAYS * 86400e3;
+  return list
+    .filter(o => { const t = new Date(o.date).getTime(); return isNaN(t) || t >= cutoff; })
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, SS_KEEP_MAX);
 }
 /* cheap change signature so a background tick only re-renders when something moved */
 function ssSignature(){
