@@ -39,14 +39,51 @@ uploads are pruned). Want the sample dataset back to explore a screen? *Settings
 
 ## Where the data lives
 
-Everything stays **in the browser** — records in `localStorage`, uploaded files in
-IndexedDB. Nothing is sent to any server, so the app can be hosted publicly while
-the data stays with whoever uses it.
+**Sign in and it is shared; don't and it is not.** The lock screen takes your
+Fullstack email password. That signs you in to the shared database (Supabase,
+Sydney region), and from then on records and uploaded documents live on the
+server: the same data on your phone, your laptop and everyone else's. The
+sidebar pill reads **Synced**.
 
-That also means data is **per browser, per device**. To move or share it:
-**Export** (sidebar or Settings) downloads one JSON backup including uploaded
-files; **Import backup** restores it elsewhere. Export regularly — clearing
-browser data clears the database.
+Without a sign-in — or with no signal — the app still runs the same way on the
+copy held in this browser (`localStorage` for records, IndexedDB for files), and
+the pill says **This device only**. Nothing is sent anywhere in that state.
+
+How the two stay in step:
+
+- The browser copy is always the read path, so every screen renders instantly
+  and works offline.
+- A local edit is pushed within a second. Every 60 seconds (and whenever you
+  come back to the tab) the device pushes what it owes and pulls what changed.
+- An edit made with no signal is queued and pushed when the connection returns —
+  the queue survives a reload.
+- Conflicts are last-write-wins **per record**, so two people working in
+  different rows never overwrite each other.
+- Deletions made while offline don't propagate — a record deleted on a
+  disconnected device comes back on the next pull. Delete it again once
+  reconnected.
+
+Who can see what is enforced by the database, not just the UI:
+
+| | Admin (Jai) | Member (Darlene) |
+|---|---|---|
+| Leads, onboarding, go-live, documents, carriers, catalog, orders | read + write | read + write |
+| Purchase orders | read + write | invisible |
+| Starshipit API keys | read + write | invisible |
+| Team roster | read + write | read only |
+
+**Export backup** (sidebar or Settings) still downloads the whole database as one
+JSON file, uploaded documents included. **Erase everything** now asks which one
+you mean: erase for the whole team, or erase this device only and leave the
+shared copy alone (signing back in restores it).
+
+### Adding someone new
+
+Adding a user in the Team tab puts them on the shared roster. Giving them a
+**sign-in** is a separate step — it needs an account created in Supabase Auth
+(Authentication → Users → Add user, email + password, "Auto Confirm"), then a
+row in `public.profiles` with their `id`, `role` and `tabs`. Until that exists
+they can use the app on their own device but won't sync.
 
 ## Connecting Starshipit (live dashboard, all child accounts)
 
@@ -93,8 +130,16 @@ const cors = () => ({
 });
 ```
 
-Keys are stored only in the browser. If you'd rather lock a proxy down,
+Keys entered while signed in are stored on the server under an **admin-only** row,
+so they follow you to your other devices and stay invisible to members. Signed
+out, they stay in that browser alone. If you'd rather lock a proxy down,
 hard-code the keys server-side and keep its URL private.
+
+Order history is capped at **95 days / 4,000 records** in the browser copy. That
+cap exists because a browser gives roughly 5 MB and an uncapped history filled
+it, taking the stored API keys down with it. Settings are now written before bulk
+data, a failed write raises a banner instead of a toast, and neither an empty
+sync nor an unrendered form can blank what is stored.
 
 ## Wiring the website forms in
 
@@ -129,5 +174,30 @@ Any static host, no build step:
 
 - **Netlify / Vercel** — drag the `fs-database` folder in, done.
 - **GitHub Pages** — serve this folder from a branch.
-- Add a password in front (Netlify password protection, Cloudflare Access) if it
-  should be team-only — the app itself has no auth.
+
+The page is safe to host publicly: it ships only the Supabase project URL and the
+**publishable** key, both of which are designed to be public. Everything a signed-in
+person can read or write is decided by row-level security in the database, and a
+visitor who never signs in sees an empty local app.
+
+The Starshipit proxy (`api/ss.js`) needs a host that runs functions — on Vercel it
+is included; on GitHub Pages set a proxy URL in Settings instead.
+
+### The backend
+
+Supabase project `fofghcaqgwgixjshmubt` (region `ap-southeast-2`, Sydney) —
+deliberately separate from the Klip project, so FS ops data and Klip's
+acquirer/KYC data never share a database.
+
+| Piece | What is there |
+|---|---|
+| Tables | `clients`, `shipments`, `ss_orders`, `leads`, `onboarding`, `docs`, `carriers`, `catalog`, `go_live`, `pos`, `requests`, `team_users` — each `id text` / `data jsonb` / `ord int`, so a collection round-trips in the order the UI arranged it |
+| `profiles` | one row per sign-in: name, email, `role`, and the per-tab `tabs` map |
+| `app_settings` | single documents — the `starshipit` row is admin-only |
+| Storage | bucket `fs-files`, private, signed-in access only |
+| Policies | team-wide read/write, except purchase orders and the Starshipit keys (admin only) and the roster (admin writes, everyone reads) |
+
+Still open: **leaked-password protection** is off in Supabase Auth. Turning it on
+checks new passwords against HaveIBeenPwned. Worth doing — and worth rotating any
+account still on a common dictionary password first, since that check would
+reject it on the way in.

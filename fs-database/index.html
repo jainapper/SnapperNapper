@@ -69,6 +69,7 @@ button{font-family:var(--sans)}
 .ss-status img{height:14px;width:auto}
 .ss-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;box-shadow:0 0 8px rgba(242,193,78,.5)}
 .ss-dot.live{background:var(--ok);box-shadow:0 0 8px rgba(126,226,168,.55)}
+.ss-dot.bad{background:var(--bad);box-shadow:0 0 8px rgba(255,138,112,.5)}
 .ss-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
 .side-btns{display:flex;gap:8px}
 .side-btns button{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--stroke);border-radius:10px;color:var(--dim);font-size:12px;font-weight:600;padding:8px 6px;cursor:pointer;transition:all .15s}
@@ -607,6 +608,10 @@ table.rows td.num{font-size:12px}
         <img src="assets/starshipit.svg" alt="Starshipit">
         <span class="ss-lab" id="ssLab">Demo data</span>
       </div>
+      <div class="ss-status" id="sbStatus" role="button" tabindex="0" title="Shared database">
+        <span class="ss-dot" id="sbDot"></span>
+        <span class="ss-lab" id="sbLab">This device only</span>
+      </div>
       <div class="side-btns">
         <button id="btnSettings">Settings</button>
         <button id="btnExport">Export</button>
@@ -745,7 +750,17 @@ table.rows td.num{font-size:12px}
       </div>
       <div class="storage-bar"><i id="storageBar" style="width:2%"></i></div>
       <p class="set-note" id="storageNote">—</p>
-      <p class="set-note">Everything lives in this browser (localStorage + IndexedDB) — nothing is sent to a server. Use <b>Export backup</b> to move or share the database; it downloads a single JSON file including uploaded documents.</p>
+      <p class="set-note">This is the copy held in this browser, which keeps the app fast and lets it work with no signal. <b>Export backup</b> downloads the whole database, uploaded documents included.</p>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-cap">Shared database</div>
+      <p class="set-note" id="sbNote" style="margin-top:0">—</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn ghost small" id="sbSyncNow">Sync now</button>
+        <button class="btn ghost small" id="sbOut">Sign out of shared database</button>
+      </div>
+      <p class="set-note">Signing in with your email password puts records and uploaded documents on the Fullstack server, so the same data appears on your phone, your laptop and everyone else’s. Purchase orders stay admin-only, and the Starshipit keys are readable by admins alone. Without a sign-in the app still runs, but only in this browser.</p>
     </div>
   </div>
 </div>
@@ -759,7 +774,7 @@ table.rows td.num{font-size:12px}
     <div id="lockPwWrap"><label class="f-lab" for="lockPw">Password</label><input class="f-in" id="lockPw" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <div class="conn-msg" id="lockMsg"></div>
     <button class="btn" id="lockGo" style="justify-content:center">Enter →</button>
-    <p class="lock-note">Everything in the FS Database lives in this browser. Team members without a password enter directly; password-protected admin accounts unlock purchase-order controls.</p>
+    <p class="lock-note">Signing in with your email password connects this device to the shared Fullstack database. Team members without a password enter on this device only; admin accounts also unlock purchase-order controls.</p>
   </div>
 </div>
 
@@ -1762,6 +1777,14 @@ async function ssDiagnose(){
   L.push('Field names only — no customer data is shown. Screenshot this if anything still reads NONE.');
   out.textContent = L.join('\n');
   btn.textContent = 'Diagnose';
+}
+function renderSbNote(){
+  const el = document.getElementById('sbNote');
+  if(!el || typeof SB === 'undefined') return;
+  const who = SB.session && SB.session.user && SB.session.user.email;
+  el.textContent = who
+    ? 'Signed in as ' + who + ' — ' + (SB_LABEL[SB.state] || SB.state).toLowerCase() + (SB.note ? ' · ' + SB.note : '')
+    : 'Not signed in. This browser is holding its own copy; nothing is shared with the rest of the team.';
 }
 function renderSsStatus(syncing){
   const ss = col.settings().ss;
@@ -2807,6 +2830,16 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#btnWipe').addEventListener('click', wipeAll);
   $('#ssConnect').addEventListener('click', ssConnect);
   $('#ssDiag').addEventListener('click', ssDiagnose);
+  $('#sbSyncNow').addEventListener('click', () => {
+    if(typeof SB === 'undefined' || !SB.session){ toast('Sign out and back in with your email password to connect'); return; }
+    sbSync().then(() => { toast('Shared database synced'); renderSbNote(); });
+  });
+  $('#sbOut').addEventListener('click', () => {
+    if(typeof sbSignOut !== 'function') return;
+    sbSignOut();
+    renderSbNote();
+    toast('Signed out — this device is now working on its own copy');
+  });
   $('#ssAuto').addEventListener('change', e => {
     const st = col.settings();
     st.ss.auto = e.target.checked;
@@ -3789,6 +3822,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 /* settings modal — fill Eagle fields too */
 function openSettings(){
+  try{ renderSbNote(); }catch(e){}
   const s = col.settings();
   $('#ssSubKey').value = s.ss.subKey || '';
   $('#ssProxy').value = s.ss.proxy || '';
@@ -3971,14 +4005,27 @@ async function resetDemo(){
 async function wipeAll(){
   if(!confirm('Erase EVERYTHING — all records, uploads and settings?')) return;
   if(!confirm('Really erase everything? Export a backup first if unsure.')) return;
+  const shared = typeof SB !== 'undefined' && !!SB.session;
+  let alsoServer = false;
+  if(shared){
+    alsoServer = confirm('This device is signed in to the shared database.\n\n' +
+      'OK — erase it for the whole team, on every device.\n' +
+      'Cancel — erase this device only; the shared copy stays, and signing in again brings it back.');
+  }
+  const url = (function(){ try{ return localStorage.getItem('fsdb.sbUrl'); }catch(e){ return null; } })();
+  if(shared && !alsoServer) sbSignOut();
   Object.keys(localStorage).filter(k => k.indexOf('fsdb.') === 0).forEach(k => localStorage.removeItem(k));
+  if(url){ try{ localStorage.setItem('fsdb.sbUrl', url); }catch(e){} }
   DB.cache = {};
   await idbOp('readwrite', st => st.clear()).catch(() => {});
+  /* Erasing for the team needs the record of what the server holds kept intact —
+     that is what turns the now-empty collections into deletions. Signing out first
+     (the this-device-only path) has already discarded it, so nothing is deleted there. */
   DB.set('meta', { seededAt: new Date().toISOString(), empty: true });
   ['clients','shipments','ssOrders','leads','onboarding','docs','carriers','catalog','requests','pos','goLive','users'].forEach(k => DB.set(k, []));
   adminUser = null;
   renderSsStatus(); fillUserSwitcher(); updateCounts(); route();
-  toast('Database erased');
+  toast(alsoServer ? 'Database erased everywhere' : 'This device erased');
 }
 
 Object.assign(RENDER, { team: renderTeam });
@@ -4128,15 +4175,32 @@ function showLock(preselectId){
 async function lockSubmit(){
   const u = lockSelUser();
   if(!u){ $('#lockScreen').classList.remove('on'); return; }
+  const m = $('#lockMsg');
   if(u.pw){
-    const h = await pwHash(u.id, $('#lockPw').value);
-    if(h !== u.pw){
-      const m = $('#lockMsg'); m.textContent = 'Wrong password.'; m.className = 'conn-msg err';
-      $('#lockPw').select();
-      return;
+    const pw = $('#lockPw').value;
+    const go = $('#lockGo');
+    let server = false, offline = false;
+    if(u.email && typeof sbSignIn === 'function'){
+      go.textContent = 'Signing in…';
+      try{ await sbSignIn(u.email, pw); server = true; }
+      catch(e){ if(!e.rejected) offline = true; }
+      go.textContent = 'Enter →';
     }
+    if(!server){
+      /* No account on the server, or no signal to reach it — fall back to the
+         password held in this browser so the app still opens. */
+      const h = await pwHash(u.id, pw);
+      if(h !== u.pw){
+        m.textContent = offline ? 'Wrong password — and the shared database could not be reached.' : 'Wrong password.';
+        m.className = 'conn-msg err';
+        $('#lockPw').select();
+        return;
+      }
+    }
+    if(!server) toast('Signed in on this device only — changes stay here until you reconnect');
   }
   commitUser(u);
+  if(typeof SB !== 'undefined' && SB.session) sbSync();
   toast('G’day, ' + u.name.split(' ')[0]);
 }
 function switchUser(id){
@@ -4197,6 +4261,390 @@ document.addEventListener('DOMContentLoaded', () => {
       fillSsAccounts();
     }
   });
+});
+</script>
+<script>
+'use strict';
+/* ================================================================== *
+ *  Backend — shared database, real sign-in, shared file storage      *
+ *  Supabase over plain fetch: GoTrue for auth, PostgREST for the     *
+ *  tables, Storage for uploads. No SDK, no build step.               *
+ *                                                                    *
+ *  The browser copy stays the read path, so every render is still    *
+ *  synchronous and the app keeps working with no signal. The server  *
+ *  is the source of truth: local edits push straight up, and each    *
+ *  pull brings this device back in line with the others.             *
+ * ================================================================== */
+const SB_DEFAULT_URL = 'https://fofghcaqgwgixjshmubt.supabase.co';
+const SB = {
+  /* Overridable so the sync layer can be pointed at a test server. */
+  url:  (function(){ try{ return localStorage.getItem('fsdb.sbUrl') || SB_DEFAULT_URL; }catch(e){ return SB_DEFAULT_URL; } })(),
+  anon: 'sb_publishable_exBeewUiYhoyw21kYB5guQ_OKUIiCDp',
+  session: null,
+  state: 'signed-out',   /* signed-out · syncing · live · offline · error */
+  note: '',
+  busy: false
+};
+/* Collections that live on the server, and the table each maps to. */
+const SB_COL = {
+  clients:'clients', shipments:'shipments', ssOrders:'ss_orders', leads:'leads',
+  onboarding:'onboarding', docs:'docs', carriers:'carriers', catalog:'catalog',
+  goLive:'go_live', pos:'pos', requests:'requests', users:'team_users'
+};
+/* Single documents rather than lists. */
+const SB_DOCKEY = { catalogPdf: 'catalogPdf' };
+const SB_BUCKET = 'fs-files';
+/* meta and the rest of settings are per-device preferences and stay local. */
+
+/* ————— session ————— */
+function sbStamp(j){
+  j.expires_at = j.expires_at || (Math.floor(Date.now() / 1000) + (j.expires_in || 3600));
+  return j;
+}
+function sbSaveSession(s){
+  SB.session = s || null;
+  try{
+    if(s) localStorage.setItem('fsdb.sbSession', JSON.stringify(s));
+    else localStorage.removeItem('fsdb.sbSession');
+  }catch(e){}
+}
+try{ SB.session = JSON.parse(localStorage.getItem('fsdb.sbSession') || 'null'); }catch(e){ SB.session = null; }
+
+let sbRefreshing = null;
+async function sbToken(){
+  const s = SB.session;
+  if(!s || !s.refresh_token) return null;
+  if(s.access_token && s.expires_at && s.expires_at - 90 > Date.now() / 1000) return s.access_token;
+  if(!sbRefreshing){
+    sbRefreshing = fetch(SB.url + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { apikey: SB.anon, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    }).then(async r => {
+      const j = await r.json().catch(() => ({}));
+      if(!r.ok){
+        /* A refused refresh means the session is genuinely finished — not a blip —
+           so clear it and let the lock screen ask again. */
+        if(r.status === 400 || r.status === 401) sbSaveSession(null);
+        throw new Error(j.error_description || j.msg || ('HTTP ' + r.status));
+      }
+      sbSaveSession(sbStamp(j));
+      return j.access_token;
+    }).finally(() => { sbRefreshing = null; });
+  }
+  return sbRefreshing;
+}
+/* A dropped connection must never be mistaken for a rejection: one means retry, the other means stop. */
+function sbNet(e){ return !e || !e.message || /Failed to fetch|NetworkError|load failed|signed out|ERR_/i.test(e.message); }
+
+async function sbReq(path, opts){
+  opts = opts || {};
+  const tok = await sbToken();
+  if(!tok) throw new Error('signed out');
+  const r = await fetch(SB.url + path, {
+    method: opts.method || 'GET',
+    headers: Object.assign({
+      apikey: SB.anon,
+      Authorization: 'Bearer ' + tok,
+      'Content-Type': 'application/json'
+    }, opts.headers || {}),
+    body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
+  });
+  if(!r.ok){
+    const t = await r.text().catch(() => '');
+    throw new Error('HTTP ' + r.status + (t ? ' — ' + t.slice(0, 160) : ''));
+  }
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+
+async function sbSignIn(email, password){
+  const r = await fetch(SB.url + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { apikey: SB.anon, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: String(email || '').toLowerCase().trim(), password })
+  });
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok){
+    const e = new Error(j.error_description || j.msg || j.message || ('HTTP ' + r.status));
+    e.rejected = true;     /* the server answered, so these credentials are simply wrong */
+    throw e;
+  }
+  sbSaveSession(sbStamp(j));
+  return j;
+}
+function sbSignOut(){
+  sbSaveSession(null);
+  SB.state = 'signed-out';
+  SB.note = '';
+  sbShadowReset();
+  renderSbStatus();
+}
+
+/* ————— what this device owes the server ————— */
+const sbShadow = {};    /* collection → { id: "index|json" as last exchanged with the server } */
+function sbShadowReset(){ Object.keys(sbShadow).forEach(k => delete sbShadow[k]); }
+function sbSyncable(name){ return !!SB_COL[name] || !!SB_DOCKEY[name] || name === 'settings'; }
+function sbDirtyList(){ const d = DB.get('sbDirty', []); return Array.isArray(d) ? d : []; }
+/* Survives a reload, so an edit made with no signal is still pushed later. */
+function sbMark(name){
+  if(!sbSyncable(name)) return;
+  const list = sbDirtyList();
+  if(list.indexOf(name) < 0){ list.push(name); DB.set('sbDirty', list); }
+  clearTimeout(sbMark._t);
+  sbMark._t = setTimeout(() => sbPushAll(), 900);
+}
+function sbClearDirty(name){ DB.set('sbDirty', sbDirtyList().filter(n => n !== name)); }
+
+let sbQuiet = false;
+function sbSetQuiet(name, val){ sbQuiet = true; try{ DB.set(name, val); } finally { sbQuiet = false; } }
+const sbDbSet = DB.set.bind(DB);
+DB.set = function(key, val){
+  const ok = sbDbSet(key, val);
+  if(!sbQuiet) sbMark(key);
+  return ok;
+};
+
+function sbQ(v){ return '"' + String(v).replace(/"/g, '""') + '"'; }
+
+/* ————— push ————— */
+async function sbPushCollection(name, full){
+  const table = SB_COL[name];
+  const rows = Array.isArray(DB.cache[name]) ? DB.cache[name] : [];
+  const shadow = sbShadow[name] || {};
+  const up = [], seen = {};
+  rows.forEach((r, i) => {
+    if(!r || r.id == null) return;
+    const id = String(r.id);
+    /* Position is part of what the server stores, so a record that only moved
+       still counts as changed. */
+    const body = i + '|' + JSON.stringify(r);
+    seen[id] = body;
+    if(full || shadow[id] !== body) up.push({ id: id, data: r, ord: i });
+  });
+  for(let i = 0; i < up.length; i += 200){
+    await sbReq('/rest/v1/' + table, {
+      method: 'POST',
+      body: up.slice(i, i + 200),
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }
+    });
+  }
+  if(!full){
+    const gone = Object.keys(shadow).filter(id => !(id in seen));
+    for(let i = 0; i < gone.length; i += 200){
+      await sbReq('/rest/v1/' + table + '?id=in.(' + gone.slice(i, i + 200).map(sbQ).join(',') + ')',
+                  { method: 'DELETE' });
+    }
+  }
+  sbShadow[name] = seen;
+}
+async function sbPushDoc(key, value){
+  await sbReq('/rest/v1/app_settings', {
+    method: 'POST',
+    body: [{ key: key, data: value === undefined ? null : value }],
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }
+  });
+}
+/* Only the Starshipit credentials travel; range and current user are per-device. */
+async function sbPushSettings(){
+  const ss = col.settings().ss || {};
+  if(!ss.subKey && !(ss.accounts || []).some(a => a.apiKey)) return;
+  await sbPushDoc('starshipit', { subKey: ss.subKey || '', accounts: ss.accounts || [], proxy: ss.proxy || '' });
+}
+async function sbPullSettings(){
+  let rows = null;
+  try{ rows = await sbReq('/rest/v1/app_settings?key=eq.starshipit&select=data'); }
+  catch(e){ return false; }     /* members cannot read the keys, and do not need them */
+  if(!rows || !rows.length) return false;
+  const d = rows[0].data || {};
+  const s = col.settings();
+  const hasLocal = !!(s.ss.subKey || (s.ss.accounts || []).some(a => a.apiKey));
+  if(hasLocal) return false;    /* never overwrite a key someone just typed here */
+  if(!d.subKey && !(d.accounts || []).length) return false;
+  s.ss.subKey = d.subKey || '';
+  s.ss.accounts = (d.accounts || []).slice();
+  if(d.proxy) s.ss.proxy = d.proxy;
+  sbQuiet = true; try{ saveSettings(s); } finally { sbQuiet = false; }
+  return true;
+}
+
+async function sbPushInner(){
+  const denied = [];
+  for(const name of sbDirtyList().slice()){
+    try{
+      if(SB_COL[name])              await sbPushCollection(name, !sbShadow[name]);
+      else if(SB_DOCKEY[name])      await sbPushDoc(SB_DOCKEY[name], DB.cache[name]);
+      else if(name === 'settings')  await sbPushSettings();
+      sbClearDirty(name);
+    }catch(e){
+      if(/HTTP 40[13]/.test(e.message)){
+        /* This account is not allowed to write here — purchase orders are
+           admin-only. Drop the queued push instead of retrying it forever. */
+        sbClearDirty(name);
+        denied.push(name);
+      } else throw e;
+    }
+  }
+  SB.note = denied.length ? ('Not permitted to save: ' + denied.join(', ')) : '';
+}
+async function sbPushAll(){
+  if(!SB.session || SB.busy || !sbDirtyList().length) return;
+  SB.busy = true;
+  try{
+    await sbPushInner();
+    SB.state = 'live';
+  }catch(e){
+    SB.state = sbNet(e) ? 'offline' : 'error';
+    SB.note = e.message;
+  }finally{
+    SB.busy = false;
+    renderSbStatus();
+  }
+}
+
+/* ————— pull ————— */
+async function sbPull(){
+  const meta = DB.get('meta', {}) || {};
+  const adopted = meta.sbAdopted || {};
+  const dirty = sbDirtyList();
+  let changed = false;
+  for(const name in SB_COL){
+    if(dirty.indexOf(name) >= 0) continue;   /* local edits still owed — do not overwrite them */
+    const rows = await sbReq('/rest/v1/' + SB_COL[name] + '?select=id,data,ord&order=ord.asc');
+    const server = (rows || []).map(r => r.data).filter(Boolean);
+    const shadow = {};
+    (rows || []).forEach((r, i) => { shadow[String(r.id)] = i + '|' + JSON.stringify(r.data); });
+    /* An empty roster would leave the lock screen with nobody to pick, so an
+       empty answer here is treated as "nothing to say", never as "delete everyone". */
+    if(name === 'users' && !server.length) continue;
+    let next = server;
+    if(!adopted[name]){
+      /* First meeting between this browser and the server: keep anything local
+         the server has never seen, rather than letting an empty table erase it. */
+      const have = {};
+      server.forEach(r => { if(r && r.id != null) have[String(r.id)] = 1; });
+      const extra = (DB.cache[name] || []).filter(r => r && r.id != null && !have[String(r.id)]);
+      if(extra.length){ next = server.concat(extra); sbMark(name); }
+      adopted[name] = true;
+    }
+    sbShadow[name] = shadow;
+    if(JSON.stringify(next) !== JSON.stringify(DB.cache[name])){
+      changed = true;
+      sbSetQuiet(name, next);
+    }
+  }
+  try{
+    const rows = await sbReq('/rest/v1/app_settings?key=eq.catalogPdf&select=data');
+    if(rows && rows.length && JSON.stringify(rows[0].data) !== JSON.stringify(DB.cache.catalogPdf)){
+      changed = true;
+      sbSetQuiet('catalogPdf', rows[0].data);
+    }
+  }catch(e){}
+  const m = DB.get('meta', {}) || {};
+  m.sbAdopted = adopted;
+  sbSetQuiet('meta', m);
+  return changed;
+}
+
+async function sbSync(){
+  if(!SB.session || SB.busy) return;
+  SB.state = 'syncing';
+  renderSbStatus();
+  SB.busy = true;
+  try{
+    await sbPushInner();                     /* push what we owe before reading back */
+    const changed = await sbPull();
+    await sbPullSettings();
+    if(SB.state !== 'error') SB.state = 'live';
+    if(changed && !ssUserBusy()) route();
+  }catch(e){
+    SB.state = sbNet(e) ? 'offline' : 'error';
+    SB.note = e.message;
+  }finally{
+    SB.busy = false;
+    renderSbStatus();
+  }
+}
+
+/* ————— uploaded files ————— */
+/* A document added on one device has to open on another, so uploads go to the
+   shared bucket; IndexedDB keeps a copy so they still open with no signal. */
+const fputLocal = fput, fgetLocal = fget, fdelLocal = fdel;
+fput = async function(file){
+  const ref = await fputLocal(file);
+  if(SB.session){
+    sbFilePut(ref.fid, file).then(ok => {
+      if(!ok){ SB.note = 'Upload of “' + ref.name + '” did not reach the shared store'; renderSbStatus(); }
+    }).catch(() => {});
+  }
+  return ref;
+};
+fget = async function(fid){
+  const rec = await fgetLocal(fid).catch(() => null);
+  if(rec && rec.blob) return rec;
+  if(!SB.session) return rec;
+  const blob = await sbFileGet(fid).catch(() => null);
+  if(!blob) return rec;
+  const fresh = { id: fid, name: fid, type: blob.type, blob: blob };
+  idbOp('readwrite', st => st.put(fresh)).catch(() => {});   /* cache for next time */
+  return fresh;
+};
+fdel = function(fid){
+  if(fid && SB.session) sbFileDel(fid);
+  return fdelLocal(fid);
+};
+async function sbFilePut(id, file){
+  const tok = await sbToken();
+  if(!tok) return false;
+  const r = await fetch(SB.url + '/storage/v1/object/' + SB_BUCKET + '/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { apikey: SB.anon, Authorization: 'Bearer ' + tok, 'x-upsert': 'true',
+               'Content-Type': file.type || 'application/octet-stream' },
+    body: file
+  });
+  return r.ok;
+}
+async function sbFileGet(id){
+  const tok = await sbToken();
+  if(!tok) return null;
+  const r = await fetch(SB.url + '/storage/v1/object/' + SB_BUCKET + '/' + encodeURIComponent(id), {
+    headers: { apikey: SB.anon, Authorization: 'Bearer ' + tok }
+  });
+  return r.ok ? r.blob() : null;
+}
+async function sbFileDel(id){
+  const tok = await sbToken();
+  if(!tok) return;
+  fetch(SB.url + '/storage/v1/object/' + SB_BUCKET + '/' + encodeURIComponent(id), {
+    method: 'DELETE', headers: { apikey: SB.anon, Authorization: 'Bearer ' + tok }
+  }).catch(() => {});
+}
+
+/* ————— status pill ————— */
+const SB_LABEL = { live:'Synced', syncing:'Syncing…', offline:'Offline — local', error:'Sync error', 'signed-out':'This device only' };
+function renderSbStatus(){
+  const dot = document.getElementById('sbDot'), lab = document.getElementById('sbLab');
+  if(!dot || !lab) return;
+  dot.className = 'ss-dot' + (SB.state === 'live' ? ' live' : SB.state === 'error' ? ' bad' : '');
+  lab.textContent = SB_LABEL[SB.state] || 'This device only';
+  const el = document.getElementById('sbStatus');
+  if(el) el.title = 'Shared database' + (SB.note ? ' — ' + SB.note : '') +
+    (SB.session ? ' · signed in as ' + ((SB.session.user && SB.session.user.email) || '') : ' · not signed in');
+}
+
+/* ————— boot ————— */
+let sbTimer = null;
+document.addEventListener('DOMContentLoaded', () => {
+  renderSbStatus();
+  const pill = document.getElementById('sbStatus');
+  if(pill) pill.addEventListener('click', () => {
+    if(!SB.session){ toast('Sign in with your email password to share this database'); return; }
+    sbSync();
+  });
+  if(SB.session) sbSync();
+  if(sbTimer) clearInterval(sbTimer);
+  sbTimer = setInterval(() => { if(!document.hidden) sbSync(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) sbSync(); });
 });
 </script>
 </body>
