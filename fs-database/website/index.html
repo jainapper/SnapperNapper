@@ -1635,16 +1635,52 @@ function obGo(dir){
   if(obIdx < 0) obIdx = 0;
   obRender();
 }
+/* Which question each step answers, in the FS Database's own vocabulary. */
+var OB_KEYS = {"1": "company_name", "2": "company_address", "3": "city_state_post", "4": "company_phone", "5": "company_email", "7": "primary_contact", "8": "primary_email", "9": "invalid_addr_emails", "10": "stock_report_emails", "11": "returns_emails", "13": "billing_company", "14": "billing_address", "15": "billing_email", "17": "products_desc", "18": "active_skus", "19": "dangerous_goods", "20": "sku_list_ok", "21": "sku_list_file", "22": "weekly_under_500g", "23": "weekly_500g_1kg", "24": "weekly_over_1kg", "25": "golive_date", "27": "packaging_type", "28": "ships_intl", "30": "ecom_platform", "31": "it_contact", "32": "it_email", "33": "wms_erp"};
+var OB_ENDPOINT = 'https://fs-database.vercel.app/api/onboarding';
+
 function obDone(){
   document.getElementById('obBar').style.width = '100%';
   document.getElementById('obNav').style.display = 'none';
   document.getElementById('obCount').style.display = 'none';
   obStage.className = '';
-  obStage.innerHTML = '<div class="ob-step ob-done"><div class="ob-done-ok">✓</div>' +
-    '<h2>Thank you' + (obFirstName ? ', ' + obEsc(obFirstName) : '') + '.</h2>' +
-    '<p>Our team will review your details and be in touch <b>ASAP</b> to confirm your next steps.</p>' +
-    '<a class="ob-start" href="#hero" style="text-decoration:none">Visit Website</a>' +
-    '<div class="q-note ob-done-note" style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)">Design prototype — no data was sent</div></div>';
+  obStage.innerHTML = '<div class="ob-step ob-done"><div class="ob-done-ok">\u2713</div>' +
+    '<h2>Sending your answers\u2026</h2><p>One moment.</p></div>';
+
+  var answers = {};
+  Object.keys(OB_KEYS).forEach(function(i){
+    var v = obAnswers[i];
+    if(v != null && String(v).trim()) answers[OB_KEYS[i]] = String(v);
+  });
+
+  fetch(OB_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers: answers })
+  }).then(function(r){
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    obStage.innerHTML = '<div class="ob-step ob-done"><div class="ob-done-ok">\u2713</div>' +
+      '<h2>Thank you' + (obFirstName ? ', ' + obEsc(obFirstName) : '') + '.</h2>' +
+      '<p>Our team will review your details and be in touch <b>ASAP</b> to confirm your next steps.</p>' +
+      '<a class="ob-start" href="#hero" style="text-decoration:none">Visit Website</a></div>';
+  })['catch'](function(){
+    /* Someone has just spent ten minutes on this. Never tell them it arrived
+       when it did not — offer the answers back so nothing is lost. */
+    var dump = JSON.stringify(answers, null, 2);
+    obStage.innerHTML = '<div class="ob-step ob-done">' +
+      '<h2>That did not send.</h2>' +
+      '<p>Your answers are safe on this page. Please try again, or send them to ' +
+      '<a href="mailto:info@fullstackfs.com.au" style="color:var(--accent)">info@fullstackfs.com.au</a>.</p>' +
+      '<button class="ob-start" id="obRetry" type="button">Try again</button> ' +
+      '<button class="ob-start" id="obCopy" type="button" style="background:transparent;border:1px solid rgba(255,255,255,.2)">Copy my answers</button></div>';
+    document.getElementById('obRetry').addEventListener('click', obDone);
+    document.getElementById('obCopy').addEventListener('click', function(){
+      var t = this;
+      (navigator.clipboard ? navigator.clipboard.writeText(dump) : Promise.reject())
+        .then(function(){ t.textContent = 'Copied'; })
+        ['catch'](function(){ window.prompt('Copy your answers:', dump); });
+    });
+  });
 }
 document.getElementById('obStart').addEventListener('click', function(){ obIdx = -1; obGo(1); });
 document.getElementById('obPrev').addEventListener('click', function(){ obGo(-1); });

@@ -43,8 +43,16 @@ succeeds:
 The lead appears in the FS Database Leads tab within a minute — the app pulls
 every 60 seconds.
 
-## Still to do
+## 3. The onboarding questionnaire never sent anything either
 
-The **onboarding questionnaire** on the same site has the same problem: it
-collects answers and does not submit them anywhere. It needs the same treatment,
-posting into the `onboarding` table.
+Same fault, and it said so out loud — the final screen carried the line
+"Design prototype — no data was sent" under the thank-you.
+
+`obDone()` now posts the answers to `https://fs-database.vercel.app/api/onboarding`
+and shows "Sending your answers…" until that returns. The 28 questions map onto
+the same keys the Onboarding tab uses, so a submitted questionnaire arrives as a
+working record rather than a transcript to retype.
+
+Failure here matters more than on the quote form — someone has just spent ten
+minutes answering. So on failure it does not thank them: it says it did not send,
+keeps the answers in the page, and offers **Try again** and **Copy my answers**.

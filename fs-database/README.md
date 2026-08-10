@@ -162,8 +162,16 @@ reasoning. The short version: its submit handler showed "Quote request received"
 without sending anything, and a missing `box-sizing: border-box` made every
 two-column field overlap the one beside it by 18px.
 
-The **onboarding questionnaire** on the same site still collects answers and
-submits nowhere. It needs the same treatment.
+## The website onboarding questionnaire
+
+The same site's questionnaire posts to `api/onboarding.js`, which maps its 28
+answers onto the keys the Onboarding tab already uses and files the record as
+`in_progress`, ready to be worked. Same anonymous-insert-only rules as the quote
+intake.
+
+Because someone has just spent ten minutes on it, a failure there never shows a
+thank-you: it says it did not send, keeps every answer in the page, and offers
+**Try again** and **Copy my answers**.
 
 ## Brand & charts
 
