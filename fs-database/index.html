@@ -64,13 +64,14 @@ button{font-family:var(--sans)}
 .side-nav .n-count:empty{display:none}
 .side-nav a.on .n-count{color:var(--accent);background:rgba(245,93,47,.12);border-color:rgba(245,93,47,.3)}
 .side-foot{border-top:1px solid var(--stroke);padding-top:14px;display:flex;flex-direction:column;gap:10px}
-.ss-status{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid var(--stroke);border-radius:11px;background:rgba(255,255,255,.02);cursor:pointer;transition:border-color .15s}
+.ss-status{display:flex;align-items:center;gap:9px;padding:0 12px;height:40px;border:1px solid var(--stroke);border-radius:11px;background:rgba(255,255,255,.02);cursor:pointer;transition:border-color .15s;min-width:0}
 .ss-status:hover{border-color:var(--stroke-hi)}
-.ss-status img{height:14px;width:auto}
+.ss-status img{height:14px;width:auto;flex:none}
+.ss-status .ss-dot{flex:none}
 .ss-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;box-shadow:0 0 8px rgba(242,193,78,.5)}
 .ss-dot.live{background:var(--ok);box-shadow:0 0 8px rgba(126,226,168,.55)}
 .ss-dot.bad{background:var(--bad);box-shadow:0 0 8px rgba(255,138,112,.5)}
-.ss-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.ss-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side-btns{display:flex;gap:8px}
 .side-btns button{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--stroke);border-radius:10px;color:var(--dim);font-size:12px;font-weight:600;padding:8px 6px;cursor:pointer;transition:all .15s}
 .side-btns button:hover{color:var(--text);border-color:var(--stroke-hi)}
@@ -261,7 +262,17 @@ table.rows td.num,table.rows th.num{text-align:right;font-family:var(--mono);fon
 
 /* ————— documents ————— */
 .doc-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
-.doc-table-wrap{overflow-x:auto}
+/* Narrow screens cannot fit these columns. Scrolling them is fine; being cut off
+   with no sign there is more to the right is not — hence the min width and the
+   fade at the edge that shows up only while there is something to scroll to. */
+.doc-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.doc-table-wrap table.rows{min-width:560px}
+@media (max-width:900px){
+  .doc-table-wrap{position:relative;
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent 100%);
+            mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent 100%)}
+  .doc-table-wrap.at-end{-webkit-mask-image:none;mask-image:none}
+}
 .doc-icon{width:36px;height:36px;flex:none;border-radius:10px;background:rgba(245,93,47,.09);border:1px solid rgba(245,93,47,.2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.04em;color:var(--accent);text-transform:uppercase}
 .doc-cell{display:flex;align-items:center;gap:12px;min-width:220px}
 .rowbtns{display:flex;gap:6px;justify-content:flex-end}
@@ -481,6 +492,8 @@ table.rows td.num{font-size:12px}
 .drawer-head h2{font-size:15.5px}
 .drawer-body{padding:15px 20px 24px;gap:11px}
 .drawer-foot{padding:13px 20px}
+.toast{bottom:auto;top:16px;transform:translate(-50%,-20px)}
+.toast.on{transform:translate(-50%,0)}
 .chk{padding:6px 9px;font-size:11.5px;border-radius:8px}
 .modal-card{padding:20px 24px;border-radius:15px}
 .modal-card h2{font-size:17px}
@@ -610,7 +623,7 @@ table.rows td.num{font-size:12px}
       </div>
       <div class="ss-status" id="sbStatus" role="button" tabindex="0" title="Shared database">
         <span class="ss-dot" id="sbDot"></span>
-        <span class="ss-lab" id="sbLab">This device only</span>
+        <span class="ss-lab" id="sbLab">DB · Local only</span>
       </div>
       <div class="side-btns">
         <button id="btnSettings">Settings</button>
@@ -1789,7 +1802,8 @@ function renderSbNote(){
 function renderSsStatus(syncing){
   const ss = col.settings().ss;
   $('#ssDot').className = 'ss-dot' + (ss.connected ? ' live' : '');
-  $('#ssLab').textContent = syncing ? 'Syncing…' : ss.connected ? 'Connected' : (col.shipments().length ? 'Demo data' : 'Not connected');
+  $('#ssLab').textContent = syncing ? 'Syncing…' : ss.connected ? 'Connected' : (col.shipments().length ? 'Demo data' : 'Not set up');
+  $('#ssStatus').title = 'Starshipit — ' + (ss.connected ? 'connected, click to open settings' : 'not connected yet, click to add your API keys');
 }
 
 /* ================================================================== *
@@ -3923,8 +3937,21 @@ function route(){
   $$('#sideNav a').forEach(a => a.classList.toggle('on', a.dataset.route === name));
   RENDER[name](parts[1]);
   applyTabAccess();
+  markScrollables();
   $('#side').classList.remove('open');
 }
+/* The edge fade is a promise that there is more to the right — only show it while
+   that is true, so a table which already fits does not look clipped. */
+function markScrollables(){
+  $$('.doc-table-wrap').forEach(w => {
+    const more = w.scrollWidth - w.clientWidth - w.scrollLeft > 4;
+    w.classList.toggle('at-end', !more);
+  });
+}
+document.addEventListener('scroll', e => {
+  if(e.target && e.target.classList && e.target.classList.contains('doc-table-wrap')) markScrollables();
+}, true);
+window.addEventListener('resize', debounce(markScrollables, 150));
 
 /* ————— Team view ————— */
 function renderTeam(){
@@ -4621,12 +4648,12 @@ async function sbFileDel(id){
 }
 
 /* ————— status pill ————— */
-const SB_LABEL = { live:'Synced', syncing:'Syncing…', offline:'Offline — local', error:'Sync error', 'signed-out':'This device only' };
+const SB_LABEL = { live:'Synced', syncing:'Syncing…', offline:'Offline', error:'Sync error', 'signed-out':'Local only' };
 function renderSbStatus(){
   const dot = document.getElementById('sbDot'), lab = document.getElementById('sbLab');
   if(!dot || !lab) return;
   dot.className = 'ss-dot' + (SB.state === 'live' ? ' live' : SB.state === 'error' ? ' bad' : '');
-  lab.textContent = SB_LABEL[SB.state] || 'This device only';
+  lab.textContent = 'DB · ' + (SB_LABEL[SB.state] || 'Local only');
   const el = document.getElementById('sbStatus');
   if(el) el.title = 'Shared database' + (SB.note ? ' — ' + SB.note : '') +
     (SB.session ? ' · signed in as ' + ((SB.session.user && SB.session.user.email) || '') : ' · not signed in');
