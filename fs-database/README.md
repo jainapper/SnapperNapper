@@ -141,14 +141,29 @@ it, taking the stored API keys down with it. Settings are now written before bul
 data, a failed write raises a banner instead of a toast, and neither an empty
 sync nor an unrendered form can blank what is stored.
 
-## Wiring the website forms in
+## The website quote form
 
-The website's quote form and onboarding questionnaire are front-end prototypes —
-they don't submit anywhere yet. Until they're pointed at a form backend
-(Formspree, Zoho, a webhook…), add inquiries with **+ Add lead** (same fields as
-the form, ~30 seconds). When the site forms go live, the clean path is: form
-backend → email/CSV → paste into a lead. The Leads and Onboarding data models
-here already match the site fields one-to-one, so nothing needs remapping later.
+`fullstackfs.com.au` → **Get a Quote** posts straight into this database.
+
+`api/lead.js` is the intake. It takes the form as JSON, maps it to the same
+record shape the Leads tab uses (the checkbox slugs become the labels the app
+shows; the volume, SKU and timeline values already match), and writes it as a new
+lead. It shows up in the app on the next sync — within a minute.
+
+The database lets an anonymous caller **INSERT a lead and nothing else** — never
+read, change or delete one — and the policy additionally requires the row to be
+marked `source: website`, status `new`, under 8 KB, with a `web-` id it cannot
+use to overwrite anything. So the worst a stranger can do is add noise to the
+leads list. On top of that the intake validates the fields, requires a real
+email, and carries a honeypot.
+
+Two changes were needed on the website itself; both are in `website/` with the
+reasoning. The short version: its submit handler showed "Quote request received"
+without sending anything, and a missing `box-sizing: border-box` made every
+two-column field overlap the one beside it by 18px.
+
+The **onboarding questionnaire** on the same site still collects answers and
+submits nowhere. It needs the same treatment.
 
 ## Brand & charts
 
