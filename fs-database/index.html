@@ -1332,8 +1332,21 @@ function ssIsDelivered(o){
                     (o.tracking_status && (o.tracking_status.status || o.tracking_status.name)) || '').toLowerCase();
   return st.indexOf('deliver') >= 0;
 }
+/* Which field a date came from decides how much it can be trusted: a shipped_date
+   is the real thing, an order_date is a different event wearing its clothes, and
+   nothing at all must stay nothing at all. Stamping "now" on an undated order —
+   which this used to do — silently drops it into today's count. */
+function ssWhen(o){
+  const fields = ['shipped_date', 'shipped_at', 'order_date', 'date'];
+  for(const f of fields){
+    const v = ssDate(o[f]);
+    if(v) return { date: v, dateSource: f };
+  }
+  return { date: null, dateSource: null };
+}
 function mapSsOrder(o, shipped, accountLabel, acctId){
   const items = ssItems(o);
+  const when = ssWhen(o);
   const skuPrefix = items[0] && String(items[0].sku).split('-')[0];
   const client = skuPrefix ? col.clients().find(c => (c.skus || []).some(x => x.sku.indexOf(skuPrefix + '-') === 0)) : null;
   const carrierRaw = String(o.carrier_name || o.carrier || o.shipping_method || o.carrier_service || '').toLowerCase();
@@ -1341,7 +1354,10 @@ function mapSsOrder(o, shipped, accountLabel, acctId){
   const deliveredTs = ssDelivered(o);
   const dest = o.destination || o.shipping_address || o.address || null;
   return {
-    id: 'ss-' + (o.order_id || o.order_number || uid()),
+    /* Every child account numbers its own orders from its own sequence, so two
+       accounts routinely both have an order 1052. Without the account in the key
+       one silently overwrites the other and the totals come out short. */
+    id: 'ss-' + (acctId ? acctId + '-' : '') + (o.order_id || o.order_number || uid()),
     ssId: o.order_id != null ? String(o.order_id) : '',
     acctId: acctId || '',
     orderNo: String(o.order_number || o.name || o.reference || o.order_id || '—'),
@@ -1353,7 +1369,8 @@ function mapSsOrder(o, shipped, accountLabel, acctId){
     tracking: o.tracking_number || o.tracking_code || '',
     trackingUrl: o.tracking_url || '',
     status: !shipped ? 'unshipped' : (deliveredTs || ssIsDelivered(o)) ? 'delivered' : 'transit',
-    date: o.shipped_date || o.shipped_at || o.order_date || o.date || new Date().toISOString(),
+    date: when.date,
+    dateSource: when.dateSource,
     deliveredTs,
     items,
     value: o.declared_value || o.total_price || o.order_value || null
@@ -1616,7 +1633,6 @@ async function ssConnect(auto){
     s2.ss.connected = true;
     s2.ss.lastSync = new Date().toISOString();
     saveSettings(s2);
-    all.forEach(o => { delete o.acctId; });
     /* A sync that returns nothing must never wipe orders we already hold. */
     if(all.length){
       DB.set('ssOrders', ssTrim(all));
@@ -2020,7 +2036,107 @@ function clientOf(o){
   return c ? c.name : '—';
 }
 function shippedBetween(fromMs, toMs){
-  return currentOrders().filter(o => o.status !== 'unshipped' && (() => { const t = new Date(o.date).getTime(); return t >= fromMs && t < toMs; })());
+  return currentOrders().filter(o => {
+    if(o.status === 'unshipped') return false;
+    const t = o.date ? new Date(o.date).getTime() : NaN;
+    return !isNaN(t) && t >= fromMs && t < toMs;   /* undated is not "today" */
+  });
+}
+/* ================================================================== *
+ *  Data check — what the headline numbers are actually standing on.  *
+ *                                                                    *
+ *  A KPI is a claim. These are the ways the claim can be wrong, each  *
+ *  counted rather than assumed away, so a bad number announces itself *
+ *  instead of waiting for somebody to notice it looks off.            *
+ * ================================================================== */
+const CHECK_SEVERE = 0.02;    /* over 2% of the window affected is worth a warning */
+
+function dataCheck(N){
+  const all = currentOrders();
+  const from = daysBack(N - 1).getTime(), to = Date.now() + 1;
+  const counted = shippedBetween(from, to);
+  const shipped = all.filter(o => o.status !== 'unshipped');
+
+  /* an order with no date from Starshipit cannot be placed in any window, so it
+     is missing from every per-day figure rather than wrong within one */
+  const undated = shipped.filter(o => !o.date || isNaN(new Date(o.date).getTime()));
+  /* an order_date is not a ship date — counting it as one overstates the window */
+  const weakDate = counted.filter(o => o.dateSource === 'order_date' || o.dateSource === 'date');
+  /* no line items means this order contributes 0 to units and to every SKU figure */
+  const noItems = counted.filter(o => !(o.items || []).length);
+
+  /* the same parcel arriving twice under two ids would double the count */
+  const byTracking = {};
+  counted.forEach(o => { if(o.tracking) (byTracking[o.tracking] = byTracking[o.tracking] || []).push(o.id); });
+  const dupTracking = Object.keys(byTracking).filter(t => byTracking[t].length > 1);
+
+  /* the same Starshipit order id under two accounts — harmless now that the
+     account is part of the key, but worth seeing, because before it was not */
+  const bySsId = {};
+  shipped.forEach(o => { if(o.ssId) (bySsId[o.ssId] = bySsId[o.ssId] || new Set()).add(o.acctId || ''); });
+  const sharedIds = Object.keys(bySsId).filter(k => bySsId[k].size > 1);
+
+  /* delivered before it shipped is not a slow day, it is bad data */
+  const impossible = counted.filter(o => o.deliveredTs && o.date && new Date(o.deliveredTs) < new Date(o.date));
+
+  /* ids from before the account went into the key — these can still collide */
+  const legacyIds = shipped.filter(o => o.ssId && o.acctId && o.id === 'ss-' + o.ssId);
+
+  const perAccount = {};
+  counted.forEach(o => {
+    const k = o.clientName || o.acctId || '—';
+    const a = perAccount[k] = perAccount[k] || { label: k, counted: 0, noItems: 0, weakDate: 0 };
+    a.counted++;
+    if(!(o.items || []).length) a.noItems++;
+    if(o.dateSource === 'order_date' || o.dateSource === 'date') a.weakDate++;
+  });
+
+  const issues = [];
+  const add = (n, label, why) => { if(n) issues.push({ n, label, why, share: counted.length ? n / counted.length : 0 }); };
+  add(undated.length,     'no ship date',        'Starshipit returned no date, so these are in no day, week or month figure at all');
+  add(weakDate.length,    'dated by order date', 'counted in this window on their order date rather than a ship date');
+  add(noItems.length,     'no line items yet',   'contribute nothing to units sold or to any SKU figure');
+  add(dupTracking.length, 'shared tracking',     'one tracking number on more than one order — a possible double count');
+  add(sharedIds.length,   'id used twice',       'the same Starshipit order id under two accounts');
+  add(impossible.length,  'delivered too early', 'a delivery date before the ship date — transit times from these are meaningless');
+  add(legacyIds.length,   'pre-fix ids',         'stored before the account became part of the key, so they may have overwritten each other');
+
+  const worst = issues.reduce((m, i) => Math.max(m, i.share), 0);
+  return {
+    range: N, counted: counted.length, shipped: shipped.length, total: all.length,
+    undated: undated.length, weakDate: weakDate.length, noItems: noItems.length,
+    dupTracking: dupTracking.length, sharedIds: sharedIds.length,
+    impossible: impossible.length, legacyIds: legacyIds.length,
+    issues, worst,
+    clean: issues.length === 0,
+    trustworthy: worst < CHECK_SEVERE && !dupTracking.length && !sharedIds.length && !legacyIds.length,
+    perAccount: Object.values(perAccount).sort((a, b) => b.counted - a.counted)
+  };
+}
+/* A number that is known to be standing on something shaky says so where it is
+   read, not three panels further down. */
+function kpiFlag(N){
+  const c = dataCheck(N);
+  if(c.trustworthy) return '';
+  return ' <span title="' + esc(c.issues.map(i => i.n + ' ' + i.label).join(' · ')) +
+         '" style="color:var(--warn);cursor:help">⚠</span>';
+}
+function checkPanel(N){
+  const c = dataCheck(N);
+  const rows = c.issues.map(i =>
+    '<tr><td class="num" style="width:70px;color:' + (i.share >= CHECK_SEVERE ? 'var(--bad)' : 'var(--warn)') + '">' + nf(i.n) + '</td>' +
+    '<td><span class="cell-main">' + esc(i.label) + '</span><div style="color:var(--faint);font-size:11.5px">' + esc(i.why) + '</div></td>' +
+    '<td class="num" style="width:64px;color:var(--faint)">' + (i.share >= 0.001 ? (i.share * 100).toFixed(1) + '%' : '') + '</td></tr>').join('');
+  return '<div class="panel"><div class="panel-head"><span class="panel-title">Data check</span>' +
+    '<span class="panel-meta">' + nf(c.counted) + ' orders counted · last ' + N + ' days</span></div>' +
+    (c.clean
+      ? '<p class="set-note" style="margin:0">Every counted order has a ship date from Starshipit, line items, and a tracking number of its own. Nothing here is being estimated.</p>'
+      : '<table class="rows">' + rows + '</table>' +
+        '<p class="set-note">The headline figures above count the ' + nf(c.counted) + ' orders that could be placed in this window. ' +
+        (c.undated ? nf(c.undated) + ' shipped orders carry no date from Starshipit and appear in no window at all. ' : '') +
+        (c.noItems ? nf(c.noItems) + ' are still waiting on their line items, so units sold is a floor, not a total. ' : '') +
+        'Nothing is inferred to fill a gap.</p>') +
+    '</div>';
 }
 function dashStats(N){
   const nowMs = Date.now();
@@ -2162,7 +2278,7 @@ function renderDashboard(){
     '</div><span class="panel-meta">Fullstack Fulfillment · fullstackfs.com.au</span></div>' +
 
   '<div class="kpis">' +
-    '<div class="kpi"><div class="kpi-k">Orders shipped · ' + N + 'd</div><div class="kpi-v">' + nfc(st.kpi.orders) + '</div>' + delta(st.kpi.orders, st.kpi.ordersPrev, N) + '<div class="kpi-spark" id="sp-orders"></div></div>' +
+    '<div class="kpi"><div class="kpi-k">Orders shipped · ' + N + 'd' + kpiFlag(N) + '</div><div class="kpi-v">' + nfc(st.kpi.orders) + '</div>' + delta(st.kpi.orders, st.kpi.ordersPrev, N) + '<div class="kpi-spark" id="sp-orders"></div></div>' +
     '<div class="kpi"><div class="kpi-k">Products sold · ' + N + 'd</div><div class="kpi-v">' + nfc(st.kpi.units) + '</div>' + delta(st.kpi.units, st.kpi.unitsPrev, N) + '<div class="kpi-spark" id="sp-units"></div></div>' +
     '<div class="kpi"><div class="kpi-k">Active clients</div><div class="kpi-v">' + st.kpi.clients + '</div><span class="kpi-d">shipping in range</span><div class="kpi-spark" id="sp-clients"></div></div>' +
     '<div class="kpi"><div class="kpi-k">Active SKUs</div><div class="kpi-v">' + st.kpi.activeSkus + '</div><span class="kpi-d">' + (col.clients().length ? 'across all clients' : 'shipped in range') + '</span><div class="kpi-spark" id="sp-skus"></div></div>' +
@@ -2199,6 +2315,7 @@ function renderDashboard(){
         [['', 'All'], ['delivered', 'Delivered'], ['transit', 'In transit'], ['packed', 'Packed'], ['unshipped', 'Awaiting']].map(f =>
           '<button class="tbtn" data-shipstatus="' + f[0] + '" aria-pressed="' + (dashShipStatus === f[0]) + '">' + f[1] + '</button>').join('') + '</div>' +
       '<div id="shipFeed"></div></div>' +
+    checkPanel(N) +
   '</div></div>';
 
   /* charts (or their table twins) */

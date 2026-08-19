@@ -101,13 +101,28 @@ function carrierKey(raw: any){
   return CARRIERS.find(k => s.indexOf(k === 'auspost' ? 'aus' : k === 'parcelright' ? 'parcel'
                                       : k === 'nzpost' ? 'nz' : k) >= 0) || '';
 }
-function mapOrder(o: any, shipped: boolean, accountLabel: string){
+/* Which field a date came from decides how much it can be trusted, and nothing
+   at all must stay nothing at all — stamping "now" on an undated order silently
+   drops it into today's count. */
+function ssWhen(o: any){
+  for(const f of ['shipped_date', 'shipped_at', 'order_date', 'date']){
+    const v = ssDate(o[f]);
+    if(v) return { date: v, dateSource: f };
+  }
+  return { date: null, dateSource: null };
+}
+function mapOrder(o: any, shipped: boolean, accountLabel: string, acctId: string){
   const items = ssItems(o);
+  const when = ssWhen(o);
   const deliveredTs = ssDelivered(o);
   const dest = o.destination || o.shipping_address || o.address || null;
   return {
-    id: 'ss-' + (o.order_id || o.order_number),
+    /* Every child account numbers its own orders from its own sequence, so two
+       accounts routinely both have an order 1052. Without the account in the key
+       one silently overwrites the other and the totals come out short. */
+    id: 'ss-' + (acctId ? acctId + '-' : '') + (o.order_id || o.order_number),
     ssId: o.order_id != null ? String(o.order_id) : '',
+    acctId: acctId || '',
     orderNo: String(o.order_number || o.name || o.reference || o.order_id || '—'),
     clientId: '',
     clientName: accountLabel || 'Starshipit',
@@ -117,7 +132,8 @@ function mapOrder(o: any, shipped: boolean, accountLabel: string){
     tracking: o.tracking_number || o.tracking_code || '',
     trackingUrl: o.tracking_url || '',
     status: !shipped ? 'unshipped' : (deliveredTs || ssIsDelivered(o)) ? 'delivered' : 'transit',
-    date: o.shipped_date || o.shipped_at || o.order_date || o.date || new Date().toISOString(),
+    date: when.date,
+    dateSource: when.dateSource,
     deliveredTs,
     items,
     value: o.declared_value || o.total_price || o.order_value || null
@@ -255,10 +271,10 @@ Deno.serve(async (req: Request) => {
       if(left() < 10000) break;
       try{
         const shipped = await ssPages('/api/orders/shipped', a.apiKey, LIST_PAGES);
-        shipped.forEach((o: any) => { const m = mapOrder(o, true, a.label); seen[m.id] = { m, key: a.apiKey }; });
+        shipped.forEach((o: any) => { const m = mapOrder(o, true, a.label, a.id); seen[m.id] = { m, key: a.apiKey }; });
         try{
           const un = await ssPages('/api/orders/unshipped', a.apiKey, 1);
-          un.forEach((o: any) => { const m = mapOrder(o, false, a.label); seen[m.id] = { m, key: a.apiKey }; });
+          un.forEach((o: any) => { const m = mapOrder(o, false, a.label, a.id); seen[m.id] = { m, key: a.apiKey }; });
         }catch(_e){}
       }catch(e: any){ report.errors.push(a.label + ': ' + e.message); }
     }
@@ -275,7 +291,10 @@ Deno.serve(async (req: Request) => {
     });
 
     const cutoff = Date.now() - KEEP_DAYS * 86400e3;
-    const recent = (id: string) => { const t = new Date(seen[id].m.date).getTime(); return isNaN(t) || t >= cutoff; };
+    const recent = (id: string) => {
+      const t = seen[id].m.date ? new Date(seen[id].m.date).getTime() : NaN;
+      return isNaN(t) || t >= cutoff;     /* undated still gets enriched — that is how it gets a date */
+    };
     const newestFirst = (x: string, y: string) => +new Date(seen[y].m.date) - +new Date(seen[x].m.date);
 
     /* 2 — line items, keeping a share of the run for the delivery pass below */
@@ -318,13 +337,43 @@ Deno.serve(async (req: Request) => {
     }
     report.written = rowsOut.length;
 
-    /* 5 — leave a mark so the app can show when the server last looked */
+    /* 5 — what this data can and cannot be trusted to say. Counted here rather
+       than in the browser so it is the same answer for everyone, and so a bad
+       run leaves a record even if nobody opens the app. */
+    const mapped = Object.values(seen).map(v => v.m);
+    const shippedOnly = mapped.filter((m: any) => m.status !== 'unshipped');
+    const trackSeen: Record<string, number> = {};
+    shippedOnly.forEach((m: any) => { if(m.tracking) trackSeen[m.tracking] = (trackSeen[m.tracking] ?? 0) + 1; });
+    const ssIdAccts: Record<string, Set<string>> = {};
+    shippedOnly.forEach((m: any) => {
+      if(!m.ssId) return;
+      (ssIdAccts[m.ssId] = ssIdAccts[m.ssId] ?? new Set()).add(m.acctId ?? '');
+    });
+    const check = {
+      shipped: shippedOnly.length,
+      undated: shippedOnly.filter((m: any) => !m.date).length,
+      weakDate: shippedOnly.filter((m: any) => m.dateSource === 'order_date' || m.dateSource === 'date').length,
+      noItems: shippedOnly.filter((m: any) => !(m.items ?? []).length).length,
+      dupTracking: Object.values(trackSeen).filter(n => n > 1).length,
+      sharedIds: Object.values(ssIdAccts).filter(s2 => s2.size > 1).length,
+      impossible: shippedOnly.filter((m: any) => m.deliveredTs && m.date && new Date(m.deliveredTs) < new Date(m.date)).length,
+      perAccount: accounts.map((a: any) => {
+        const mine = shippedOnly.filter((m: any) => m.acctId === a.id);
+        return { label: a.label, shipped: mine.length,
+                 undated: mine.filter((m: any) => !m.date).length,
+                 noItems: mine.filter((m: any) => !(m.items ?? []).length).length };
+      })
+    };
+    report.check = check;
+
+    /* 6 — leave a mark so the app can show when the server last looked */
     await sb('/rest/v1/app_settings', {
       method: 'POST',
       body: [{ key: 'sync_state', data: {
         lastSync: new Date().toISOString(),
         accounts: report.accounts, fetched: report.fetched, written: report.written,
         enriched: report.enriched, tracked: report.tracked,
+        check,
         outstandingItems: itemStats.skipped + itemStats.failed,
         outstandingTracking: trackStats.skipped + trackStats.failed,
         errors: report.errors.slice(0, 6),
