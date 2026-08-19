@@ -91,9 +91,11 @@ Starshipit is synced **on a schedule by the server**, not by whoever has a tab
 open — so the numbers are already right when you log in, including first thing in
 the morning when nobody has been in since yesterday.
 
-`api/cron-sync.js` runs every 5 minutes. It signs in as a dedicated `sync@` admin
-account rather than carrying a service-role key, so row-level security still
-applies to everything it does, and it can be switched off by disabling one login.
+`supabase/functions/starshipit-sync/` runs every 5 minutes, scheduled by
+`pg_cron` inside the database. It lives in Supabase rather than on Vercel because
+Supabase hands an edge function its own service key: there is no password or API
+key to store in a config file, an environment variable or this repository, and
+the schedule is not limited by a hosting plan.
 
 Each run is bounded by a **wall clock rather than by finishing the job**: it takes
 the newest page per account, then spends what is left filling in line items and
@@ -101,8 +103,8 @@ delivery dates for orders still missing them, always holding back about a third 
 the budget for the delivery-date pass. (Without that reserve the first pass eats
 the whole run and delivery dates never get fetched — which is exactly how transit
 times stayed empty before.) Whatever a run does not reach, the next one picks up,
-so the backlog drains without any single run risking the function timeout. Only
-records that actually changed are written back.
+so the backlog drains without any single run risking a timeout. Only records that
+actually changed are written back.
 
 The browser keeps its own 60-second tick as a fallback, but stands down whenever
 the server has synced in the last 10 minutes, so the two never both hammer a
@@ -113,25 +115,8 @@ never take the server's with it.
 The dashboard shows whichever sync ran most recently, marked *on the server* when
 that is the newer one.
 
-**Setup** (both still to do — see `supabase/002_scheduled_sync.sql`):
-
-| | |
-|---|---|
-| `FSDB_SYNC_EMAIL` | `sync@fullstackfs.com.au` |
-| `FSDB_SYNC_PASSWORD` | the password set when running that SQL |
-| `CRON_SECRET` | any long random string — without it, anyone could start a run |
-
-If the Vercel plan does not allow 5-minute crons, drive the same endpoint from
-Supabase instead with `pg_cron` + `pg_net`, which is not plan-limited:
-
-```sql
-select cron.schedule('fs-starshipit-sync', '*/5 * * * *', $$
-  select net.http_post(
-    url     := 'https://fs-database.vercel.app/api/cron-sync',
-    headers := '{"Authorization":"Bearer YOUR_CRON_SECRET"}'::jsonb
-  );
-$$);
-```
+Setup is two steps, both in `supabase/` — deploy the function, run one SQL file.
+There is nothing to fill in.
 
 ## Connecting Starshipit (live dashboard, all child accounts)
 
