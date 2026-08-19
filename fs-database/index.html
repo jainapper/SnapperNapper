@@ -1695,6 +1695,7 @@ let ssAutoTimer = null;
 function ssAutoEnabled(){ const ss = col.settings().ss; return ss.auto !== false; }
 function ssAutoTick(){
   if(!ssAutoEnabled() || ssSyncing) return;
+  if(serverSyncFresh()) return;        /* the server has this covered */
   if(document.hidden) return;                         /* don't poll a background tab */
   if($('#lockScreen').classList.contains('on')) return;
   if(!col.settings().ss.connected) return;            /* only once a manual connect has succeeded */
@@ -1790,6 +1791,28 @@ async function ssDiagnose(){
   L.push('Field names only — no customer data is shown. Screenshot this if anything still reads NONE.');
   out.textContent = L.join('\n');
   btn.textContent = 'Diagnose';
+}
+/* The scheduled sync keeps running when nobody is logged in, so its timestamp is
+   usually the newer one — show whichever actually happened last. */
+function serverSyncAt(){
+  const st = DB.get('syncState', null);
+  return (st && st.lastSync) || null;
+}
+function lastSyncAt(){
+  const mine = col.settings().ss.lastSync, theirs = serverSyncAt();
+  if(!mine) return theirs;
+  if(!theirs) return mine;
+  return new Date(theirs) > new Date(mine) ? theirs : mine;
+}
+function serverSynced(){
+  const t = serverSyncAt();
+  return !!t && (!col.settings().ss.lastSync || new Date(t) > new Date(col.settings().ss.lastSync));
+}
+/* Fresh enough that this browser hammering Starshipit as well would only burn
+   rate limit for data it is about to be handed anyway. */
+function serverSyncFresh(){
+  const t = serverSyncAt();
+  return !!t && (Date.now() - new Date(t).getTime()) < 10 * 60000;
 }
 function renderSbNote(){
   const el = document.getElementById('sbNote');
@@ -2134,7 +2157,7 @@ function renderDashboard(){
 
   '<div class="conn-strip"><div class="conn-left">' +
     (connected
-      ? '<span class="chip live">● Starshipit · live</span><span class="chip">Synced ' + esc(timeAgo(s.ss.lastSync)) + '</span><button class="tbtn" data-act="ss-sync">Sync now</button>'
+      ? '<span class="chip live">● Starshipit · live</span><span class="chip">Synced ' + esc(timeAgo(lastSyncAt())) + esc(serverSynced() ? ' · on the server' : '') + '</span><button class="tbtn" data-act="ss-sync">Sync now</button>'
       : (hasData ? '<span class="chip demo">◈ Demo data</span>' : '<span class="chip">No data yet</span>') + '<button class="tbtn" data-act="open-settings">Connect Starshipit →</button>') +
     '</div><span class="panel-meta">Fullstack Fulfillment · fullstackfs.com.au</span></div>' +
 
@@ -4456,7 +4479,10 @@ async function sbPushCollection(name, full){
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }
     });
   }
-  if(!full){
+  /* The scheduled sync owns the order history and keeps more of it than any one
+     browser does. A browser trimming its local copy must never take the server's
+     with it, so orders are upsert-only from here. */
+  if(!full && name !== 'ssOrders'){
     const gone = Object.keys(shadow).filter(id => !(id in seen));
     for(let i = 0; i < gone.length; i += 200){
       await sbReq('/rest/v1/' + table + '?id=in.(' + gone.slice(i, i + 200).map(sbQ).join(',') + ')',
@@ -4560,6 +4586,16 @@ async function sbPull(){
       sbSetQuiet(name, next);
     }
   }
+  /* When the server last looked at Starshipit — shown on the dashboard, and used
+     to keep this browser from repeating work that has just been done for it. */
+  try{
+    const rows = await sbReq('/rest/v1/app_settings?key=eq.sync_state&select=data');
+    const st = rows && rows[0] && rows[0].data;
+    if(st && JSON.stringify(st) !== JSON.stringify(DB.cache.syncState)){
+      changed = true;
+      sbSetQuiet('syncState', st);
+    }
+  }catch(e){}
   try{
     const rows = await sbReq('/rest/v1/app_settings?key=eq.catalogPdf&select=data');
     if(rows && rows.length && JSON.stringify(rows[0].data) !== JSON.stringify(DB.cache.catalogPdf)){

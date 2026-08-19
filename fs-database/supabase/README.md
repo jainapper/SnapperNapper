@@ -18,7 +18,13 @@ FS ops data and Klip's acquirer/KYC data never share a database.
 onboarding questionnaire. **Both forms fail until this runs.** They fail visibly,
 with their own error messages, so nothing is lost quietly in the meantime.
 
-Run it in the SQL editor, or approve the migration tool call.
+`002_scheduled_sync.sql` — the `sync@fullstackfs.com.au` account the scheduled
+Starshipit sync signs in as. **Set a password in the file before running it**, and
+use the same value for the Vercel environment variable `FSDB_SYNC_PASSWORD`.
+Until this runs, the dashboard is only as fresh as the last time someone had a tab
+open.
+
+Run them in the SQL editor, or approve the migration tool calls.
 
 ## Still open
 
