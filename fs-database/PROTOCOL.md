@@ -110,7 +110,49 @@ That inflates the current period and deflates every earlier one.
 Undated orders now keep no date, are excluded from every window, and are
 reported as excluded.
 
-### 3. Nothing checked any of it — *fixed, and the reason for this document*
+### 3. The scheduled sync was refused before it read anything — *fixed*
+
+The first live run found all ten child accounts and fetched **zero orders**. It
+fired roughly twenty requests at Starshipit in 1.6 seconds and nine of the ten
+came back `HTTP 429`.
+
+Two causes. The list fetch had no retry — the detail and tracking passes were
+wrapped, the list that feeds them was not — so one refusal discarded a whole
+account for that run. And nothing paced the requests: the rate limit is on the
+subscription key, which every child account shares, so retrying a single request
+only gets it refused again. The gap has to be global.
+
+Reproduced against a Starshipit that refuses bursts (`scratchpad/mockss6.js`),
+running the deployed code and the fix against the identical mock:
+
+| | orders | accounts | refused by the API | lost |
+|---|---|---|---|---|
+| before | 80 | 2 of 3 | 43 | one account, entirely |
+| after | 120 | 3 of 3 | 3 | none |
+
+Accounts are now also taken in rotation from where the last run stopped, so a run
+that cannot reach all ten does not reach the same ones every time — otherwise the
+accounts at the end of the list would never sync at all.
+
+Worth naming what this looked like from outside: `ok: true`, a green run, a fresh
+`lastSync`, and no orders. The errors were recorded, which is the only reason it
+was caught — but the run still called itself successful. **A sync that fetches
+nothing from every account is a failure, not a quiet day**, and the next thing
+worth building is for it to say so itself rather than leaving it to whoever reads
+the row.
+
+### 4. The scheduler called a function that did not exist — *fixed*
+
+`run_starshipit_sync()` called `extensions.http_post`. `pg_net` always installs
+into the `net` schema, whatever `create extension ... with schema` says, so the
+function was never there. Because plpgsql resolves it at run time rather than at
+create time, the migration applied cleanly and the schedule looked healthy while
+every single run died on line 6.
+
+Nothing surfaced this either. It was found by running the sync by hand instead of
+trusting that a successful `create` meant a working call.
+
+### 5. Nothing checked any of it — *fixed, and the reason for this document*
 
 Neither fault would have been caught by the system. Both were found because
 somebody who knew the real number looked at the screen and disagreed with it.
@@ -122,6 +164,8 @@ somebody who knew the real number looked at the screen and disagreed with it.
 | Date | Number disputed | Verdict | Cause |
 |---|---|---|---|
 | 2026-08-19 | 750 orders shipped · 7d | wrong, both directions at once | id collisions losing orders; undated orders inflating the current window |
+| 2026-08-31 | 0 orders from 10 accounts | wrong — refused, not empty | no pacing and no retry on the list fetch, against a shared rate limit |
+| 2026-08-31 | schedule looked healthy | wrong — never ran | `extensions.http_post` does not exist; pg_net lives in `net` |
 
 ---
 
