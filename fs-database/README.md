@@ -237,6 +237,34 @@ Any static host, no build step:
 - **Netlify / Vercel** — drag the `fs-database` folder in, done.
 - **GitHub Pages** — serve this folder from a branch.
 
+### Redeploying the live link
+
+The `fs-database` Vercel project builds by cloning this repo rather than being
+linked to it, so **pushing does not deploy** — press **Redeploy** on the project,
+with build cache off. These are the settings it needs; the repository is public
+to clone, so the build needs no credentials:
+
+| Setting | Value |
+|---|---|
+| Framework | none / other |
+| Install command | `echo no-deps` |
+| Output directory | `public` |
+| Build command | see below |
+
+```
+rm -rf .src \
+  && git clone --depth 1 --branch claude/fs-database-build-yi6d32 \
+       https://github.com/jainapper/SnapperNapper .src \
+  && rm -rf public && mkdir -p public \
+  && cp -R .src/fs-database/index.html .src/fs-database/manifest.json \
+        .src/fs-database/assets public/ \
+  && rm -rf .src
+```
+
+`api/ss.js`, `api/lead.js` and `api/onboarding.js` must be present in the
+deployment root — Vercel turns files under `api/` into functions from the source
+tree, before the build runs, so a build step that creates them is too late.
+
 The page is safe to host publicly: it ships only the Supabase project URL and the
 **publishable** key, both of which are designed to be public. Everything a signed-in
 person can read or write is decided by row-level security in the database, and a
