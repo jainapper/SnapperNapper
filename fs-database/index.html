@@ -1820,6 +1820,17 @@ function lastSyncAt(){
   if(!theirs) return mine;
   return new Date(theirs) > new Date(mine) ? theirs : mine;
 }
+/* The server writes down whether its last run actually got anything. A run that
+   reached every account and read nothing still leaves a fresh timestamp, so the
+   timestamp alone is not evidence the numbers are current. */
+function serverSyncDegraded(){
+  const st = DB.get('syncState', null);
+  return !!(st && st.degraded);
+}
+function serverSyncNote(){
+  const st = DB.get('syncState', null);
+  return (st && st.note) || '';
+}
 function serverSynced(){
   const t = serverSyncAt();
   return !!t && (!col.settings().ss.lastSync || new Date(t) > new Date(col.settings().ss.lastSync));
@@ -2136,8 +2147,11 @@ function dataCheck(N){
     impossible: impossible.length, legacyIds: legacyIds.length,
     collapsed: _dedupeCollapsed,
     issues, worst,
-    clean: issues.length === 0,
-    trustworthy: worst < CHECK_SEVERE && !dupTracking.length && !sharedIds.length && !legacyIds.length,
+    serverFailing: serverSyncDegraded(),
+    serverNote: serverSyncNote(),
+    clean: issues.length === 0 && !serverSyncDegraded(),
+    trustworthy: worst < CHECK_SEVERE && !dupTracking.length && !sharedIds.length
+                 && !legacyIds.length && !serverSyncDegraded(),
     perAccount: Object.values(perAccount).sort((a, b) => b.counted - a.counted)
   };
 }
@@ -2146,7 +2160,9 @@ function dataCheck(N){
 function kpiFlag(N){
   const c = dataCheck(N);
   if(c.trustworthy) return '';
-  return ' <span title="' + esc(c.issues.map(i => i.n + ' ' + i.label).join(' · ')) +
+  const reasons = c.issues.map(i => i.n + ' ' + i.label);
+  if(c.serverFailing) reasons.unshift('the scheduled sync is failing');
+  return ' <span title="' + esc(reasons.join(' · ')) +
          '" style="color:var(--warn);cursor:help">⚠</span>';
 }
 function checkPanel(N){
@@ -2157,6 +2173,11 @@ function checkPanel(N){
     '<td class="num" style="width:64px;color:var(--faint)">' + (i.share >= 0.001 ? (i.share * 100).toFixed(1) + '%' : '') + '</td></tr>').join('');
   return '<div class="panel"><div class="panel-head"><span class="panel-title">Data check</span>' +
     '<span class="panel-meta">' + nf(c.counted) + ' orders counted · last ' + N + ' days</span></div>' +
+    (c.serverFailing
+      ? '<p class="set-note" style="margin:0 0 10px;color:var(--bad)"><strong>The scheduled sync is failing.</strong> ' +
+        esc(c.serverNote || 'It reached Starshipit and came back with nothing.') +
+        ' Everything below is as old as the last run that worked.</p>'
+      : '') +
     (c.clean
       ? '<p class="set-note" style="margin:0">Every counted order has a ship date from Starshipit, line items, and a tracking number of its own. Nothing here is being estimated.</p>'
       : '<table class="rows">' + rows + '</table>' +
@@ -2301,7 +2322,11 @@ function renderDashboard(){
 
   '<div class="conn-strip"><div class="conn-left">' +
     (connected
-      ? '<span class="chip live">● Starshipit · live</span><span class="chip">Synced ' + esc(timeAgo(lastSyncAt())) + esc(serverSynced() ? ' · on the server' : '') + '</span><button class="tbtn" data-act="ss-sync">Sync now</button>'
+      ? '<span class="chip live">● Starshipit · live</span>' +
+        (serverSyncDegraded()
+          ? '<span class="chip" style="color:var(--bad);border-color:var(--bad)" title="' + esc(serverSyncNote()) + '">Server sync failing · ' + esc(timeAgo(lastSyncAt())) + '</span>'
+          : '<span class="chip">Synced ' + esc(timeAgo(lastSyncAt())) + esc(serverSynced() ? ' · on the server' : '') + '</span>') +
+        '<button class="tbtn" data-act="ss-sync">Sync now</button>'
       : (hasData ? '<span class="chip demo">◈ Demo data</span>' : '<span class="chip">No data yet</span>') + '<button class="tbtn" data-act="open-settings">Connect Starshipit →</button>') +
     '</div><span class="panel-meta">Fullstack Fulfillment · fullstackfs.com.au</span></div>' +
 

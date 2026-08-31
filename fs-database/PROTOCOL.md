@@ -136,10 +136,30 @@ accounts at the end of the list would never sync at all.
 
 Worth naming what this looked like from outside: `ok: true`, a green run, a fresh
 `lastSync`, and no orders. The errors were recorded, which is the only reason it
-was caught — but the run still called itself successful. **A sync that fetches
-nothing from every account is a failure, not a quiet day**, and the next thing
-worth building is for it to say so itself rather than leaving it to whoever reads
-the row.
+was caught — but the run still called itself successful.
+
+**A sync that fetches nothing from every account is a failure, not a quiet day.**
+That is now enforced rather than left to whoever reads the row. A run that reached
+accounts and came back with nothing marks itself `degraded`, answers `500` so the
+scheduler records the failure too, and writes the reason into `sync_state`. The
+app reads it: the Starshipit chip turns red and says **Server sync failing**
+instead of showing a reassuring timestamp, and the Data check panel leads with the
+fact that every figure below it is as old as the last run that worked.
+
+### 3a. The same parcel was counted twice — *fixed in the reading*
+
+Once the server started writing orders keyed by account, the build still live on
+the teamaccess link carried on writing the same orders keyed by order id alone.
+Starshipit ids are globally unique on this tenant, so those are the same parcel
+under two keys, and every figure counted it twice.
+
+The reading collapses them, keeping the account-keyed copy and reporting how many
+were merged. Nothing is deleted while the old build can write them straight back;
+`supabase/004_dedupe_legacy_orders.sql` clears them out once it cannot.
+
+The check meant to catch this was itself wrong: it required `acctId` to be set,
+but a row written before the account went into the key does not have one, so it
+skipped precisely the rows it existed to find.
 
 ### 4. The scheduler called a function that did not exist — *fixed*
 
@@ -166,6 +186,7 @@ somebody who knew the real number looked at the screen and disagreed with it.
 | 2026-08-19 | 750 orders shipped · 7d | wrong, both directions at once | id collisions losing orders; undated orders inflating the current window |
 | 2026-08-31 | 0 orders from 10 accounts | wrong — refused, not empty | no pacing and no retry on the list fetch, against a shared rate limit |
 | 2026-08-31 | schedule looked healthy | wrong — never ran | `extensions.http_post` does not exist; pg_net lives in `net` |
+| 2026-08-31 | every order counted twice | wrong — inflated | two builds writing the same parcel under two key schemes |
 
 ---
 

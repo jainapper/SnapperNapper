@@ -402,11 +402,25 @@ Deno.serve(async (req: Request) => {
     };
     report.check = check;
 
-    /* 6 — leave a mark so the app can show when the server last looked */
+    /* 6 — a run that reached accounts and came back with nothing from all of
+       them is a failure, not a quiet day. Reporting ok for that is exactly how a
+       dashboard sits on week-old numbers with a green tick beside it, which is
+       what happened the first time this ran. */
+    const everyAccountFailed = reached > 0 && report.errors.length >= reached;
+    const nothingAtAll       = reached > 0 && report.fetched === 0;
+    report.degraded = everyAccountFailed || nothingAtAll;
+    report.note = everyAccountFailed
+      ? 'every account reached returned an error — nothing was read'
+      : nothingAtAll
+        ? 'reached ' + reached + ' account(s) and found no orders at all'
+        : '';
+
+    /* 7 — leave a mark so the app can show when the server last looked */
     await sb('/rest/v1/app_settings', {
       method: 'POST',
       body: [{ key: 'sync_state', data: {
         lastSync: new Date().toISOString(),
+        degraded: report.degraded, note: report.note,
         accounts: report.accounts, accountsReached: reached, nextAccount,
         fetched: report.fetched, written: report.written,
         enriched: report.enriched, tracked: report.tracked,
@@ -419,11 +433,15 @@ Deno.serve(async (req: Request) => {
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }
     });
 
-    report.ok = true;
+    report.ok = !report.degraded;
     report.itemLookups = itemStats;
     report.trackLookups = trackStats;
     report.ms = Date.now() - t0;
-    return new Response(JSON.stringify(report), { headers: { 'Content-Type': 'application/json' } });
+    /* A non-200 so the failure is recorded by the scheduler too, rather than
+       living only inside a body nobody reads. */
+    return new Response(JSON.stringify(report), {
+      status: report.degraded ? 500 : 200,
+      headers: { 'Content-Type': 'application/json' } });
   }catch(e: any){
     report.errors.push(String(e?.message ?? e));
     report.ms = Date.now() - t0;
