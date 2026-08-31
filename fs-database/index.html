@@ -2025,9 +2025,32 @@ function twinTable(host, cols, rows){
 /* ================================================================== *
  *  Dashboard                                                         *
  * ================================================================== */
+/* One parcel can sit in the table twice while an older build is still writing:
+   that build keys an order 'ss-<order id>', the server keys it
+   'ss-<account>-<order id>'. Both are the same shipment, and counting both
+   inflates every figure on the dashboard.
+
+   The account-keyed row wins, because it is the one that knows where it came
+   from. The loser is dropped from the reading only — deleting it here would
+   achieve nothing while the old build is live to write it straight back. How
+   many were collapsed is reported rather than quietly absorbed. */
+let _dedupeFrom = null, _dedupeTo = null, _dedupeCollapsed = 0;
+function dedupeOrders(rows){
+  if(_dedupeFrom === rows) return _dedupeTo;
+  const best = new Map();
+  rows.forEach(o => {
+    const k = o.ssId ? 'ss:' + o.ssId : 'id:' + o.id;
+    const prev = best.get(k);
+    if(!prev) best.set(k, o);
+    else if(!prev.acctId && o.acctId) best.set(k, o);
+  });
+  const out = [...best.values()];
+  _dedupeFrom = rows; _dedupeTo = out; _dedupeCollapsed = rows.length - out.length;
+  return out;
+}
 function currentOrders(){
   const s = col.settings();
-  if(s.ss.connected && col.ssOrders().length) return col.ssOrders();
+  if(s.ss.connected && col.ssOrders().length) return dedupeOrders(col.ssOrders());
   return col.shipments();
 }
 function clientOf(o){
@@ -2080,7 +2103,10 @@ function dataCheck(N){
   const impossible = counted.filter(o => o.deliveredTs && o.date && new Date(o.deliveredTs) < new Date(o.date));
 
   /* ids from before the account went into the key — these can still collide */
-  const legacyIds = shipped.filter(o => o.ssId && o.acctId && o.id === 'ss-' + o.ssId);
+  /* Requiring acctId here was wrong: a row written before the account went into
+     the key has no acctId at all, so the check skipped precisely the rows it was
+     written to find. */
+  const legacyIds = shipped.filter(o => o.ssId && o.id === 'ss-' + o.ssId);
 
   const perAccount = {};
   counted.forEach(o => {
@@ -2100,6 +2126,7 @@ function dataCheck(N){
   add(sharedIds.length,   'id used twice',       'the same Starshipit order id under two accounts');
   add(impossible.length,  'delivered too early', 'a delivery date before the ship date — transit times from these are meaningless');
   add(legacyIds.length,   'pre-fix ids',         'stored before the account became part of the key, so they may have overwritten each other');
+  add(_dedupeCollapsed,   'duplicate copies',    'the same order stored under two keys by two different builds — merged here, counted once');
 
   const worst = issues.reduce((m, i) => Math.max(m, i.share), 0);
   return {
@@ -2107,6 +2134,7 @@ function dataCheck(N){
     undated: undated.length, weakDate: weakDate.length, noItems: noItems.length,
     dupTracking: dupTracking.length, sharedIds: sharedIds.length,
     impossible: impossible.length, legacyIds: legacyIds.length,
+    collapsed: _dedupeCollapsed,
     issues, worst,
     clean: issues.length === 0,
     trustworthy: worst < CHECK_SEVERE && !dupTracking.length && !sharedIds.length && !legacyIds.length,
