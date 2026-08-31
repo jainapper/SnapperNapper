@@ -19,7 +19,7 @@ three Australian supplement retailers, built for bulk import into a CRM or email
    * Elite Supps — 985 products
    * Australian Sports Nutrition (ASN) — 1,089 products
    * Nutrition Warehouse — 3,111 products
-2. **Brand normalisation** — 368 raw vendor strings collapsed to 299 canonical brands via a
+2. **Brand normalisation** — 368 raw vendor strings collapsed to 297 canonical brands via a
    curated alias map (e.g. `Krupt` / `KRUPT` / `Krupt Supps`; `BSC ( Body Science )` /
    `BSc Supplements` / `Body Science`). Non-brand vendors (gift cards, promos, clearance
    buckets) were excluded. The original strings are kept in the *Retailer Vendor Names* column.
@@ -34,16 +34,17 @@ three Australian supplement retailers, built for bulk import into a CRM or email
 Contact fields were only filled where a source was actually found. Nothing is inferred or
 generated, so blanks are genuine gaps rather than placeholders.
 
-| Field | Brands populated (of 299) |
+| Field | Brands populated (of 297) |
 |---|---|
-| Website | 250 |
-| Email | 191 |
-| Phone | 136 |
-| Legal entity name | 164 |
+| Website | 287 |
+| Email | 216 |
+| Phone | 152 |
+| Legal entity name | 205 |
 | ABN | 31 |
 
-The 47 brands marked *"Not researched — retailer listing only"* in the **Record Status** column
-each carry six SKUs or fewer; they have retailer, SKU and format data but no contact research. Filter that column before a send.
+Every brand has been researched. The **Record Status** column grades each row for outreach —
+*Email + phone* (123), *Email only* (93), *Phone only* (29), *No direct contact found* (52) —
+so a mail merge can be filtered to the 216 rows carrying an email.
 
 Emails are role addresses published on the brands' own sites (support@, info@, sales@) — general
 business contacts, not personal addresses. A handful are the founder's or a named manager's
@@ -58,6 +59,11 @@ address where that is the only contact the brand publishes.
 * Some brands are house or exclusive labels of the retailers themselves — for example
   *Anabolix Nutrition* shares Nutrition Warehouse's ABN (17 128 438 755), and *AlphaBreed*
   routes its customer service to ASN. These are flagged in the entity column.
+* Two retailer listings turned out to be re-spellings of brands already in the list and were
+  merged: ASN's *5P Nutrition* is 5% Nutrition (Rich Piana), and *BUM Energy* is Raw
+  Nutrition's CBUM pouch line.
+* A few brands publish only a personal or founder's address (for example LifeSPRINGS and
+  Natural Health by Meah); these are recorded as published.
 * Overseas brands (US, UK, EU) list the global brand's contact details; their Australian
   distributor may be the more useful outreach target.
 
