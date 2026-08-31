@@ -3,27 +3,28 @@
 Region `ap-southeast-2` (Sydney), deliberately separate from the Klip project so
 FS ops data and Klip's acquirer/KYC data never share a database.
 
-## Everything outstanding, in two steps
+## Outstanding: one line of SQL
 
-**1. Deploy the edge function.** `functions/starshipit-sync/` — the scheduled
-Starshipit sync. Either paste it into Supabase → Edge Functions → Deploy a new
-function named `starshipit-sync`, or from a terminal:
+Everything else is done. The edge function is deployed and active, the secret
+exists, `run_starshipit_sync()` exists, and the website's two forms can file a
+lead and a questionnaire. What is missing is the timer that calls the function.
 
+Supabase → SQL Editor → paste this → Run:
+
+```sql
+select cron.schedule('fs-starshipit-sync', '*/5 * * * *', 'select public.run_starshipit_sync()');
 ```
-supabase functions deploy starshipit-sync --project-ref fofghcaqgwgixjshmubt --no-verify-jwt
+
+That is the whole remaining step. It returns a job id — any number means it
+worked. Re-running it a second time creates a duplicate job rather than failing,
+so if you are unsure whether it already ran, check first:
+
+```sql
+select jobid, schedule, active from cron.job where jobname = 'fs-starshipit-sync';
 ```
 
-`--no-verify-jwt` is deliberate: the function does its own check against a secret
-held in the database, which is what lets the scheduler call it without a key
-existing in any config file.
-
-**2. Run `003_setup_everything.sql`** in the SQL editor. Nothing to fill in — it
-generates the secret itself. It grants the website's two forms permission to file
-a lead or a questionnaire, creates that secret, and schedules the sync every five
-minutes.
-
-Order does not matter. If the SQL runs first, the schedule simply starts working
-the moment the function is deployed.
+Pasting the whole of `003_setup_everything.sql` also works and is safe to repeat;
+every other statement in it is written to no-op if it has already been applied.
 
 ### Checking it worked
 
@@ -55,6 +56,12 @@ It exists in no environment variable, no config file, and no repository.
 | `fs_database_requests_and_team` | `requests` and `team_users`, plus the trigger that stamps `updated_at` / `updated_by` |
 | `fs_database_row_order` | The `ord` column, so a collection round-trips in the order the UI arranged it |
 | `fs_database_harden_functions` | Pinned `search_path` on the trigger function; revoked `is_admin()` from `anon` |
+| `fs_database_public_intake_and_schedule` | The website's lead and questionnaire intake policies, the `cron_auth` secret, `pg_cron` / `pg_net`, and `run_starshipit_sync()` |
+
+The `starshipit-sync` edge function is deployed and active, with JWT verification
+off — deliberate, because it checks the caller against the database secret
+itself, which is what lets the scheduler reach it without a key existing in any
+config file.
 
 ## Still open
 

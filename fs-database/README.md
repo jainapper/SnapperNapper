@@ -8,6 +8,12 @@ anywhere — open `index.html` or drop this folder on any static host.
 Vercel build step that clones the repo (redeploy after pushing changes; it is not
 auto-linked to git yet).
 
+> **The live link is behind this branch.** Because Vercel is not git-linked, a
+> push does not deploy — somebody has to press **Redeploy** on the `fs-database`
+> project, with build cache off. Until that happens the shared backend, the
+> corrected order counts and the data-check panel exist only in this repo, and
+> the two-devices-two-users problem stays exactly as it is.
+
 ```
 fs-database/
 ├── index.html      the whole app (styles + views + logic)
