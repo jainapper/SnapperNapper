@@ -67,6 +67,9 @@ on conflict (name) do nothing;
 -- 3. Run the sync every 5 minutes
 -- ─────────────────────────────────────────────────────────────────────────────
 create extension if not exists pg_cron  with schema extensions;
+-- pg_net ignores `with schema` and always installs into `net`, so that is where
+-- http_post has to be called from. Calling extensions.http_post fails at run time,
+-- not at create time, so the schedule looks healthy while every run dies.
 create extension if not exists pg_net   with schema extensions;
 
 -- Reading the secret at call time means it is never written into the schedule.
@@ -80,10 +83,13 @@ declare v_secret text;
 begin
   select secret into v_secret from public.cron_auth where name = 'starshipit-sync';
   if v_secret is null then return; end if;
-  perform extensions.http_post(
-    url     := 'https://fofghcaqgwgixjshmubt.supabase.co/functions/v1/starshipit-sync',
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-fsdb-cron', v_secret),
-    body    := '{}'::jsonb
+  -- The timeout has to clear the edge function's own 90s budget; the default is
+  -- five seconds, which would cut the connection mid-sync.
+  perform net.http_post(
+    url                  := 'https://fofghcaqgwgixjshmubt.supabase.co/functions/v1/starshipit-sync',
+    body                 := '{}'::jsonb,
+    headers              := jsonb_build_object('Content-Type', 'application/json', 'x-fsdb-cron', v_secret),
+    timeout_milliseconds := 120000
   );
 end $$;
 revoke all on function public.run_starshipit_sync() from anon, authenticated;

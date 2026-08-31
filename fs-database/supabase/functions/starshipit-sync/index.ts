@@ -47,12 +47,34 @@ async function sb(path: string, opts: any = {}): Promise<any> {
 
 /* ————— Starshipit: read every field tolerantly, shapes vary by plan ————— */
 let subKey = '';
+
+/* Starshipit rate-limits on the subscription key, and every child account shares
+   one — so the pace has to be global rather than per account. The first live run
+   fired roughly twenty requests in 1.6 seconds and was refused on nine of ten
+   accounts. Each caller books the next slot before it leaves, which also spaces
+   the two workers in the pool instead of letting them fire together. */
+const MIN_GAP_MS = Number(Deno.env.get('FSDB_SS_GAP_MS') ?? 350);
+let nextSlot = 0;
+async function ssGate(){
+  const now = Date.now();
+  const wait = Math.max(0, nextSlot - now);
+  nextSlot = Math.max(now, nextSlot) + MIN_GAP_MS;
+  if(wait > 0) await sleep(wait);
+}
 async function ssFetch(path: string, apiKey: string): Promise<any> {
+  await ssGate();
   const r = await fetch(SS_BASE + path, { headers: {
     'Content-Type': 'application/json',
     'StarShipIT-Api-Key': apiKey ?? '',
     'Ocp-Apim-Subscription-Key': subKey
   }});
+  if(r.status === 429 || r.status === 503){
+    /* Hold every caller off, not just this one — the limit is account-wide, so
+       retrying only this request just spends the budget being refused again. */
+    const ra = Number(r.headers.get('retry-after') ?? 0);
+    nextSlot = Math.max(nextSlot, Date.now() + (ra > 0 ? Math.min(ra, 30) * 1000 : 2000));
+    throw new Error('HTTP ' + r.status);
+  }
   if(!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
@@ -143,7 +165,9 @@ async function ssPages(path: string, apiKey: string, maxPages: number){
   const out: any[] = [];
   for(let page = 1; page <= maxPages; page++){
     if(left() < 8000) break;
-    const r = await ssFetch(path + '?limit=250&page=' + page, apiKey);
+    /* Wrapped, because a single 429 here used to discard the whole account: the
+       detail and tracking passes retried, the list that feeds them did not. */
+    const r = await retry(() => ssFetch(path + '?limit=250&page=' + page, apiKey));
     const batch = r.orders || r.Orders || [];
     out.push(...batch);
     if(batch.length < 250) break;
@@ -265,10 +289,20 @@ Deno.serve(async (req: Request) => {
     const existing: Record<string, any> = {};
     (existingRows || []).forEach((r: any) => { existing[r.id] = r.data; });
 
-    /* 1 — newest orders per account */
+    /* 1 — newest orders per account.
+       Starting where the last run stopped, because a run that cannot reach every
+       account would otherwise always reach the same ones: whoever sits at the end
+       of the list would never sync at all, and their client would be missing from
+       every figure with nothing to say why. */
+    const prevState = await sb('/rest/v1/app_settings?key=eq.sync_state&select=data').catch(() => null);
+    const startAt = Math.max(0, Number(prevState?.[0]?.data?.nextAccount ?? 0)) % accounts.length;
+    const ordered = accounts.slice(startAt).concat(accounts.slice(0, startAt));
+
     const seen: Record<string, { m: any, key: string }> = {};
-    for(const a of accounts){
+    let reached = 0;
+    for(const a of ordered){
       if(left() < 10000) break;
+      reached++;
       try{
         const shipped = await ssPages('/api/orders/shipped', a.apiKey, LIST_PAGES);
         shipped.forEach((o: any) => { const m = mapOrder(o, true, a.label, a.id); seen[m.id] = { m, key: a.apiKey }; });
@@ -279,6 +313,8 @@ Deno.serve(async (req: Request) => {
       }catch(e: any){ report.errors.push(a.label + ': ' + e.message); }
     }
     report.fetched = Object.keys(seen).length;
+    report.accountsReached = reached;
+    const nextAccount = (startAt + reached) % accounts.length;
 
     /* Carry forward what earlier runs filled in, so enrichment accumulates
        instead of starting over every time. */
@@ -371,7 +407,8 @@ Deno.serve(async (req: Request) => {
       method: 'POST',
       body: [{ key: 'sync_state', data: {
         lastSync: new Date().toISOString(),
-        accounts: report.accounts, fetched: report.fetched, written: report.written,
+        accounts: report.accounts, accountsReached: reached, nextAccount,
+        fetched: report.fetched, written: report.written,
         enriched: report.enriched, tracked: report.tracked,
         check,
         outstandingItems: itemStats.skipped + itemStats.failed,
