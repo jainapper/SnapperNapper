@@ -77,6 +77,24 @@ The site is static — host it anywhere. For GitHub Pages:
 
 Netlify/Vercel/Cloudflare Pages: point them at the repo root, no build command.
 
+## Letterhead
+
+`letterhead/` holds the group stationery — **VC Limited** (Dubai) and its
+parent **Vanquish Capital Limited** (Cork, Ireland) — in two regenerable
+formats each:
+
+- **`*-Letterhead-A4.docx`** — the everyday Word templates: open, replace the
+  `[bracketed]` placeholders, write the letter. Brand art is embedded as an
+  image and body text is Arial, so they render identically on any machine.
+  Rebuild both with `node scripts/generate_letterhead_docx.js`.
+- **`*-Letterhead-A4.pdf`** — blank print-ready stationery (real brand fonts
+  embedded), rebuilt from the matching `.html` source via
+  `chrome --headless --no-pdf-header-footer --print-to-pdf=<out.pdf> <src.html>`.
+
+Before using the Vanquish letterhead, replace the
+`Company No. [company number]` placeholder in the footer with the Irish
+registered company number.
+
 ## Email signature
 
 See [`email-signature/README.md`](email-signature/README.md) — personalise
