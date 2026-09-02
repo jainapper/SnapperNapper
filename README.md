@@ -77,6 +77,18 @@ The site is static — host it anywhere. For GitHub Pages:
 
 Netlify/Vercel/Cloudflare Pages: point them at the repo root, no build command.
 
+## Letterhead
+
+`letterhead/` holds the company stationery, both regenerable:
+
+- **`VC-Letterhead-A4.docx`** — the everyday Word template: open, replace the
+  `[bracketed]` placeholders, write the letter. Brand art is embedded as an
+  image and body text is Arial, so it renders identically on any machine.
+  Rebuild with `node scripts/generate_letterhead_docx.js`.
+- **`VC-Letterhead-A4.pdf`** — blank print-ready stationery (real brand
+  fonts embedded). Rebuilt from `letterhead/letterhead.html` via
+  `chrome --headless --no-pdf-header-footer --print-to-pdf=letterhead/VC-Letterhead-A4.pdf letterhead/letterhead.html`.
+
 ## Email signature
 
 See [`email-signature/README.md`](email-signature/README.md) — personalise
