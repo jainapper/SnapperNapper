@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- Print source for Vanquish-Letterhead-A4.pdf (parent company).
+     Same brand system as letterhead.html; entity details differ. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vanquish Capital Limited — Letterhead A4</title>
+<style>
+  @font-face {
+    font-family: "Archivo";
+    src: url("../assets/fonts/archivo-var-latin.woff2") format("woff2");
+    font-weight: 400 700;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("../assets/fonts/plexmono-500-latin.woff2") format("woff2");
+    font-weight: 500;
+  }
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 210mm; height: 297mm;
+    font-family: "Archivo", Arial, sans-serif;
+    color: #0B0B0C;
+    display: flex; flex-direction: column;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .head {
+    margin: 14mm 22mm 0;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .head img { height: 8.6mm; display: block; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.4pt; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #5C5C63;
+    padding-bottom: 0.6mm;
+  }
+  .rule {
+    margin: 5.5mm 22mm 0;
+    border-top: 0.45pt solid #0B0B0C;
+    position: relative;
+  }
+  .rule::after {
+    content: "";
+    position: absolute; right: 0; top: -1.35mm;
+    width: 2.5mm; height: 2.5mm;
+    background: #FF4D00;
+  }
+  .body { flex: 1; }
+  .foot {
+    margin: 0 22mm 12mm;
+    border-top: 0.45pt solid #0B0B0C;
+    position: relative;
+    padding-top: 2.8mm;
+    font-size: 7pt; color: #5C5C63; letter-spacing: 0.01em;
+  }
+  .foot::before {
+    content: "";
+    position: absolute; left: 0; top: -1.35mm;
+    width: 2.5mm; height: 2.5mm;
+    background: #FF4D00;
+  }
+  .foot .row {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .foot .row + .row { margin-top: 1.1mm; }
+  .foot .co { font-weight: 600; color: #0B0B0C; }
+  .sq {
+    display: inline-block; width: 1.7mm; height: 1.7mm;
+    background: #FF4D00; margin-left: 0.9mm;
+  }
+</style>
+</head>
+<body>
+  <div class="head">
+    <img src="../assets/brand/wordmark-vanquish-print.png" alt="Vanquish Capital">
+    <div class="eyebrow">Penrose Dock — Cork, Ireland</div>
+  </div>
+  <div class="rule"></div>
+  <div class="body"></div>
+  <div class="foot">
+    <div class="row">
+      <span class="co">Vanquish&nbsp;Capital&nbsp;Limited</span>
+      <span>First Floor, Penrose 2, Penrose Dock, Cork T23 YY09, Ireland<span class="sq"></span></span>
+    </div>
+    <div class="row">
+      <span></span>
+      <span>Registered in Ireland · Company No. [company number]</span>
+    </div>
+  </div>
+</body>
+</html>
