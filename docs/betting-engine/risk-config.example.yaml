@@ -1,0 +1,92 @@
+# Risk policy — starting configuration
+#
+# Read by the risk engine at startup and on SIGHUP. Version-controlled: every change to this
+# file is a reviewable commit, because every number here is a decision about money.
+#
+# These are defaults sized for a AUD 5,000 bank. They are a starting point to argue with,
+# not settled policy. Jai signs off before Phase 4.
+
+bankroll:
+  base_currency: AUD
+  starting_bank: 5000
+  sizing_basis: fixed_base      # fixed_base | current_bank
+                                # fixed_base = stakes always sized off 5,000, so the weekly
+                                # sweep doesn't quietly shrink stake sizes over time
+
+staking:
+  model: unit_percent           # unit_percent | flat | fractional_kelly
+  unit_value_pct: 1.0           # 1 unit = 1% of base = $50
+  max_units_per_bet: 3.0        # hard ceiling = $150
+  follow_tipster_units: false   # his units assume his bank; we size on ours
+  round_to: 5                   # round stakes to nearest $5
+  min_stake: 10
+
+per_bet_limits:
+  max_stake_aud: 150
+  min_odds: 1.30
+  max_odds: 8.00
+  allow_multis: false           # start singles-only; margin compounds per leg
+  max_legs_per_multi: 3         # applies only if allow_multis is turned on
+  max_slippage_pct: 3.0         # reject if the real price is worse than quoted x 0.97
+  max_signal_age_seconds: 600   # a tip older than 10 min is stale — the price has gone
+  min_seconds_before_start: 120 # no bets inside 2 min of the jump
+  allow_in_play: false
+
+exposure_limits:
+  max_open_exposure_aud: 500    # total stake at risk at any one moment (10% of bank)
+  max_open_bets: 8
+  max_stake_per_event_aud: 150  # never double up on the same game across two tips
+  max_stake_per_day_aud: 400
+  max_bets_per_day: 6
+  max_stake_per_sport_pct: 50   # of total open exposure
+  block_correlated_legs: true   # same event appearing across multiple bets
+
+circuit_breakers:
+  # Every breaker halts betting and requires a HUMAN to restart.
+  # The system must never talk itself back on.
+  require_manual_restart: true
+  daily_loss_limit_aud: 300     # 6% of bank
+  weekly_loss_limit_aud: 750    # 15% of bank
+  max_drawdown_pct: 25          # bank < $3,750 -> full halt
+  consecutive_losses: 8
+  parse_failure_rate_pct: 20    # rolling 24h — usually means he changed his format
+  broker_error_streak: 3
+  reconciliation_mismatch: true # any ledger/broker disagreement halts immediately
+
+sweep:
+  target_bank_aud: 5000
+  basis: settled_only           # never sweep against money sitting in open bets
+  min_sweep_aud: 250            # don't move dust
+  frequency: weekly             # weekly | on_threshold
+  sweep_pct: 100                # bank never compounds past target without a decision
+  destination: receive_only_account
+
+approval:
+  mode: manual_confirm          # manual_confirm | auto
+                                # one-tap phone approval for the first 90 days, then auto
+  confidence_auto_threshold: 0.90
+  confidence_review_threshold: 0.60   # below this: log and drop
+  approval_expiry_seconds: 300        # an unanswered prompt expires — never place late
+
+kill_switch:
+  telegram_command: "/halt"
+  heartbeat_timeout_seconds: 120      # dead-man's switch: no heartbeat, no betting
+  dashboard_button: true
+
+execution:
+  broker: betfair_au            # betfair_au | sportmarket | betinasia
+  idempotency: client_ref_required    # non-negotiable: never blind-retry a placement
+  reconcile_interval_seconds: 300
+  accept_partial_fill: true
+  min_fill_pct: 50              # below this, treat as rejected and log
+
+observability:
+  alert_on:
+    - bet_placed
+    - bet_rejected
+    - breaker_tripped
+    - low_confidence_parse
+    - reconciliation_mismatch
+    - sweep_due
+  track_clv: true               # the go/no-go metric — see PLAN.md §8
+  latency_p95_warn_seconds: 15
